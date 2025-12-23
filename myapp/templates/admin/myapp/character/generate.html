@@ -1,0 +1,41 @@
+{% extends "admin/base_site.html" %}
+{% load i18n admin_urls static %}
+
+{% block breadcrumbs %}
+<div class="breadcrumbs">
+<a href="{% url 'admin:index' %}">{% translate 'Home' %}</a>
+&rsaquo; <a href="{% url 'admin:app_list' app_label=opts.app_label %}">{{ opts.app_config.verbose_name }}</a>
+&rsaquo; <a href="{% url opts|admin_urlname:'changelist' %}">{{ opts.verbose_name_plural|capfirst }}</a>
+&rsaquo; {{ original|truncatewords:"18" }}
+&rsaquo; Generar Imágenes
+</div>
+{% endblock %}
+
+{% block content %}
+<div id="content-main">
+    <h1>Generar Imágenes para {{ original.name }}</h1>
+    
+    <form method="post">
+        {% csrf_token %}
+        <fieldset class="module aligned">
+            <div class="form-row">
+                <label for="id_prompt" class="required">Prompt:</label>
+                <textarea name="prompt" id="id_prompt" rows="5" style="width: 100%;" required placeholder="Describe la imagen que quieres generar para este personaje..."></textarea>
+                <p class="help">Este prompt se combinará con la configuración del personaje.</p>
+            </div>
+        </fieldset>
+        
+        <div class="submit-row">
+            <input type="submit" value="Generar y Guardar" class="default" name="_save">
+        </div>
+    </form>
+
+    {% if generated_image %}
+    <div class="module">
+        <h2>Última imagen generada</h2>
+        <img src="{{ generated_image.image.url }}" style="max-width: 500px; border-radius: 8px; margin-top: 10px;">
+        <p>Guardada exitosamente en la galería del personaje.</p>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

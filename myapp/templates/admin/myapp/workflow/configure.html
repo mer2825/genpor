@@ -1,0 +1,142 @@
+{% extends "admin/base_site.html" %}
+{% load static %}
+
+{% block title %}
+{% if character %}Configurar Personaje: {{ character.name }}{% else %}Configurar Workflow: {{ workflow.name }}{% endif %}
+{% endblock %}
+
+{% block content %}
+<div id="content-main">
+    <h1>
+        {% if character %}Configurar Personaje: {{ character.name }}{% else %}Configurar Workflow: {{ workflow.name }}{% endif %}
+    </h1>
+    <p>Ajusta los parámetros que se usarán por defecto para generar imágenes con este {% if character %}personaje{% else %}workflow{% endif %}. Los cambios se guardarán en la base de datos.</p>
+
+    <form method="post">
+        {% csrf_token %}
+        <fieldset class="module aligned">
+            <h2>Parámetros de Generación</h2>
+            
+            <!-- Checkpoint -->
+            <div class="form-row">
+                <label for="checkpoint">Checkpoint:</label>
+                <select name="checkpoint">
+                    {% for ckpt in comfyui_info.checkpoints %}
+                        <option value="{{ ckpt }}" {% if ckpt == workflow_params.checkpoint %}selected{% endif %}>{{ ckpt }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <!-- VAE -->
+            <div class="form-row">
+                <label for="vae">VAE:</label>
+                <select name="vae">
+                    <option value="None" {% if not workflow_params.vae or workflow_params.vae == "None" %}selected{% endif %}>None (Usar del Modelo)</option>
+                    {% for vae in comfyui_info.vaes %}
+                        <option value="{{ vae }}" {% if vae == workflow_params.vae %}selected{% endif %}>{{ vae }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <!-- Resolución -->
+            <div class="form-row">
+                <label>Resolución:</label>
+                <input type="number" name="width" value="{{ workflow_params.width }}" placeholder="Ancho">
+                x
+                <input type="number" name="height" value="{{ workflow_params.height }}" placeholder="Alto">
+            </div>
+
+            <!-- Sampler y Scheduler -->
+            <div class="form-row">
+                <label for="sampler_name">Sampler:</label>
+                <select name="sampler_name">
+                    {% for sampler in comfyui_info.samplers %}
+                        <option value="{{ sampler }}" {% if sampler == workflow_params.sampler_name %}selected{% endif %}>{{ sampler }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="form-row">
+                <label for="scheduler">Scheduler:</label>
+                <select name="scheduler">
+                    {% for scheduler in comfyui_info.schedulers %}
+                        <option value="{{ scheduler }}" {% if scheduler == workflow_params.scheduler %}selected{% endif %}>{{ scheduler }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <!-- Seed, Steps, CFG -->
+            <div class="form-row">
+                <label for="seed">Seed:</label>
+                <input type="number" name="seed" value="{{ workflow_params.seed }}">
+                <select name="seed_behavior" style="margin-left: 10px;">
+                    <option value="random" {% if saved_config.seed_behavior != 'fixed' %}selected{% endif %}>Aleatoria</option>
+                    <option value="fixed" {% if saved_config.seed_behavior == 'fixed' %}selected{% endif %}>Fija</option>
+                </select>
+            </div>
+            <div class="form-row">
+                <label for="steps">Steps:</label>
+                <input type="number" name="steps" value="{{ workflow_params.steps }}">
+            </div>
+            <div class="form-row">
+                <label for="cfg">CFG:</label>
+                <input type="number" step="0.1" name="cfg" value="{{ workflow_params.cfg }}">
+            </div>
+
+        </fieldset>
+
+        <fieldset class="module aligned">
+            <h2>LORAs</h2>
+            <div id="lora-container">
+                {% for lora in workflow_params.loras %}
+                <div class="lora-item form-row">
+                    <label>LoRA:</label>
+                    <select name="lora_name">
+                        <option value="None">None</option>
+                        {% for lora_opt in comfyui_info.loras %}
+                            <option value="{{ lora_opt }}" {% if lora_opt == lora.name %}selected{% endif %}>{{ lora_opt }}</option>
+                        {% endfor %}
+                    </select>
+                    <input type="number" name="lora_strength" step="0.1" value="{{ lora.strength }}" placeholder="Fuerza">
+                    <button type="button" class="button remove-lora-btn">Quitar</button>
+                </div>
+                {% endfor %}
+            </div>
+            <div class="form-row">
+                <button type="button" id="add-lora-btn" class="button">Añadir LoRA</button>
+            </div>
+        </fieldset>
+
+        <div class="submit-row">
+            <input type="submit" value="Guardar Configuración" class="default">
+        </div>
+    </form>
+
+    <script>
+    document.addEventListener('DOMContentLoaded', function() {
+        document.getElementById('add-lora-btn').addEventListener('click', function() {
+            const container = document.getElementById('lora-container');
+            const newItem = document.createElement('div');
+            newItem.classList.add('lora-item', 'form-row');
+            newItem.innerHTML = `
+                <label>LoRA:</label>
+                <select name="lora_name">
+                    <option value="None" selected>None</option>
+                    {% for lora_opt in comfyui_info.loras %}
+                        <option value="{{ lora_opt }}">{{ lora_opt }}</option>
+                    {% endfor %}
+                </select>
+                <input type="number" name="lora_strength" step="0.1" value="1.0" placeholder="Fuerza">
+                <button type="button" class="button remove-lora-btn">Quitar</button>
+            `;
+            container.appendChild(newItem);
+        });
+
+        document.getElementById('lora-container').addEventListener('click', function(e) {
+            if (e.target && e.target.classList.contains('remove-lora-btn')) {
+                e.target.closest('.lora-item').remove();
+            }
+        });
+    });
+    </script>
+</div>
+{% endblock %}

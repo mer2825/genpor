@@ -1,0 +1,404 @@
+{% load socialaccount %}
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% if company.name %}{{ company.name }}{% else %}Mi empresa{% endif %} - Catálogo</title>
+    <style>
+        /* Paleta de colores oscuros relajantes (Slate) */
+        :root {
+            --bg-color: #0f172a;       /* Negro azulado profundo */
+            --card-bg: #1e293b;        /* Azul grisáceo oscuro para tarjetas */
+            --card-header: #334155;    /* Un poco más claro para cabeceras */
+            --text-main: #e2e8f0;      /* Blanco suave */
+            --text-muted: #94a3b8;     /* Gris azulado suave */
+            --border-color: #475569;   /* Bordes sutiles */
+            --accent-color: #3b82f6;   /* Azul brillante para botones */
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-main);
+            margin: 0;
+            padding: 0;
+            display: flex;
+            flex-direction: column;
+            min-height: 100vh;
+        }
+
+        /* Header más delgado */
+        header {
+            background-color: #020617; /* Casi negro para el header */
+            color: white;
+            padding: 0.5em 2em;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            position: relative;
+            z-index: 10;
+            height: 60px;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        .logo-container {
+            display: flex;
+            align-items: center;
+            position: relative;
+            height: 100%;
+        }
+
+        .logo-wrapper {
+            width: 80px;
+            height: 80px;
+            background-color: var(--bg-color); /* Coincide con el fondo */
+            border-radius: 50%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.5);
+            position: absolute;
+            top: -10px;
+            left: 0;
+            z-index: 20;
+            overflow: hidden;
+            border: 3px solid #020617; /* Coincide con el header */
+        }
+
+        header img.logo {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+
+        header h1 {
+            margin: 0;
+            font-size: 1.5em;
+            margin-left: 95px;
+            color: #f8fafc;
+        }
+
+        .auth-links a { color: var(--text-muted); text-decoration: none; margin-left: 15px; font-weight: bold; transition: color 0.3s; }
+        .auth-links a:hover { color: white; text-decoration: none; }
+
+        .container { padding: 2em; flex: 1; margin-top: 20px; }
+
+        .album-container { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 2em; max-width: 1200px; margin: 0 auto; }
+
+        .character-card {
+            background: var(--card-bg);
+            border-radius: 12px;
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.5);
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+            border: 1px solid var(--border-color);
+        }
+
+        .character-card h2 {
+            font-size: 1.5em;
+            margin: 0;
+            padding: 0.8em;
+            background-color: var(--card-header);
+            border-bottom: 1px solid var(--border-color);
+            color: white;
+        }
+
+        .carousel { position: relative; width: 100%; aspect-ratio: 1 / 1; background-color: #0f172a; }
+        .carousel-image { width: 100%; height: 100%; object-fit: cover; display: none; }
+        .carousel-image.active { display: block; }
+
+        .carousel-nav { position: absolute; top: 50%; transform: translateY(-50%); width: 100%; display: flex; justify-content: space-between; padding: 0 1em; box-sizing: border-box; }
+        .carousel-nav button { background-color: rgba(0,0,0,0.7); color: white; border: none; border-radius: 50%; width: 40px; height: 40px; font-size: 24px; cursor: pointer; opacity: 0; transition: opacity 0.2s; }
+        .character-card:hover .carousel-nav button { opacity: 1; }
+
+        .card-actions { padding: 1em; border-top: 1px solid var(--border-color); display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+
+        .action-btn {
+            background-color: var(--accent-color);
+            color: white;
+            width: 100%;
+            padding: 0.8em;
+            border: none;
+            border-radius: 6px;
+            font-size: 1em;
+            font-weight: bold;
+            cursor: pointer;
+            transition: background-color 0.2s;
+        }
+        .action-btn:hover { filter: brightness(1.1); }
+        .gallery-btn { background-color: #475569; }
+
+        /* Modales Oscuros */
+        .modal { display: none; position: fixed; z-index: 1000; left: 0; top: 0; width: 100%; height: 100%; overflow: auto; background-color: rgba(0,0,0,0.8); backdrop-filter: blur(5px); }
+        .modal-content { background-color: var(--card-bg); margin: 10% auto; padding: 20px; border: 1px solid var(--border-color); width: 80%; max-width: 500px; border-radius: 8px; color: var(--text-main); box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.5); }
+        .modal-header { display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border-color); padding-bottom: 10px; }
+        .modal-header h2 { margin: 0; }
+        .close-btn { color: var(--text-muted); font-size: 28px; font-weight: bold; cursor: pointer; }
+        .close-btn:hover { color: white; }
+        .modal-body { padding-top: 15px; }
+
+        #modal-prompt {
+            width: 100%;
+            min-height: 80px;
+            padding: 10px;
+            background-color: #0f172a;
+            border: 1px solid var(--border-color);
+            color: white;
+            border-radius: 6px;
+            box-sizing: border-box;
+        }
+
+        #modal-generate-btn { background-color: #10b981; color: white; padding: 12px 20px; border: none; border-radius: 6px; font-size: 1em; cursor: pointer; margin-top: 10px; width: 100%; }
+        #modal-generate-btn:hover { background-color: #059669; }
+
+        #modal-loader { display: none; margin-top: 10px; color: var(--text-muted); text-align: center; }
+        #modal-result img { max-width: 100%; margin-top: 15px; border-radius: 8px; border: 1px solid var(--border-color); }
+        #gallery-modal-content .image-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 10px; margin-top: 15px; }
+        #gallery-modal-content img { width: 100%; height: auto; border-radius: 4px; border: 1px solid var(--border-color); }
+
+        /* Footer Styles */
+        footer { background-color: #020617; color: var(--text-muted); padding: 2em; margin-top: auto; border-top: 1px solid var(--border-color); }
+        .footer-content { max-width: 1200px; margin: 0 auto; display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 2em; }
+        .footer-section h3 { color: white; border-bottom: 2px solid var(--accent-color); padding-bottom: 10px; margin-bottom: 15px; display: inline-block; }
+        .footer-section p { margin: 5px 0; line-height: 1.6; }
+        .footer-section a { color: var(--text-muted); text-decoration: none; transition: color 0.3s; }
+        .footer-section a:hover { color: var(--accent-color); }
+        .social-links { display: flex; gap: 15px; margin-top: 10px; }
+        .social-links a { font-size: 1.2em; }
+        .copyright { text-align: center; margin-top: 2em; padding-top: 1em; border-top: 1px solid #1e293b; font-size: 0.9em; color: #64748b; }
+    </style>
+    <!-- FontAwesome para iconos de redes sociales -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+</head>
+<body>
+
+    <header>
+        <div class="logo-container">
+            {% if company.logo %}
+                <div class="logo-wrapper">
+                    <img src="{{ company.logo.url }}" alt="Logo" class="logo">
+                </div>
+            {% endif %}
+            <h1>{% if company.name %}{{ company.name }}{% else %}Mi empresa{% endif %}</h1>
+        </div>
+        <div class="auth-links">
+            {% if user.is_authenticated %}
+                <span>Hola, {{ user.email }}</span>
+                <a href="{% url 'account_logout' %}">Cerrar Sesión</a>
+            {% else %}
+                <a href="{% url 'account_login' %}">Iniciar Sesión</a>
+                <a href="{% url 'account_signup' %}">Registrarse</a>
+            {% endif %}
+        </div>
+    </header>
+
+    <div class="container">
+        <div class="album-container">
+            {% for character in characters %}
+            <div class="character-card" data-character-id="{{ character.id }}">
+                <h2>{{ character.name }}</h2>
+                <div class="carousel">
+                    {% if character.public_images %}
+                        {% for image in character.public_images %}
+                        <img src="{{ image.image.url }}" class="carousel-image {% if forloop.first %}active{% endif %}" alt="{{ image.description }}">
+                        {% endfor %}
+                    {% else %}
+                        <img src="https://via.placeholder.com/300x300.png?text=Sin+Imágenes" class="carousel-image active" alt="Sin imágenes">
+                    {% endif %}
+                    <div class="carousel-nav">
+                        <button class="prev-btn">&lt;</button>
+                        <button class="next-btn">&gt;</button>
+                    </div>
+                </div>
+                <div class="card-actions">
+                    <button class="action-btn gallery-btn">Ver Galería</button>
+                    <button class="action-btn generate-btn">Generar</button>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+
+    <!-- Footer con Información de la Empresa -->
+    <footer>
+        <div class="footer-content">
+            <div class="footer-section">
+                <h3>Sobre Nosotros</h3>
+                <p>{% if company.description %}{{ company.description }}{% else %}Descripción de la empresa no disponible.{% endif %}</p>
+            </div>
+            <div class="footer-section">
+                <h3>Contacto</h3>
+                {% if company.phone %}<p><i class="fas fa-phone"></i> {{ company.phone }}</p>{% endif %}
+                {% if company.email %}<p><i class="fas fa-envelope"></i> {{ company.email }}</p>{% endif %}
+            </div>
+            <div class="footer-section">
+                <h3>Síguenos</h3>
+                <div class="social-links">
+                    {% if company.facebook %}
+                        <a href="{{ company.facebook }}" target="_blank" title="Facebook"><i class="fab fa-facebook"></i></a>
+                    {% endif %}
+                    {% if company.discord %}
+                        <a href="{{ company.discord }}" target="_blank" title="Discord"><i class="fab fa-discord"></i></a>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+        <div class="copyright">
+            &copy; {% now "Y" %} {% if company.name %}{{ company.name }}{% else %}Mi empresa{% endif %}. Todos los derechos reservados.
+        </div>
+    </footer>
+
+    <!-- Modal de Generación -->
+    <div id="generation-modal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 id="modal-title">Generar para...</h2>
+                <span class="close-btn">&times;</span>
+            </div>
+            <div class="modal-body">
+                <p>Escribe un prompt para generar una nueva imagen.</p>
+                <textarea id="modal-prompt" placeholder="Ej: primer plano, iluminación cinemática..."></textarea>
+                <button id="modal-generate-btn">Generar</button>
+                <div id="modal-loader">Procesando...</div>
+                <div id="modal-result"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal de Galería de Usuario -->
+    <div id="gallery-modal" class="modal">
+        <div class="modal-content" id="gallery-modal-content">
+            <div class="modal-header">
+                <h2 id="gallery-modal-title">Galería de...</h2>
+                <span class="close-btn">&times;</span>
+            </div>
+            <div class="modal-body">
+                <div class="image-grid"></div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            // Variable global para saber si el usuario está logueado
+            const userIsAuthenticated = {{ user.is_authenticated|yesno:"true,false" }};
+            const loginUrl = "{% url 'account_login' %}";
+
+            // Lógica del Carrusel
+            document.querySelectorAll('.carousel').forEach(carousel => {
+                const images = carousel.querySelectorAll('.carousel-image');
+                if (images.length <= 1) {
+                    carousel.querySelector('.carousel-nav').style.display = 'none';
+                    return;
+                }
+                let currentIndex = 0;
+                const showImage = (index) => images.forEach((img, i) => img.classList.toggle('active', i === index));
+                carousel.querySelector('.next-btn').addEventListener('click', () => { currentIndex = (currentIndex + 1) % images.length; showImage(currentIndex); });
+                carousel.querySelector('.prev-btn').addEventListener('click', () => { currentIndex = (currentIndex - 1 + images.length) % images.length; showImage(currentIndex); });
+            });
+
+            // Lógica de Modales
+            const generationModal = document.getElementById('generation-modal');
+            const galleryModal = document.getElementById('gallery-modal');
+            let currentCharacterId = null;
+
+            const setupModal = (modal, openBtnsSelector, titleSelector, cardSelector, onOpen) => {
+                const closeBtn = modal.querySelector('.close-btn');
+                document.querySelectorAll(openBtnsSelector).forEach(btn => {
+                    btn.addEventListener('click', event => {
+                        // VERIFICACIÓN DE AUTENTICACIÓN
+                        if (!userIsAuthenticated) {
+                            window.location.href = loginUrl;
+                            return;
+                        }
+
+                        const card = event.target.closest(cardSelector);
+                        const characterName = card.querySelector('h2').textContent;
+                        currentCharacterId = card.dataset.characterId;
+                        modal.querySelector(titleSelector).textContent = `${modal.id === 'gallery-modal' ? 'Galería de' : 'Generar para'} ${characterName}`;
+                        if (onOpen) onOpen(card);
+                        modal.style.display = 'block';
+                    });
+                });
+                closeBtn.onclick = () => modal.style.display = 'none';
+            };
+
+            // Setup Modal de Generación
+            setupModal(generationModal, '.generate-btn', '#modal-title', '.character-card', () => {
+                document.getElementById('modal-prompt').value = '';
+                document.getElementById('modal-result').innerHTML = '';
+                document.getElementById('modal-loader').style.display = 'none';
+            });
+
+            // Setup Modal de Galería
+            setupModal(galleryModal, '.gallery-btn', '#gallery-modal-title', '.character-card', () => {
+                const grid = galleryModal.querySelector('.image-grid');
+                grid.innerHTML = 'Cargando...';
+                fetch(`{% url 'generate_image' %}?character_id=${currentCharacterId}`, { headers: { 'X-Requested-With': 'XMLHttpRequest' } })
+                    .then(res => res.json())
+                    .then(data => {
+                        grid.innerHTML = '';
+                        if (data.status === 'success' && data.images.length > 0) {
+                            data.images.forEach(url => {
+                                const img = document.createElement('img');
+                                // CORRECCIÓN: Usar la URL directamente, ya que viene completa desde el backend
+                                img.src = url;
+                                grid.appendChild(img);
+                            });
+                        } else {
+                            grid.innerHTML = '<p>No hay imágenes generadas por ti para este personaje.</p>';
+                        }
+                    });
+            });
+            
+            window.onclick = event => {
+                if (event.target == generationModal) generationModal.style.display = 'none';
+                if (event.target == galleryModal) galleryModal.style.display = 'none';
+            };
+
+            // Lógica de Generación AJAX
+            document.getElementById('modal-generate-btn').addEventListener('click', () => {
+                const prompt = document.getElementById('modal-prompt').value;
+                if (!prompt) { alert('Por favor, escribe un prompt.'); return; }
+
+                const loader = document.getElementById('modal-loader');
+                const resultDiv = document.getElementById('modal-result');
+                const btn = document.getElementById('modal-generate-btn');
+
+                loader.style.display = 'block';
+                resultDiv.innerHTML = '';
+                btn.disabled = true;
+
+                const formData = new FormData();
+                formData.append('character_id', currentCharacterId);
+                formData.append('prompt', prompt);
+                
+                fetch("{% url 'generate_image' %}", {
+                    method: 'POST',
+                    headers: { 'X-CSRFToken': '{{ csrf_token }}', 'X-Requested-With': 'XMLHttpRequest' },
+                    body: new URLSearchParams(formData)
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.status === 'success') {
+                        resultDiv.innerHTML = `<p>¡Imagen generada!</p><img src="${data.image_url}" alt="Imagen generada">`;
+                    } else {
+                        resultDiv.innerHTML = `<p style="color: red;">Error: ${data.message}</p>`;
+                    }
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    resultDiv.innerHTML = `<p style="color: red;">Ocurrió un error de conexión.</p>`;
+                })
+                .finally(() => {
+                    loader.style.display = 'none';
+                    btn.disabled = false;
+                });
+            });
+        });
+    </script>
+
+</body>
+</html>

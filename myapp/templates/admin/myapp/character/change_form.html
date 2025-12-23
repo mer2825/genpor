@@ -1,0 +1,87 @@
+{% extends "admin/change_form.html" %}
+{% load i18n admin_urls static %}
+
+{% block after_field_sets %}
+    {{ block.super }}
+    
+    <!-- Panel de Generación Rápida -->
+    {% if original.pk %} <!-- Solo mostramos esto si el personaje ya existe (tiene ID) -->
+    <div class="module" style="margin-bottom: 20px; border: 1px solid #ccc; background-color: #f8f9fa;">
+        <h2 style="background-color: #79aec8; color: white; padding: 10px;">Generador de Imágenes IA</h2>
+        <div style="padding: 15px;">
+            <p>Escribe un prompt para generar una nueva imagen y añadirla automáticamente a la galería de abajo.</p>
+            
+            <div class="form-row">
+                <label for="quick-prompt" style="font-weight: bold; display: block; margin-bottom: 5px;">Prompt:</label>
+                <textarea id="quick-prompt" rows="3" style="width: 100%; max-width: 600px; padding: 8px; border: 1px solid #ccc;" placeholder="Ej: primer plano, iluminación cinemática..."></textarea>
+            </div>
+            
+            <div class="submit-row" style="text-align: left; padding: 10px 0 0 0; background: none; border: none;">
+                <button type="button" id="btn-generate-ajax" class="button" style="background-color: #417690; color: white; padding: 10px 20px; font-size: 14px; border: none; cursor: pointer;">
+                    Generar Imagen Ahora
+                </button>
+                <span id="loading-indicator" style="display: none; margin-left: 10px; color: #666;">
+                    <img src="{% static 'admin/img/icon-unknown.svg' %}" style="vertical-align: middle;"> Procesando con ComfyUI... (esto puede tardar unos segundos)
+                </span>
+            </div>
+            <div id="generation-result" style="margin-top: 10px;"></div>
+        </div>
+    </div>
+
+    <script>
+        document.getElementById('btn-generate-ajax').addEventListener('click', function() {
+            const prompt = document.getElementById('quick-prompt').value;
+            const btn = this;
+            const loader = document.getElementById('loading-indicator');
+            const resultDiv = document.getElementById('generation-result');
+
+            if (!prompt) {
+                alert("Por favor escribe un prompt.");
+                return;
+            }
+
+            // UI Updates
+            btn.disabled = true;
+            btn.style.opacity = "0.5";
+            loader.style.display = "inline";
+            resultDiv.innerHTML = "";
+
+            // URL de generación (usamos la URL que ya definimos en admin.py)
+            const url = "{% url 'admin:character_generate' original.pk %}";
+
+            // Petición AJAX
+            fetch(url, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/x-www-form-urlencoded',
+                    'X-CSRFToken': '{{ csrf_token }}',
+                    'X-Requested-With': 'XMLHttpRequest' // Importante para que Django sepa que es AJAX
+                },
+                body: 'prompt=' + encodeURIComponent(prompt)
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.status === 'success') {
+                    resultDiv.innerHTML = '<p style="color: green; font-weight: bold;">¡Imagen generada exitosamente! Recargando...</p>';
+                    // Recargar la página para ver la nueva imagen en el Inline
+                    setTimeout(() => {
+                        window.location.reload();
+                    }, 1000);
+                } else {
+                    resultDiv.innerHTML = '<p style="color: red;">Error: ' + data.message + '</p>';
+                    btn.disabled = false;
+                    btn.style.opacity = "1";
+                    loader.style.display = "none";
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                resultDiv.innerHTML = '<p style="color: red;">Ocurrió un error de conexión.</p>';
+                btn.disabled = false;
+                btn.style.opacity = "1";
+                loader.style.display = "none";
+            });
+        });
+    </script>
+    {% endif %}
+{% endblock %}

@@ -1,0 +1,12 @@
+Django>=5.0
+psycopg2-binary
+django-allauth
+Pillow
+gunicorn
+python-dotenv
+whitenoise
+httpx
+websockets
+requests
+pyjwt
+cryptography
