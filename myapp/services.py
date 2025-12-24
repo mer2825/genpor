@@ -294,3 +294,5 @@ async def generate_image_from_character(character, user_prompt):
                             return image_bytes, prompt_id
     
     return None, None
+
+# ULTIMA VERSION - FORZANDO ACTUALIZACION
