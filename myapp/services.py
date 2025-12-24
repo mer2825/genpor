@@ -99,29 +99,69 @@ def update_workflow(prompt_workflow, new_values, lora_names=None, lora_strengths
     lora_names = lora_names or []
     lora_strengths = lora_strengths or []
 
-    positive_node_id, negative_node_id = None, None
+    # Helper para rastrear TODOS los nodos de texto conectados
+    def find_all_text_nodes(start_node_id):
+        found_nodes = set()
+        stack = [start_node_id]
+        visited = set()
+        
+        while stack:
+            curr_id = stack.pop()
+            if curr_id in visited: continue
+            visited.add(curr_id)
+            
+            node = prompt_workflow.get(curr_id)
+            if not node: continue
+            
+            class_type = node.get("class_type", "")
+            inputs = node.get("inputs", {})
+            
+            is_text_node = False
+            
+            # Criterio 1: CLIPTextEncode explícito
+            if "CLIPTextEncode" in class_type:
+                is_text_node = True
+            
+            # Criterio 2: PrimitiveNode con valor string
+            elif "PrimitiveNode" in class_type:
+                if isinstance(inputs.get("value"), str):
+                    is_text_node = True
+            
+            # Criterio 3: Nodos con campos de texto explícitos (widgets string)
+            else:
+                text_candidates = ["text", "text_g", "text_l", "prompt", "text_positive", "positive_prompt", "text_negative", "negative_prompt"]
+                if any(k in inputs and isinstance(inputs[k], str) for k in text_candidates):
+                    is_text_node = True
+            
+            if is_text_node:
+                found_nodes.add(curr_id)
+            
+            # Rastreo hacia atrás (inputs conectados)
+            for val in inputs.values():
+                if isinstance(val, list) and len(val) > 0:
+                    stack.append(val[0])
+        return found_nodes
+
+    positive_nodes = set()
+    negative_nodes = set()
     sampler_nodes = []
+    
+    # Detectar Samplers (incluyendo DW_KsamplerAdvanced)
     for node_id, details in prompt_workflow.items():
-        if "Sampler" in details.get("class_type", ""):
+        class_type = details.get("class_type", "")
+        if "Sampler" in class_type or "sampler" in class_type.lower():
             sampler_nodes.append((node_id, details))
 
-    text_node_types = ["CLIPTextEncode", "CLIPTextEncodeSDXL", "CLIPTextEncodeSDXLRefiner"]
-    
-    # Limpieza de prompts
-    for node_id, details in prompt_workflow.items():
-        if details.get("class_type") in text_node_types:
-            inputs = details.get("inputs", {})
-            if "text" in inputs: inputs["text"] = ""
-            if "text_g" in inputs: inputs["text_g"] = ""
-            if "text_l" in inputs: inputs["text_l"] = ""
+    for s_id, s_details in sampler_nodes:
+        inputs = s_details.get("inputs", {})
+        if pos_link := inputs.get("positive"):
+            if isinstance(pos_link, list):
+                positive_nodes.update(find_all_text_nodes(pos_link[0]))
+        if neg_link := inputs.get("negative"):
+            if isinstance(neg_link, list):
+                negative_nodes.update(find_all_text_nodes(neg_link[0]))
 
-    # Identificar nodos positivos/negativos
-    for node_id, details in prompt_workflow.items():
-        if details.get("class_type") in text_node_types:
-            for s_id, s_details in sampler_nodes:
-                if s_details.get("inputs", {}).get("positive", [None])[0] == node_id: positive_node_id = node_id
-                if s_details.get("inputs", {}).get("negative", [None])[0] == node_id: negative_node_id = node_id
-
+    # Identificar fuentes de parámetros numéricos
     steps_source_id, cfg_source_id, seed_source_id = None, None, None
     for s_id, s_details in sampler_nodes:
         inputs = s_details.get("inputs", {})
@@ -129,18 +169,23 @@ def update_workflow(prompt_workflow, new_values, lora_names=None, lora_strengths
         if isinstance(inputs.get("cfg"), list): cfg_source_id = inputs["cfg"][0]
         if isinstance(inputs.get("seed"), list): seed_source_id = inputs["seed"][0]
 
+    # Actualizar valores
     for node_id, details in prompt_workflow.items():
         if not isinstance(details, dict): continue
         class_type, inputs = details.get("class_type"), details.get("inputs", {})
         
-        if node_id == positive_node_id and "prompt" in new_values:
-            if "text_g" in inputs: inputs["text_g"] = inputs["text_l"] = new_values["prompt"]
-            else: inputs["text"] = new_values["prompt"]
-                
-        if node_id == negative_node_id and "negative_prompt" in new_values:
-            if "text_g" in inputs: inputs["text_g"] = inputs["text_l"] = new_values["negative_prompt"]
-            else: inputs["text"] = new_values["negative_prompt"]
+        # Actualizar Prompts (Soporte para Primitives y Stylers)
+        candidates = ["text", "text_g", "text_l", "prompt", "text_positive", "positive_prompt", "value"]
+        
+        if node_id in positive_nodes and "prompt" in new_values:
+            for k in candidates:
+                if k in inputs: inputs[k] = new_values["prompt"]
 
+        if node_id in negative_nodes and "negative_prompt" in new_values:
+            for k in candidates:
+                if k in inputs: inputs[k] = new_values["negative_prompt"]
+
+        # Actualizar LoRAs
         if class_type == "DW_LoRAStackApplySimple":
             for i in range(1, 7):
                 inputs[f"lora_{i}_name"], inputs[f"lora_{i}_strength"] = "None", 1.0
@@ -148,6 +193,7 @@ def update_workflow(prompt_workflow, new_values, lora_names=None, lora_strengths
                 inputs[f"lora_{i+1}_name"] = lora_name
                 if i < len(lora_strengths): inputs[f"lora_{i+1}_strength"] = float(lora_strengths[i])
         
+        # Actualizar otros parámetros
         if class_type == "CheckpointLoaderSimple" and "checkpoint" in new_values: inputs["ckpt_name"] = new_values["checkpoint"]
         elif class_type == "VAELoader" and "vae" in new_values and new_values["vae"] != "None": inputs["vae_name"] = new_values["vae"]
         elif class_type == "DW_resolution" and "width" in new_values: inputs["WIDTH"], inputs["HEIGHT"] = int(new_values["width"]), int(new_values["height"])
@@ -161,12 +207,15 @@ def update_workflow(prompt_workflow, new_values, lora_names=None, lora_strengths
         elif class_type == "DW_seed" and "seed" in new_values: inputs["seed"] = int(new_values["seed"])
         elif class_type == "DW_IntValue" and details.get("_meta", {}).get("title") == "STEPS" and "steps" in new_values: inputs["value"] = int(new_values["steps"])
         elif class_type == "DW_FloatValue" and details.get("_meta", {}).get("title") == "CFG" and "cfg" in new_values: inputs["value"] = float(new_values["cfg"])
-        elif "Sampler" in class_type and node_id not in [steps_source_id, cfg_source_id, seed_source_id]:
-             if "seed" in new_values and "seed" in inputs and not isinstance(inputs["seed"], list): inputs["seed"] = int(new_values["seed"])
-             if "steps" in new_values and "steps" in inputs and not isinstance(inputs["steps"], list): inputs["steps"] = int(new_values["steps"])
-             if "cfg" in new_values and "cfg" in inputs and not isinstance(inputs["cfg"], list): inputs["cfg"] = float(new_values["cfg"])
-             if "sampler_name" in new_values and "sampler_name" in inputs: inputs["sampler_name"] = new_values["sampler_name"]
-             if "scheduler" in new_values and "scheduler" in inputs: inputs["scheduler"] = new_values["scheduler"]
+        
+        # Manejo específico para DW_KsamplerAdvanced y otros samplers
+        if "Sampler" in class_type or "sampler" in class_type.lower():
+             if node_id not in [steps_source_id, cfg_source_id, seed_source_id]:
+                 if "seed" in new_values and "seed" in inputs and not isinstance(inputs["seed"], list): inputs["seed"] = int(new_values["seed"])
+                 if "steps" in new_values and "steps" in inputs and not isinstance(inputs["steps"], list): inputs["steps"] = int(new_values["steps"])
+                 if "cfg" in new_values and "cfg" in inputs and not isinstance(inputs["cfg"], list): inputs["cfg"] = float(new_values["cfg"])
+                 if "sampler_name" in new_values and "sampler_name" in inputs: inputs["sampler_name"] = new_values["sampler_name"]
+                 if "scheduler" in new_values and "scheduler" in inputs: inputs["scheduler"] = new_values["scheduler"]
             
     return prompt_workflow
 
@@ -198,6 +247,8 @@ async def generate_image_from_character(character, user_prompt):
         'prompt': full_positive_prompt,
         'negative_prompt': character.negative_prompt
     }
+    
+    print(f"DEBUG: Prompt Final Positivo: {final_config['prompt']}")
     
     # Manejo de Seed
     if final_config.get('seed_behavior', 'random') == 'random':
