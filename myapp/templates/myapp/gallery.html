@@ -1,0 +1,512 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mi Galería - Nayelina AI</title>
+
+    <!-- Estilos -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="{% static 'myapp/css/styles.css' %}">
+
+    <style>
+        /* Estilos específicos para la Galería */
+        .gallery-container {
+            padding: 40px 5%;
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+
+        .gallery-header {
+            margin-bottom: 40px;
+            border-bottom: 1px solid var(--border-subtle);
+            padding-bottom: 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-end;
+        }
+
+        .gallery-header h1 {
+            font-size: 2rem;
+            color: var(--text-main);
+            margin-bottom: 10px;
+        }
+
+        .gallery-header p {
+            color: var(--text-muted);
+        }
+
+        /* Grid de Personajes (Carpetas) */
+        .folders-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+            gap: 30px;
+        }
+
+        .folder-card {
+            background-color: var(--card-bg);
+            border: 1px solid var(--border-subtle);
+            border-radius: 16px;
+            overflow: hidden;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            position: relative;
+        }
+
+        .folder-card:hover {
+            transform: translateY(-5px);
+            border-color: var(--primary-blue);
+            box-shadow: 0 10px 25px rgba(59, 130, 246, 0.15);
+        }
+
+        .folder-preview {
+            height: 200px;
+            background-color: #0f172a;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .folder-preview img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            transition: transform 0.5s ease;
+        }
+        .folder-card:hover .folder-preview img { transform: scale(1.1); }
+
+        .folder-info {
+            padding: 20px;
+        }
+
+        .folder-info h3 {
+            margin: 0;
+            font-size: 1.1rem;
+            color: var(--text-main);
+        }
+
+        .folder-info span {
+            font-size: 0.85rem;
+            color: var(--text-muted);
+            display: block;
+            margin-top: 5px;
+        }
+
+        /* Grid de Imágenes (Detalle) */
+        .images-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+            gap: 20px;
+            margin-top: 20px;
+            display: none; /* Oculto por defecto */
+        }
+
+        .image-item {
+            border-radius: 12px;
+            overflow: hidden;
+            border: 1px solid var(--border-subtle);
+            position: relative;
+            aspect-ratio: 1 / 1.5; /* Formato retrato */
+            cursor: pointer;
+            transition: border-color 0.2s;
+        }
+        .image-item:hover { border-color: var(--primary-blue); }
+        .image-item.selected { border: 2px solid var(--primary-blue); }
+
+        .image-item img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            transition: transform 0.3s;
+        }
+        .image-item:hover img { transform: scale(1.05); }
+
+        /* Checkbox de Selección */
+        .select-check {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            width: 24px;
+            height: 24px;
+            background: rgba(0,0,0,0.5);
+            border: 2px solid white;
+            border-radius: 50%;
+            z-index: 10;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            opacity: 0;
+            transition: opacity 0.2s;
+        }
+        .image-item:hover .select-check, .image-item.selected .select-check { opacity: 1; }
+        .image-item.selected .select-check { background: var(--primary-blue); border-color: var(--primary-blue); }
+        .select-check i { color: white; font-size: 14px; display: none; }
+        .image-item.selected .select-check i { display: block; }
+
+        /* Barra de Herramientas */
+        .toolbar {
+            display: none;
+            gap: 15px;
+            align-items: center;
+        }
+
+        .tool-btn {
+            padding: 8px 16px;
+            border-radius: 8px;
+            border: 1px solid var(--border-subtle);
+            background: transparent;
+            color: var(--text-muted);
+            cursor: pointer;
+            font-size: 0.9rem;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            transition: all 0.2s;
+        }
+        .tool-btn:hover { background: rgba(255,255,255,0.05); color: white; }
+        .btn-delete { color: #ef4444; border-color: rgba(239, 68, 68, 0.3); }
+        .btn-delete:hover { background: rgba(239, 68, 68, 0.1); }
+
+        .back-btn {
+            display: none;
+            align-items: center;
+            gap: 8px;
+            color: var(--primary-blue);
+            cursor: pointer;
+            font-weight: 600;
+            margin-bottom: 20px;
+            background: none;
+            border: none;
+            font-size: 1rem;
+        }
+        .back-btn:hover { text-decoration: underline; }
+
+        /* Estilos Modal Confirmación */
+        .confirm-content {
+            text-align: center;
+            max-width: 400px;
+        }
+        .confirm-icon {
+            font-size: 3rem;
+            color: #ef4444;
+            margin-bottom: 15px;
+        }
+        .confirm-actions {
+            display: flex;
+            justify-content: center;
+            gap: 15px;
+            margin-top: 25px;
+        }
+        .btn-cancel {
+            background-color: transparent;
+            border: 1px solid var(--border-subtle);
+            color: var(--text-muted);
+            padding: 10px 20px;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .btn-cancel:hover { background-color: rgba(255,255,255,0.05); color: white; }
+
+        .btn-confirm-delete {
+            background-color: #ef4444;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: 600;
+            box-shadow: 0 4px 15px rgba(239, 68, 68, 0.3);
+            transition: all 0.2s;
+        }
+        .btn-confirm-delete:hover { background-color: #dc2626; transform: translateY(-2px); }
+
+        /* Responsive Adjustments */
+        @media (max-width: 768px) {
+            body:not(.no-pad-bottom) {
+                padding-bottom: 70px;
+            }
+        }
+
+    </style>
+</head>
+<body>
+
+    <!-- Header -->
+    <header>
+        <a href="/" class="logo-container">
+            <div class="logo-wrapper">
+                {% if company.logo %}
+                    <img src="{{ company.logo.url }}" alt="Logo" class="logo">
+                {% else %}
+                    <div style="width:100%;height:100%;background:var(--primary-blue);"></div>
+                {% endif %}
+            </div>
+            <h1>Nayelina AI</h1>
+        </a>
+
+        <div class="user-menu">
+            <a href="{% url 'generate_image' %}" class="action-btn gallery-btn desktop-nav-btn" style="padding: 6px 12px; font-size: 0.85rem;">
+                <i class="fas fa-home"></i> Inicio
+            </a>
+            <a href="{% url 'workspace' %}" class="action-btn gallery-btn desktop-nav-btn" style="padding: 6px 12px; font-size: 0.85rem;">
+                <i class="fas fa-rocket"></i> Workspace
+            </a>
+            <div class="user-avatar">{{ user.username|slice:":1"|upper }}</div>
+        </div>
+    </header>
+
+    <div class="gallery-container">
+
+        <!-- Vista Principal: Carpetas de Personajes -->
+        <div id="folders-view">
+            <div class="gallery-header">
+                <div>
+                    <h1>Mis Creaciones</h1>
+                    <p>Explora todas las imágenes que has generado, organizadas por personaje.</p>
+                </div>
+            </div>
+
+            <div class="folders-grid">
+                {% for item in gallery_data %}
+                <div class="folder-card" onclick="showImages('{{ item.character.id }}')">
+                    <div class="folder-preview">
+                        {% if item.latest_image %}
+                            <img src="{{ item.latest_image.image.url }}" alt="{{ item.character.name }}">
+                        {% else %}
+                            <div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;color:var(--text-muted);">
+                                <i class="fas fa-image" style="font-size:2rem;"></i>
+                            </div>
+                        {% endif %}
+                    </div>
+                    <div class="folder-info">
+                        <h3>{{ item.character.name }}</h3>
+                        <span>{{ item.count }} imágenes</span>
+                    </div>
+                </div>
+                {% empty %}
+                <p style="color: var(--text-muted);">Aún no has generado ninguna imagen.</p>
+                {% endfor %}
+            </div>
+        </div>
+
+        <!-- Vista Detalle: Imágenes del Personaje -->
+        <div id="images-view" style="display: none;">
+            <button class="back-btn" onclick="showFolders()">
+                <i class="fas fa-arrow-left"></i> Volver a Carpetas
+            </button>
+
+            <div class="gallery-header">
+                <h1 id="detail-title">Personaje</h1>
+
+                <!-- Barra de Herramientas -->
+                <div class="toolbar" id="gallery-toolbar">
+                    <button class="tool-btn" onclick="toggleSelectAll()">
+                        <i class="far fa-check-square"></i> Seleccionar Todo
+                    </button>
+                    <button class="tool-btn btn-delete" onclick="askDeleteConfirmation()">
+                        <i class="fas fa-trash-alt"></i> Eliminar (<span id="selected-count">0</span>)
+                    </button>
+                </div>
+            </div>
+
+            <div class="images-grid" id="detail-grid">
+                <!-- Las imágenes se cargarán aquí vía JS -->
+            </div>
+        </div>
+
+    </div>
+
+    <!-- Modal de Confirmación de Borrado -->
+    <div id="modal-confirm" class="modal">
+        <div class="modal-content confirm-content">
+            <div class="modal-body">
+                <div class="confirm-icon">
+                    <i class="fas fa-exclamation-triangle"></i>
+                </div>
+                <h2 style="color: var(--text-main); margin-bottom: 10px;">¿Estás seguro?</h2>
+                <p style="color: var(--text-muted);">Vas a eliminar permanentemente <strong id="confirm-count-text">0</strong> imágenes. Esta acción no se puede deshacer.</p>
+
+                <div class="confirm-actions">
+                    <button class="btn-cancel" onclick="closeConfirm()">Cancelar</button>
+                    <button class="btn-confirm-delete" onclick="executeDelete()">Sí, eliminar</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Bottom Navigation for Mobile -->
+    <nav class="bottom-nav">
+        <a href="{% url 'generate_image' %}" class="bottom-nav-item">
+            <i class="fas fa-home"></i>
+            <span>Inicio</span>
+        </a>
+        <a href="{% url 'workspace' %}" class="bottom-nav-item">
+            <i class="fas fa-rocket"></i>
+            <span>Workspace</span>
+        </a>
+        <a href="{% url 'gallery' %}" class="bottom-nav-item active">
+            <i class="fas fa-images"></i>
+            <span>Galería</span>
+        </a>
+    </nav>
+
+    <!-- Datos ocultos para JS -->
+    <script>
+        const deleteUrl = "{% url 'delete_images' %}";
+        const csrfToken = "{{ csrf_token }}";
+
+        // Estructura de datos
+        const galleryData = {
+            {% for item in gallery_data %}
+            "{{ item.character.id }}": {
+                name: "{{ item.character.name }}",
+                images: [
+                    {% for img in item.images %}
+                    { id: "{{ img.id }}", url: "{{ img.url }}" },
+                    {% endfor %}
+                ]
+            },
+            {% endfor %}
+        };
+
+        let currentCharacterId = null;
+        let selectedImages = new Set();
+
+        function showImages(charId) {
+            const data = galleryData[charId];
+            if (!data) return;
+
+            currentCharacterId = charId;
+            selectedImages.clear();
+            updateToolbar();
+
+            document.getElementById('folders-view').style.display = 'none';
+            document.getElementById('images-view').style.display = 'block';
+            document.querySelector('.back-btn').style.display = 'flex';
+            document.querySelector('.images-grid').style.display = 'grid';
+            document.querySelector('.toolbar').style.display = 'flex';
+
+            document.getElementById('detail-title').textContent = data.name;
+
+            renderGrid();
+        }
+
+        function renderGrid() {
+            const grid = document.getElementById('detail-grid');
+            grid.innerHTML = '';
+
+            const data = galleryData[currentCharacterId];
+            if (!data) return;
+
+            data.images.forEach(img => {
+                const div = document.createElement('div');
+                div.className = `image-item ${selectedImages.has(img.id) ? 'selected' : ''}`;
+                div.onclick = (e) => toggleSelection(img.id, e);
+
+                div.innerHTML = `
+                    <img src="${img.url}">
+                    <div class="select-check">
+                        <i class="fas fa-check"></i>
+                    </div>
+                `;
+                grid.appendChild(div);
+            });
+        }
+
+        function showFolders() {
+            document.getElementById('images-view').style.display = 'none';
+            document.getElementById('folders-view').style.display = 'block';
+        }
+
+        // --- LÓGICA DE SELECCIÓN ---
+
+        function toggleSelection(imgId, event) {
+            if (selectedImages.has(imgId)) {
+                selectedImages.delete(imgId);
+            } else {
+                selectedImages.add(imgId);
+            }
+            renderGrid();
+            updateToolbar();
+        }
+
+        function toggleSelectAll() {
+            const data = galleryData[currentCharacterId];
+            if (!data) return;
+
+            if (selectedImages.size === data.images.length) {
+                selectedImages.clear();
+            } else {
+                data.images.forEach(img => selectedImages.add(img.id));
+            }
+            renderGrid();
+            updateToolbar();
+        }
+
+        function updateToolbar() {
+            document.getElementById('selected-count').textContent = selectedImages.size;
+        }
+
+        // --- LÓGICA DE BORRADO CON MODAL ---
+
+        function askDeleteConfirmation() {
+            if (selectedImages.size === 0) return;
+
+            // Actualizar texto del modal
+            document.getElementById('confirm-count-text').textContent = selectedImages.size;
+
+            // Mostrar modal
+            document.getElementById('modal-confirm').style.display = 'block';
+        }
+
+        function closeConfirm() {
+            document.getElementById('modal-confirm').style.display = 'none';
+        }
+
+        function executeDelete() {
+            const idsToDelete = Array.from(selectedImages);
+            const formData = new FormData();
+            idsToDelete.forEach(id => formData.append('image_ids[]', id));
+
+            // Cerrar modal y mostrar estado de carga (opcional)
+            closeConfirm();
+
+            fetch(deleteUrl, {
+                method: 'POST',
+                headers: { 'X-CSRFToken': csrfToken },
+                body: formData
+            })
+            .then(res => res.json())
+            .then(data => {
+                if (data.status === 'success') {
+                    // Actualizar datos locales
+                    const charData = galleryData[currentCharacterId];
+                    charData.images = charData.images.filter(img => !selectedImages.has(img.id));
+
+                    selectedImages.clear();
+                    updateToolbar();
+                    renderGrid();
+
+                    if (charData.images.length === 0) {
+                        document.getElementById('detail-grid').innerHTML = '<p style="color:var(--text-muted);">Carpeta vacía.</p>';
+                    }
+                } else {
+                    alert('Error al eliminar: ' + data.message);
+                }
+            })
+            .catch(err => alert('Error de conexión'));
+        }
+
+        // Cerrar modal si se hace clic fuera
+        window.onclick = (event) => {
+            const modal = document.getElementById('modal-confirm');
+            if (event.target == modal) {
+                closeConfirm();
+            }
+        };
+    </script>
+
+</body>
+</html>

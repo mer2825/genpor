@@ -99,70 +99,85 @@ def update_workflow(prompt_workflow, new_values, lora_names=None, lora_strengths
     lora_names = lora_names or []
     lora_strengths = lora_strengths or []
 
-    # Helper para rastrear TODOS los nodos de texto conectados
-    def find_all_text_nodes(start_node_id):
-        found_nodes = set()
-        stack = [start_node_id]
-        visited = set()
-        
-        while stack:
-            curr_id = stack.pop()
-            if curr_id in visited: continue
-            visited.add(curr_id)
-            
-            node = prompt_workflow.get(curr_id)
-            if not node: continue
-            
-            class_type = node.get("class_type", "")
-            inputs = node.get("inputs", {})
-            
-            is_text_node = False
-            
-            # Criterio 1: CLIPTextEncode explícito
-            if "CLIPTextEncode" in class_type:
-                is_text_node = True
-            
-            # Criterio 2: PrimitiveNode con valor string
-            elif "PrimitiveNode" in class_type:
-                if isinstance(inputs.get("value"), str):
-                    is_text_node = True
-            
-            # Criterio 3: Nodos con campos de texto explícitos (widgets string)
-            else:
-                text_candidates = ["text", "text_g", "text_l", "prompt", "text_positive", "positive_prompt", "text_negative", "negative_prompt"]
-                if any(k in inputs and isinstance(inputs[k], str) for k in text_candidates):
-                    is_text_node = True
-            
-            if is_text_node:
-                found_nodes.add(curr_id)
-            
-            # Rastreo hacia atrás (inputs conectados)
-            for val in inputs.values():
-                if isinstance(val, list) and len(val) > 0:
-                    stack.append(val[0])
-        return found_nodes
-
+    # --- NUEVA LÓGICA DE DETECCIÓN DE NODOS (MÁS ROBUSTA) ---
     positive_nodes = set()
     negative_nodes = set()
-    sampler_nodes = []
     
-    # Detectar Samplers (incluyendo DW_KsamplerAdvanced)
+    # 1. Búsqueda por Título (Prioridad Máxima)
+    for node_id, details in prompt_workflow.items():
+        title = details.get("_meta", {}).get("title", "").lower()
+        
+        if "positive" in title:
+            positive_nodes.add(node_id)
+        elif "negative" in title:
+            negative_nodes.add(node_id)
+            
+    # 2. Si no se encontraron por título, usar rastreo de conexiones
+    if not positive_nodes or not negative_nodes:
+        sampler_nodes = []
+        for node_id, details in prompt_workflow.items():
+            class_type = details.get("class_type", "")
+            if "Sampler" in class_type or "sampler" in class_type.lower():
+                sampler_nodes.append((node_id, details))
+
+        def find_all_text_nodes(start_node_id):
+            found_nodes = set()
+            stack = [start_node_id]
+            visited = set()
+            while stack:
+                curr_id = stack.pop()
+                if curr_id in visited: continue
+                visited.add(curr_id)
+                node = prompt_workflow.get(curr_id)
+                if not node: continue
+                class_type = node.get("class_type", "")
+                inputs = node.get("inputs", {})
+                is_text_node = False
+                if "CLIPTextEncode" in class_type: is_text_node = True
+                elif "PrimitiveNode" in class_type and isinstance(inputs.get("value"), str): is_text_node = True
+                else:
+                    text_candidates = ["text", "text_g", "text_l", "prompt", "text_positive", "positive_prompt", "text_negative", "negative_prompt"]
+                    if any(k in inputs and isinstance(inputs[k], str) for k in text_candidates): is_text_node = True
+                if is_text_node: found_nodes.add(curr_id)
+                for val in inputs.values():
+                    if isinstance(val, list) and len(val) > 0: stack.append(val[0])
+            return found_nodes
+
+        for s_id, s_details in sampler_nodes:
+            inputs = s_details.get("inputs", {})
+            if not positive_nodes and (pos_link := inputs.get("positive")):
+                if isinstance(pos_link, list): positive_nodes.update(find_all_text_nodes(pos_link[0]))
+            if not negative_nodes and (neg_link := inputs.get("negative")):
+                if isinstance(neg_link, list): negative_nodes.update(find_all_text_nodes(neg_link[0]))
+
+    # 3. Limpieza y Corrección de Conflictos
+    # Si un nodo está en ambos conjuntos, el título manda.
+    # Si tiene "Positive" en el título, SE QUITA de los negativos.
+    for node_id in list(negative_nodes):
+        title = prompt_workflow.get(node_id, {}).get("_meta", {}).get("title", "").lower()
+        if "positive" in title:
+            negative_nodes.remove(node_id)
+            positive_nodes.add(node_id)
+
+    # Si tiene "Negative" en el título, SE QUITA de los positivos.
+    for node_id in list(positive_nodes):
+        title = prompt_workflow.get(node_id, {}).get("_meta", {}).get("title", "").lower()
+        if "negative" in title:
+            positive_nodes.remove(node_id)
+            negative_nodes.add(node_id)
+
+    print(f"DEBUG: Nodos Positivos Finales: {positive_nodes}")
+    print(f"DEBUG: Nodos Negativos Finales: {negative_nodes}")
+
+    # Identificar fuentes de parámetros numéricos
+    steps_source_id, cfg_source_id, seed_source_id = None, None, None
+    # (Re-escaneo de samplers para parámetros)
+    sampler_nodes = []
     for node_id, details in prompt_workflow.items():
         class_type = details.get("class_type", "")
         if "Sampler" in class_type or "sampler" in class_type.lower():
             sampler_nodes.append((node_id, details))
 
-    for s_id, s_details in sampler_nodes:
-        inputs = s_details.get("inputs", {})
-        if pos_link := inputs.get("positive"):
-            if isinstance(pos_link, list):
-                positive_nodes.update(find_all_text_nodes(pos_link[0]))
-        if neg_link := inputs.get("negative"):
-            if isinstance(neg_link, list):
-                negative_nodes.update(find_all_text_nodes(neg_link[0]))
-
-    # Identificar fuentes de parámetros numéricos
-    steps_source_id, cfg_source_id, seed_source_id = None, None, None
     for s_id, s_details in sampler_nodes:
         inputs = s_details.get("inputs", {})
         if isinstance(inputs.get("steps"), list): steps_source_id = inputs["steps"][0]
@@ -178,10 +193,12 @@ def update_workflow(prompt_workflow, new_values, lora_names=None, lora_strengths
         candidates = ["text", "text_g", "text_l", "prompt", "text_positive", "positive_prompt", "value"]
         
         if node_id in positive_nodes and "prompt" in new_values:
+            print(f"DEBUG: Actualizando Prompt Positivo en Nodo {node_id} con: {new_values['prompt'][:50]}...")
             for k in candidates:
                 if k in inputs: inputs[k] = new_values["prompt"]
 
         if node_id in negative_nodes and "negative_prompt" in new_values:
+            print(f"DEBUG: Actualizando Prompt Negativo en Nodo {node_id} con: {new_values['negative_prompt'][:50]}...")
             for k in candidates:
                 if k in inputs: inputs[k] = new_values["negative_prompt"]
 
@@ -208,6 +225,16 @@ def update_workflow(prompt_workflow, new_values, lora_names=None, lora_strengths
         elif class_type == "DW_IntValue" and details.get("_meta", {}).get("title") == "STEPS" and "steps" in new_values: inputs["value"] = int(new_values["steps"])
         elif class_type == "DW_FloatValue" and details.get("_meta", {}).get("title") == "CFG" and "cfg" in new_values: inputs["value"] = float(new_values["cfg"])
         
+        # --- NUEVO: Soporte para DW_IntValue de WIDTH y HEIGHT ---
+        elif class_type == "DW_IntValue" and details.get("_meta", {}).get("title") == "WIDTH" and "width" in new_values: inputs["value"] = int(new_values["width"])
+        elif class_type == "DW_IntValue" and details.get("_meta", {}).get("title") == "HEIGHT" and "height" in new_values: inputs["value"] = int(new_values["height"])
+        
+        # --- TURBO UPSCALER: Forzar 2.0x si existe el nodo ---
+        elif class_type == "DW_FloatValue" and details.get("_meta", {}).get("title") == "UPSCALER BY":
+            # print(f"DEBUG: Forzando UPSCALER BY en Nodo {node_id} a 2.0")
+            # inputs["value"] = 2.0
+            pass # YA NO FORZAMOS EL UPSCALER, DEJAMOS EL VALOR DEL WORKFLOW
+
         # Manejo específico para DW_KsamplerAdvanced y otros samplers
         if "Sampler" in class_type or "sampler" in class_type.lower():
              if node_id not in [steps_source_id, cfg_source_id, seed_source_id]:
@@ -221,10 +248,10 @@ def update_workflow(prompt_workflow, new_values, lora_names=None, lora_strengths
 
 # --- FUNCIÓN PRINCIPAL DE GENERACIÓN ---
 
-async def generate_image_from_character(character, user_prompt):
+async def generate_image_from_character(character, user_prompt, width=None, height=None):
     """
-    Genera una imagen usando la configuración del personaje y el prompt del usuario.
-    Retorna (image_bytes, prompt_id) o (None, None) si falla.
+    Genera imágenes usando la configuración del personaje y el prompt del usuario.
+    Retorna (lista_de_imagenes_bytes, prompt_id) o ([], None) si falla.
     """
     if not character.character_config:
         raise ValueError("El personaje no tiene configuración.")
@@ -240,15 +267,37 @@ async def generate_image_from_character(character, user_prompt):
     # 2. Preparar Configuración (Aquí se respeta lo que definió el Admin)
     character_config = json.loads(character.character_config)
     
-    full_positive_prompt = f"{user_prompt}, {character.positive_prompt}" if character.positive_prompt else user_prompt
+    # --- ESTRATEGIA SÁNDWICH DE PROMPTS ---
+    # 1. Prefijo (Calidad/Estilo)
+    # 2. Usuario (Contenido, con peso 1.2 - REDUCIDO PARA EVITAR DEFORMIDAD)
+    # 3. Sufijo (Identidad del Personaje)
+    
+    prefix = character.prompt_prefix if character.prompt_prefix else ""
+    suffix = character.positive_prompt if character.positive_prompt else "" # positive_prompt ahora es el sufijo
+    
+    # Construcción limpia con comas
+    parts = []
+    if prefix: parts.append(prefix)
+    parts.append(f"({user_prompt}:1.2)") # BAJADO DE 1.5 A 1.2
+    if suffix: parts.append(suffix)
+    
+    full_positive_prompt = ", ".join(parts)
+        
+    # Negativo: Solo lo que está en la BD
+    full_negative_prompt = character.negative_prompt
     
     final_config = {
         **character_config, 
         'prompt': full_positive_prompt,
-        'negative_prompt': character.negative_prompt
+        'negative_prompt': full_negative_prompt
     }
     
+    # Sobrescribir dimensiones si se proporcionan
+    if width: final_config['width'] = width
+    if height: final_config['height'] = height
+    
     print(f"DEBUG: Prompt Final Positivo: {final_config['prompt']}")
+    print(f"DEBUG: Prompt Final Negativo: {final_config['negative_prompt']}")
     
     # Manejo de Seed
     if final_config.get('seed_behavior', 'random') == 'random':
@@ -260,6 +309,16 @@ async def generate_image_from_character(character, user_prompt):
     # 3. Actualizar Workflow
     updated_workflow = update_workflow(prompt_workflow_base, final_config, lora_names, lora_strengths)
     
+    # --- DEBUGGING EXTREMO: IMPRIMIR JSON FINAL ---
+    print("DEBUG: JSON ENVIADO A COMFYUI:")
+    debug_nodes = {}
+    for nid, details in updated_workflow.items():
+        title = details.get("_meta", {}).get("title", "")
+        if "Positive" in title or "Negative" in title or "WIDTH" in title or "HEIGHT" in title or "UPSCALER" in title:
+            debug_nodes[nid] = details
+    print(json.dumps(debug_nodes, indent=2))
+    # ----------------------------------------------
+    
     # 4. Conectar y Generar
     client_id = str(uuid.uuid4())
     address = await get_active_comfyui_address()
@@ -267,6 +326,8 @@ async def generate_image_from_character(character, user_prompt):
     uri = f"{ws_protocol}://{address}/ws?clientId={client_id}"
 
     print(f"DEBUG: Conectando a WebSocket {uri}")
+
+    images_data = []
 
     async with websockets.connect(uri) as websocket:
         async with httpx.AsyncClient(timeout=300.0) as client:
@@ -291,8 +352,6 @@ async def generate_image_from_character(character, user_prompt):
                     for image in node_output['images']:
                         image_bytes = await get_image(client, image['filename'], image['subfolder'], image['type'], address)
                         if image_bytes:
-                            return image_bytes, prompt_id
+                            images_data.append(image_bytes)
     
-    return None, None
-
-# ULTIMA VERSION - FORZANDO ACTUALIZACION
+    return images_data, prompt_id

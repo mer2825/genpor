@@ -1,4 +1,5 @@
 from django.db import models
+from django.db.models import Q
 from django.contrib.auth.models import User
 import os
 
@@ -19,21 +20,34 @@ def character_image_path(instance, filename):
 
 class Character(models.Model):
     name = models.CharField(max_length=100, unique=True)
+    description = models.TextField(blank=True, null=True, help_text="Descripción interna del personaje, notas sobre su estilo, etc.")
     base_workflow = models.ForeignKey(Workflow, on_delete=models.CASCADE, related_name="characters")
     character_config = models.TextField(blank=True, null=True, help_text="Configuración JSON específica para este personaje.")
     
+    # NUEVO: Prefijo (Calidad y Estilo)
+    prompt_prefix = models.TextField(
+        blank=True, 
+        null=True, 
+        verbose_name="Prompt Prefijo (Calidad)",
+        default="score_9, score_8_up, score_7_up, score_6_up, source_anime, rating_explicit, (masterpiece, best quality)",
+        help_text="PREFIJO: Va ANTES del prompt del usuario. Úsalo para Quality Tags (score_9...) y estilo."
+    )
+    
+    # ANTES positive_prompt, AHORA actúa como SUFIJO
     positive_prompt = models.TextField(
         blank=True, 
         null=True, 
-        default="masterpiece, best quality, ultra-detailed, 8k",
-        help_text="Cosas que SIEMPRE quieres en la imagen (ej: obra maestra, mejor calidad)."
+        verbose_name="Prompt Sufijo (Identidad)", # CAMBIO VISUAL AQUÍ
+        default="1girl, solo, beautiful woman, detailed skin",
+        help_text="SUFIJO: Va DESPUÉS del prompt del usuario. Úsalo para describir al personaje (pelo, ojos, cuerpo)."
     )
     
     negative_prompt = models.TextField(
         blank=True, 
         null=True, 
-        default="ugly, deformed, noisy, blurry, low contrast, text, watermark, extra limbs, extra fingers",
-        help_text="Cosas que NO quieres en la imagen (ej: deformidades, texto, etc)."
+        verbose_name="Prompt Negativo",
+        default="score_6, score_5, score_4, source_cartoon, 3d, illustration, (worst quality, low quality:1.2), deformed, bad anatomy",
+        help_text="NEGATIVO: Cosas que NO quieres en la imagen."
     )
 
     def __str__(self):
@@ -43,15 +57,14 @@ class CharacterImage(models.Model):
     character = models.ForeignKey(Character, related_name='images', on_delete=models.CASCADE)
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='generated_images', null=True, blank=True)
     image = models.ImageField(upload_to=character_image_path)
-    description = models.CharField(max_length=255, blank=True)
+    description = models.TextField(blank=True)
 
     def __str__(self):
         if self.user:
             return f"Imagen de {self.user.username} para {self.character.name}"
-        return f"Imagen para {self.character.name} - {os.path.basename(self.image.name)}"
+        return f"{self.character.name} - {os.path.basename(self.image.name)}"
 
     def delete(self, *args, **kwargs):
-        # Borrar el archivo físico antes de borrar el registro
         if self.image:
             if os.path.isfile(self.image.path):
                 os.remove(self.image.path)
@@ -78,7 +91,27 @@ class ConnectionConfig(models.Model):
 class CompanySettings(models.Model):
     name = models.CharField(max_length=200, verbose_name="Nombre de la Empresa", default="Mi Empresa")
     logo = models.ImageField(upload_to='company_logos/', verbose_name="Logo", blank=True, null=True)
-    description = models.TextField(verbose_name="Descripción", blank=True)
+    
+    # HERO TEXTO
+    app_hero_title = models.CharField(max_length=200, verbose_name="Título Principal (Hero)", default="Generador Anime - Realista", help_text="El título grande que aparece en la página principal.")
+    app_hero_description = models.TextField(verbose_name="Descripción Principal (Hero)", blank=True, default="Transforma tus ideas en arte con nuestro potente motor de IA. Crea personajes únicos en segundos.", help_text="El texto descriptivo debajo del título principal.")
+
+    # HERO CARRUSEL (MODIFICADO: PERSONAJES)
+    HERO_MODES = [
+        ('random', 'Aleatorio (Automático)'),
+        ('manual', 'Manual (Seleccionado)')
+    ]
+    hero_mode = models.CharField(max_length=10, choices=HERO_MODES, default='random', verbose_name="Modo del Carrusel")
+    
+    # CAMBIO: Ahora seleccionamos Personajes, no imágenes
+    hero_characters = models.ManyToManyField(
+        Character, 
+        blank=True, 
+        verbose_name="Personajes del Carrusel",
+        help_text="Selecciona hasta 6 personajes. Se mostrará la primera imagen disponible de cada uno."
+    )
+
+    description = models.TextField(verbose_name="Descripción (Footer)", blank=True)
     
     phone = models.CharField(max_length=50, verbose_name="Teléfono", blank=True)
     email = models.EmailField(verbose_name="Correo Electrónico", blank=True)

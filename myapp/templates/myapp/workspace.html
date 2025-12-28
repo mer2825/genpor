@@ -1,0 +1,883 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mi Entorno - Nayelina AI</title>
+
+    <!-- Estilos -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="{% static 'myapp/css/styles.css' %}">
+
+    <style>
+        /* Estilos específicos para el Workspace (Grid Layout) */
+        body {
+            height: 100vh;
+            overflow: hidden; /* Evitar scroll en el body, solo en paneles */
+        }
+
+        .layout-grid {
+            display: grid;
+            grid-template-columns: 260px 1fr 280px; /* Paneles laterales fijos */
+            grid-template-rows: 70px 1fr; /* Header fijo, contenido flexible */
+            height: 100vh;
+            width: 100%;
+            background-color: var(--bg-color);
+        }
+
+        /* Header específico del Workspace (ocupa todo el ancho) */
+        .workspace-header {
+            grid-column: 1 / -1;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 0 24px;
+            background-color: rgba(15, 23, 42, 0.95);
+            border-bottom: 1px solid var(--border-subtle);
+            z-index: 10;
+        }
+
+        /* Paneles Laterales */
+        .sidebar {
+            background-color: rgba(30, 41, 59, 0.5); /* Semi-transparente */
+            border-right: 1px solid var(--border-subtle);
+            display: flex;
+            flex-direction: column;
+            padding: 20px;
+            overflow-y: auto;
+            transition: transform 0.3s ease;
+        }
+
+        .sidebar-right {
+            border-right: none;
+            border-left: 1px solid var(--border-subtle);
+            background-color: rgba(30, 41, 59, 0.3);
+        }
+
+        .sidebar-title {
+            font-size: 0.85rem;
+            font-weight: 600;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-bottom: 15px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .history-item {
+            padding: 10px 12px;
+            margin-bottom: 4px;
+            border-radius: 8px;
+            cursor: pointer;
+            color: var(--text-main);
+            font-size: 0.9rem;
+            transition: all 0.2s;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .history-item:hover {
+            background-color: rgba(255, 255, 255, 0.05);
+            color: white;
+        }
+        .history-item.active {
+            background-color: rgba(59, 130, 246, 0.15);
+            color: var(--primary-blue);
+            border: 1px solid rgba(59, 130, 246, 0.3);
+        }
+
+        /* Área Principal (Chat) */
+        .main-content {
+            display: flex;
+            flex-direction: column;
+            position: relative;
+            background-color: var(--bg-color);
+            background-image: radial-gradient(circle at 50% 50%, rgba(59, 130, 246, 0.03) 0%, transparent 50%);
+            overflow: hidden; /* Importante para que el scroll sea interno */
+        }
+
+        /* NUEVO: Header Estático del Personaje */
+        .character-header {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            padding: 15px 25px;
+            background-color: rgba(15, 23, 42, 0.8);
+            border-bottom: 1px solid var(--border-subtle);
+            backdrop-filter: blur(5px);
+            flex-shrink: 0; /* Evita que se encoja */
+        }
+
+        .char-avatar {
+            width: 45px;
+            height: 45px;
+            border-radius: 50%;
+            object-fit: cover;
+            border: 2px solid var(--primary-blue);
+            box-shadow: 0 0 10px rgba(59, 130, 246, 0.3);
+        }
+
+        .char-info h2 {
+            margin: 0;
+            font-size: 1.1rem;
+            color: var(--text-main);
+            font-weight: 600;
+        }
+
+        .char-info span {
+            font-size: 0.85rem;
+            color: var(--text-muted); /* Color más suave para la descripción */
+            display: block; /* En bloque para que vaya debajo */
+            margin-top: 2px;
+            max-width: 600px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .chat-area {
+            flex: 1;
+            padding: 20px;
+            overflow-y: auto; /* Scroll vertical activado */
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+            scroll-behavior: smooth;
+        }
+
+        /* Estilizar barra de scroll */
+        .chat-area::-webkit-scrollbar { width: 8px; }
+        .chat-area::-webkit-scrollbar-track { background: rgba(0,0,0,0.1); }
+        .chat-area::-webkit-scrollbar-thumb { background: #334155; border-radius: 4px; }
+        .chat-area::-webkit-scrollbar-thumb:hover { background: #475569; }
+
+        /* Mensajes del Chat */
+        .message {
+            max-width: 80%;
+            padding: 12px 16px;
+            border-radius: 12px;
+            font-size: 0.95rem;
+            line-height: 1.5;
+        }
+        .message.user {
+            align-self: flex-end;
+            background-color: var(--primary-blue);
+            color: white;
+            border-bottom-right-radius: 2px;
+        }
+        .message.ai {
+            align-self: flex-start;
+            background-color: var(--card-bg);
+            border: 1px solid var(--border-subtle);
+            color: var(--text-main);
+            border-bottom-left-radius: 2px;
+            width: 100%; /* Ocupar ancho disponible si es necesario */
+            max-width: 900px;
+        }
+
+        /* --- ESTILOS RESULTADOS DE IMAGEN (NUEVO) --- */
+        .result-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 15px;
+            margin-top: 15px;
+        }
+
+        .result-card {
+            background-color: rgba(0,0,0,0.2);
+            border: 1px solid var(--border-subtle);
+            border-radius: 10px;
+            overflow: hidden;
+            transition: transform 0.2s;
+        }
+        .result-card:hover { border-color: var(--primary-blue); }
+
+        .result-header {
+            padding: 8px 12px;
+            background-color: rgba(255,255,255,0.05);
+            border-bottom: 1px solid var(--border-subtle);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 0.8rem;
+            color: var(--text-muted);
+        }
+
+        .quality-tag {
+            background-color: rgba(16, 185, 129, 0.1);
+            color: var(--success-color);
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            font-size: 0.75rem;
+            border: 1px solid rgba(16, 185, 129, 0.2);
+        }
+
+        .result-card img {
+            width: 100%;
+            height: auto;
+            display: block;
+            cursor: pointer;
+        }
+
+        /* Caja de Input Flotante */
+        .input-container {
+            padding: 20px;
+            background-color: var(--bg-color);
+            border-top: 1px solid var(--border-subtle);
+            z-index: 20;
+        }
+
+        .input-box {
+            background-color: var(--card-bg);
+            border: 1px solid var(--border-subtle);
+            border-radius: 12px;
+            padding: 12px;
+            display: flex;
+            align-items: flex-end;
+            gap: 10px;
+            transition: border-color 0.2s;
+        }
+        .input-box:focus-within {
+            border-color: var(--primary-blue);
+            box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.2);
+        }
+
+        textarea {
+            flex: 1;
+            background: transparent;
+            border: none;
+            color: white;
+            font-family: inherit;
+            font-size: 1rem;
+            resize: none;
+            max-height: 150px;
+            padding: 8px 0;
+        }
+        textarea:focus { outline: none; }
+
+        .send-btn {
+            background-color: var(--primary-blue);
+            color: white;
+            width: 40px;
+            height: 40px;
+            border-radius: 8px;
+            border: none;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.2s;
+        }
+        .send-btn:hover { background-color: #2563eb; transform: scale(1.05); }
+        .send-btn:disabled { background-color: var(--text-muted); cursor: not-allowed; }
+
+        /* Ajustes Sidebar Derecha */
+        .settings-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 12px 0;
+            border-bottom: 1px solid rgba(255,255,255,0.05);
+        }
+        .settings-label { font-size: 0.9rem; color: var(--text-main); }
+
+        /* Inputs de Dimensiones */
+        .dimension-input {
+            background-color: rgba(0,0,0,0.2);
+            border: 1px solid var(--border-subtle);
+            color: white;
+            padding: 6px 10px;
+            border-radius: 6px;
+            width: 70px;
+            text-align: center;
+            font-family: inherit;
+        }
+        .dimension-input:focus { outline: none; border-color: var(--primary-blue); }
+
+        /* Botones de Recursos (Sidebar Derecha) */
+        .resource-btn {
+            width: 100%;
+            padding: 12px;
+            margin-bottom: 15px;
+            border-radius: 10px;
+            border: 1px solid transparent;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-size: 0.9rem;
+            font-weight: 500;
+            transition: all 0.2s;
+            color: white;
+        }
+        .btn-staff {
+            background-color: rgba(59, 130, 246, 0.1);
+            border-color: rgba(59, 130, 246, 0.3);
+            color: #60a5fa;
+        }
+        .btn-staff:hover { background-color: rgba(59, 130, 246, 0.2); }
+
+        .btn-user {
+            background-color: rgba(16, 185, 129, 0.1);
+            border-color: rgba(16, 185, 129, 0.3);
+            color: #34d399;
+        }
+        .btn-user:hover { background-color: rgba(16, 185, 129, 0.2); }
+
+        /* Estilos para Modales en Workspace */
+        .modal-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+            gap: 15px;
+            max-height: 60vh;
+            overflow-y: auto;
+            padding-right: 5px;
+        }
+        .modal-grid img {
+            width: 100%;
+            height: 150px;
+            object-fit: cover;
+            border-radius: 8px;
+            border: 1px solid var(--border-subtle);
+            transition: transform 0.2s;
+            cursor: pointer;
+        }
+        .modal-grid img:hover { transform: scale(1.05); border-color: var(--primary-blue); }
+
+        /* Estilos Modal Personajes */
+        .char-list-container {
+            max-height: 60vh;
+            overflow-y: auto;
+        }
+        .char-list-item {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            padding: 12px;
+            border-bottom: 1px solid var(--border-subtle);
+            cursor: pointer;
+            transition: background 0.2s;
+            text-decoration: none;
+            color: var(--text-main);
+        }
+        .char-list-item:hover { background-color: rgba(255,255,255,0.05); }
+        .char-list-avatar {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            object-fit: cover;
+            border: 1px solid var(--border-subtle);
+        }
+        .search-box {
+            width: 100%;
+            padding: 12px;
+            background-color: #0f172a;
+            border: 1px solid var(--border-subtle);
+            color: white;
+            border-radius: 8px;
+            margin-bottom: 15px;
+            box-sizing: border-box;
+        }
+
+        /* Botones Toggle para Móvil */
+        .mobile-toggle-btn {
+            display: none;
+            background: transparent;
+            border: none;
+            color: var(--text-main);
+            font-size: 1.2rem;
+            cursor: pointer;
+            padding: 8px;
+        }
+
+        /* Overlay para cerrar paneles en móvil */
+        .sidebar-overlay {
+            display: none;
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.5);
+            z-index: 40;
+            backdrop-filter: blur(2px);
+        }
+
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+
+        /* Responsive */
+        @media (max-width: 1024px) {
+            .layout-grid {
+                grid-template-columns: 200px 1fr; /* Ocultar panel derecho en tablets */
+            }
+            .sidebar-right { display: none; }
+        }
+
+        @media (max-width: 768px) {
+            .layout-grid {
+                grid-template-columns: 1fr;
+                grid-template-rows: 60px 1fr;
+            }
+
+            .workspace-header { padding: 0 15px; }
+
+            /* Mostrar botones toggle */
+            .mobile-toggle-btn { display: block; }
+
+            /* Ocultar sidebars por defecto y estilizarlas como cajones */
+            .sidebar {
+                display: block; /* Necesario para que la transición funcione, se oculta con transform */
+                position: fixed;
+                top: 60px; /* Debajo del header */
+                bottom: 60px; /* Encima del nav */
+                width: 280px;
+                z-index: 50;
+                background-color: #1e293b; /* Color sólido */
+                box-shadow: 5px 0 15px rgba(0,0,0,0.5);
+                transition: transform 0.3s ease;
+            }
+
+            /* Sidebar Izquierda (Ajustes) */
+            .sidebar:not(.sidebar-right) {
+                left: 0;
+                transform: translateX(-100%); /* Oculto a la izquierda */
+                border-right: 1px solid var(--border-subtle);
+            }
+            .sidebar:not(.sidebar-right).open { transform: translateX(0); }
+
+            /* Sidebar Derecha (Recursos) */
+            .sidebar-right {
+                display: block; /* Restaurar display */
+                right: 0;
+                left: auto; /* Resetear left */
+                transform: translateX(100%); /* Oculto a la derecha */
+                border-left: 1px solid var(--border-subtle);
+                border-right: none;
+            }
+            .sidebar-right.open { transform: translateX(0); }
+
+            /* Ensure content isn't hidden behind nav */
+            body:not(.no-pad-bottom) {
+                padding-bottom: 70px;
+            }
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Overlay para cerrar paneles -->
+    <div id="sidebar-overlay" class="sidebar-overlay" onclick="closeAllSidebars()"></div>
+
+    <div class="layout-grid">
+        <!-- Header -->
+        <header class="workspace-header">
+            <!-- Botón Izquierdo (Móvil) -->
+            <button class="mobile-toggle-btn" onclick="toggleSidebar('left')">
+                <i class="fas fa-bars"></i>
+            </button>
+
+            <a href="/" class="logo-container">
+                <div class="logo-wrapper">
+                    {% if company.logo %}
+                        <img src="{{ company.logo.url }}" alt="Logo" class="logo">
+                    {% else %}
+                        <div style="width:100%;height:100%;background:var(--primary-blue);"></div>
+                    {% endif %}
+                </div>
+                <h1>Nayelina AI <span style="font-size:0.8em; opacity:0.6; font-weight:400;">| Workspace</span></h1>
+            </a>
+
+            <div class="user-menu">
+                <a href="{% url 'gallery' %}" class="action-btn gallery-btn desktop-nav-btn" style="padding: 6px 12px; font-size: 0.85rem; text-decoration: none;">
+                    <i class="fas fa-images"></i> Galería
+                </a>
+                <a href="{% url 'generate_image' %}" class="action-btn gallery-btn desktop-nav-btn" style="padding: 6px 12px; font-size: 0.85rem; text-decoration: none;">
+                    <i class="fas fa-home"></i> Inicio
+                </a>
+                <div class="user-avatar desktop-nav-btn">{{ user.username|slice:":1"|upper }}</div>
+
+                <!-- Botón Derecho (Móvil) -->
+                <button class="mobile-toggle-btn" onclick="toggleSidebar('right')">
+                    <i class="fas fa-folder"></i>
+                </button>
+            </div>
+        </header>
+
+        <!-- Sidebar Izquierda (Historial y Dimensiones) -->
+        <aside class="sidebar" id="sidebar-left">
+
+            <!-- Botón Personajes (Nuevo) -->
+            <button onclick="document.getElementById('modal-characters').style.display='block'" class="resource-btn" style="background-color: var(--primary-blue); border: none; margin-bottom: 20px; justify-content: center;">
+                <i class="fas fa-users"></i> Seleccionar Personaje
+            </button>
+
+            <!-- Sección Dimensiones -->
+            <div class="sidebar-title"><i class="fas fa-ruler-combined"></i> Dimensiones</div>
+
+            <div class="settings-item">
+                <span class="settings-label">Ancho (Width)</span>
+                <!-- CAMBIO: Usar default_width -->
+                <input type="number" id="width-input" class="dimension-input" value="{{ default_width }}" step="64" min="512" max="2048">
+            </div>
+
+            <div class="settings-item">
+                <span class="settings-label">Alto (Height)</span>
+                <!-- CAMBIO: Usar default_height -->
+                <input type="number" id="height-input" class="dimension-input" value="{{ default_height }}" step="64" min="512" max="2048">
+            </div>
+
+            <div style="margin-top: 20px; border-top: 1px solid var(--border-subtle); padding-top: 20px;">
+                <div class="sidebar-title"><i class="fas fa-history"></i> Historial</div>
+                <div class="history-item active">
+                    <i class="far fa-comment-alt"></i>
+                    <span>Sesión Actual</span>
+                </div>
+            </div>
+        </aside>
+
+        <!-- Contenido Central (Chat) -->
+        <main class="main-content">
+
+            <!-- Header Estático del Personaje -->
+            {% if selected_character %}
+                <div class="character-header">
+                    {% if selected_character.public_images %}
+                        <img src="{{ selected_character.public_images.0.image.url }}" class="char-avatar" alt="{{ selected_character.name }}">
+                    {% else %}
+                        <img src="https://via.placeholder.com/100x100?text={{ selected_character.name }}" class="char-avatar" alt="Placeholder">
+                    {% endif %}
+                    <div class="char-info">
+                        <h2>{{ selected_character.name }}</h2>
+                        <!-- NUEVO: Descripción en el Workspace -->
+                        <span>
+                            {% if selected_character.description %}
+                                {{ selected_character.description|truncatechars:100 }}
+                            {% else %}
+                                <i class="fas fa-circle" style="font-size: 0.6rem; color: var(--success-color);"></i> Generando con este personaje
+                            {% endif %}
+                        </span>
+                    </div>
+                </div>
+            {% endif %}
+
+            <div class="chat-area" id="chat-area">
+
+                {% if selected_character %}
+                    <div class="message ai">
+                        ¡Hola! Estoy listo para crear imágenes de <strong>{{ selected_character.name }}</strong>. Escribe tu prompt abajo.
+                    </div>
+                {% else %}
+                    <!-- Mensaje Bienvenida Genérico -->
+                    <div class="message ai">
+                        Hola <strong>{{ user.username }}</strong>, soy tu asistente creativo. Selecciona un personaje para empezar.
+                    </div>
+                {% endif %}
+
+            </div>
+
+            <div class="input-container">
+                <div class="input-box">
+                    <textarea id="prompt-input" placeholder="Describe tu imagen o escribe un comando..." rows="1"></textarea>
+                    <button id="send-btn" class="send-btn" {% if not selected_character %}disabled{% endif %}><i class="fas fa-paper-plane"></i></button>
+                </div>
+                <div style="margin-top: 8px; font-size: 0.8rem; color: var(--text-muted); text-align: center;">
+                    Presiona Enter para enviar. Shift + Enter para salto de línea.
+                </div>
+            </div>
+        </main>
+
+        <!-- Sidebar Derecha (Recursos) -->
+        <aside class="sidebar sidebar-right" id="sidebar-right">
+            {% if selected_character %}
+                <div class="sidebar-title"><i class="fas fa-folder-open"></i> Recursos</div>
+
+                <button id="btn-show-reference" class="resource-btn btn-staff">
+                    <i class="fas fa-images"></i> Imágenes Previas
+                </button>
+
+                <button id="btn-show-gallery" class="resource-btn btn-user">
+                    <i class="fas fa-photo-video"></i> Galería de {{ selected_character.name }}
+                </button>
+            {% else %}
+                <div style="padding: 20px; text-align: center; color: var(--text-muted); font-size: 0.9rem;">
+                    <i class="fas fa-arrow-left"></i><br><br>
+                    Selecciona un personaje para ver sus recursos.
+                </div>
+            {% endif %}
+        </aside>
+    </div>
+
+    <!-- Modal Lista de Personajes (Nuevo) -->
+    <div id="modal-characters" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>Seleccionar Personaje</h2>
+                <span class="close-btn" onclick="document.getElementById('modal-characters').style.display='none'">&times;</span>
+            </div>
+            <div class="modal-body">
+                <input type="text" id="char-search" class="search-box" placeholder="Buscar personaje..." onkeyup="filterCharacters()">
+
+                <div class="char-list-container" id="char-list">
+                    {% for char in all_characters %}
+                    <a href="?character_id={{ char.id }}" class="char-list-item">
+                        {% if char.public_images %}
+                            <img src="{{ char.public_images.0.image.url }}" class="char-list-avatar">
+                        {% else %}
+                            <div class="char-list-avatar" style="background:#334155;"></div>
+                        {% endif %}
+                        <span>{{ char.name }}</span>
+                    </a>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal Imágenes Previas (Staff) -->
+    <div id="modal-reference" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>Imágenes Previas</h2>
+                <span class="close-btn" onclick="document.getElementById('modal-reference').style.display='none'">&times;</span>
+            </div>
+            <div class="modal-body">
+                <div class="modal-grid">
+                    {% if selected_character and selected_character.public_images %}
+                        {% for img in selected_character.public_images %}
+                            <img src="{{ img.image.url }}" alt="Referencia" onclick="window.open(this.src, '_blank')">
+                        {% endfor %}
+                    {% else %}
+                        <p style="color: var(--text-muted); text-align: center;">No hay imágenes previas disponibles.</p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal Galería Usuario -->
+    <div id="modal-gallery" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>Galería de {{ selected_character.name }}</h2>
+                <span class="close-btn" onclick="document.getElementById('modal-gallery').style.display='none'">&times;</span>
+            </div>
+            <div class="modal-body">
+                <div class="modal-grid" id="user-gallery-grid">
+                    <p style="text-align:center; color: var(--text-muted);">Cargando...</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Bottom Navigation for Mobile -->
+    <nav class="bottom-nav">
+        <a href="{% url 'generate_image' %}" class="bottom-nav-item">
+            <i class="fas fa-home"></i>
+            <span>Inicio</span>
+        </a>
+        <a href="{% url 'workspace' %}" class="bottom-nav-item active">
+            <i class="fas fa-rocket"></i>
+            <span>Workspace</span>
+        </a>
+        <a href="{% url 'gallery' %}" class="bottom-nav-item">
+            <i class="fas fa-images"></i>
+            <span>Galería</span>
+        </a>
+    </nav>
+
+    <script>
+        // Variables de contexto
+        const generateUrl = "{% url 'generate_image' %}";
+        const csrfToken = "{{ csrf_token }}";
+        const characterId = "{{ selected_character.id|default:'' }}";
+
+        // Filtrado de Personajes
+        function filterCharacters() {
+            const input = document.getElementById('char-search');
+            const filter = input.value.toLowerCase();
+            const list = document.getElementById('char-list');
+            const items = list.getElementsByClassName('char-list-item');
+
+            for (let i = 0; i < items.length; i++) {
+                const txtValue = items[i].textContent || items[i].innerText;
+                if (txtValue.toLowerCase().indexOf(filter) > -1) {
+                    items[i].style.display = "";
+                } else {
+                    items[i].style.display = "none";
+                }
+            }
+        }
+
+        // Auto-resize del textarea
+        const textarea = document.getElementById('prompt-input');
+        const sendBtn = document.getElementById('send-btn');
+        const chatArea = document.getElementById('chat-area');
+        const widthInput = document.getElementById('width-input');
+        const heightInput = document.getElementById('height-input');
+
+        textarea.addEventListener('input', function() {
+            this.style.height = 'auto';
+            this.style.height = (this.scrollHeight) + 'px';
+        });
+
+        // Lógica de Modales
+        const modalRef = document.getElementById('modal-reference');
+        const modalGal = document.getElementById('modal-gallery');
+        const modalChars = document.getElementById('modal-characters');
+        const btnRef = document.getElementById('btn-show-reference');
+        const btnGal = document.getElementById('btn-show-gallery');
+
+        if (btnRef) {
+            btnRef.onclick = () => modalRef.style.display = 'block';
+        }
+
+        if (btnGal) {
+            btnGal.onclick = () => {
+                modalGal.style.display = 'block';
+                loadUserGallery();
+            };
+        }
+
+        // Lógica de Sidebars Móviles
+        function toggleSidebar(side) {
+            const sidebar = document.getElementById(`sidebar-${side}`);
+            const overlay = document.getElementById('sidebar-overlay');
+
+            // Cerrar el otro sidebar si está abierto
+            const otherSide = side === 'left' ? 'right' : 'left';
+            document.getElementById(`sidebar-${otherSide}`).classList.remove('open');
+
+            if (sidebar.classList.contains('open')) {
+                sidebar.classList.remove('open');
+                overlay.style.display = 'none';
+            } else {
+                sidebar.classList.add('open');
+                overlay.style.display = 'block';
+            }
+        }
+
+        function closeAllSidebars() {
+            document.getElementById('sidebar-left').classList.remove('open');
+            document.getElementById('sidebar-right').classList.remove('open');
+            document.getElementById('sidebar-overlay').style.display = 'none';
+        }
+
+        window.onclick = (event) => {
+            if (event.target == modalRef) modalRef.style.display = 'none';
+            if (event.target == modalGal) modalGal.style.display = 'none';
+            if (event.target == modalChars) modalChars.style.display = 'none';
+        };
+
+        function loadUserGallery() {
+            const grid = document.getElementById('user-gallery-grid');
+            if (!characterId) return;
+
+            fetch(`${generateUrl}?character_id=${characterId}`, { headers: { 'X-Requested-With': 'XMLHttpRequest' } })
+            .then(res => res.json())
+            .then(data => {
+                grid.innerHTML = '';
+                if (data.status === 'success' && data.images.length > 0) {
+                    data.images.forEach(url => {
+                        const img = document.createElement('img');
+                        img.src = url;
+                        img.onclick = () => window.open(url, '_blank');
+                        grid.appendChild(img);
+                    });
+                } else {
+                    grid.innerHTML = '<p style="text-align:center; color: var(--text-muted);">No has generado imágenes aún.</p>';
+                }
+            });
+        }
+
+        // Enviar Prompt
+        function sendPrompt() {
+            const prompt = textarea.value.trim();
+            if (!prompt || !characterId) return;
+
+            const width = widthInput.value;
+            const height = heightInput.value;
+
+            const userMsg = document.createElement('div');
+            userMsg.className = 'message user';
+            userMsg.textContent = prompt;
+            chatArea.appendChild(userMsg);
+
+            textarea.value = '';
+            textarea.style.height = 'auto';
+            chatArea.scrollTop = chatArea.scrollHeight;
+
+            const loaderMsg = document.createElement('div');
+            loaderMsg.className = 'message ai';
+            loaderMsg.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Generando imagen...';
+            chatArea.appendChild(loaderMsg);
+            chatArea.scrollTop = chatArea.scrollHeight;
+
+            const formData = new FormData();
+            formData.append('character_id', characterId);
+            formData.append('prompt', prompt);
+            formData.append('width', width);
+            formData.append('height', height);
+
+            fetch(generateUrl, {
+                method: 'POST',
+                headers: { 'X-CSRFToken': csrfToken, 'X-Requested-With': 'XMLHttpRequest' },
+                body: new URLSearchParams(formData)
+            })
+            .then(res => res.json())
+            .then(data => {
+                chatArea.removeChild(loaderMsg);
+
+                if (data.status === 'success') {
+                    const resultMsg = document.createElement('div');
+                    resultMsg.className = 'message ai';
+
+                    let imagesHtml = '';
+                    if (data.image_urls) {
+                        imagesHtml += '<div class="result-grid">';
+                        data.image_urls.forEach((url, index) => {
+                            imagesHtml += `
+                                <div class="result-card">
+                                    <div class="result-header">
+                                        <span>Resultado #${index + 1}</span>
+                                        <span class="quality-tag">${width}x${height}</span>
+                                    </div>
+                                    <img src="${url}" onclick="window.open('${url}', '_blank')">
+                                </div>
+                            `;
+                        });
+                        imagesHtml += '</div>';
+                    }
+                    resultMsg.innerHTML = `¡Aquí tienes! ✨<br>${imagesHtml}`;
+                    chatArea.appendChild(resultMsg);
+                } else {
+                    const errorMsg = document.createElement('div');
+                    errorMsg.className = 'message ai';
+                    errorMsg.style.color = '#ef4444';
+                    errorMsg.textContent = `Error: ${data.message}`;
+                    chatArea.appendChild(errorMsg);
+                }
+                chatArea.scrollTop = chatArea.scrollHeight;
+            })
+            .catch(err => {
+                chatArea.removeChild(loaderMsg);
+                const errorMsg = document.createElement('div');
+                errorMsg.className = 'message ai';
+                errorMsg.style.color = '#ef4444';
+                errorMsg.textContent = "Error de conexión.";
+                chatArea.appendChild(errorMsg);
+            });
+        }
+
+        sendBtn.addEventListener('click', sendPrompt);
+
+        textarea.addEventListener('keypress', function(e) {
+            if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                sendPrompt();
+            }
+        });
+    </script>
+
+</body>
+</html>

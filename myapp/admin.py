@@ -2,11 +2,13 @@ from django.contrib import admin
 from django.urls import path
 from django.shortcuts import render, redirect, get_object_or_404
 from django.utils.html import format_html
+from django.utils.safestring import mark_safe
 from django.urls import reverse
 from django.core.files.base import ContentFile
 from django.contrib.auth.admin import UserAdmin
 from django.contrib.auth.models import User
 from django.db.models import Q
+from django.forms import ModelForm, ValidationError
 from .models import Workflow, Character, CharacterImage, ConnectionConfig, CompanySettings
 from .services import generate_image_from_character, get_active_comfyui_address, get_comfyui_object_info, analyze_workflow
 import json
@@ -55,13 +57,82 @@ class AdminUserAdmin(UserAdmin):
 
 # --- FIN PERSONALIZACIÓN DE USUARIOS ---
 
+# Formulario personalizado para validar el límite de personajes
+class CompanySettingsForm(ModelForm):
+    class Meta:
+        model = CompanySettings
+        fields = '__all__'
+
+    def clean_hero_characters(self):
+        chars = self.cleaned_data['hero_characters']
+        if len(chars) > 6:
+            raise ValidationError("No puedes seleccionar más de 6 personajes para el carrusel.")
+        return chars
+
 @admin.register(CompanySettings)
 class CompanySettingsAdmin(admin.ModelAdmin):
-    list_display = ('name', 'email', 'phone')
+    form = CompanySettingsForm
+    list_display = ('name', 'hero_mode', 'email')
+    filter_horizontal = ('hero_characters',) # Mejor interfaz para ManyToMany
+    
+    # Campos de solo lectura (incluida la vista previa)
+    readonly_fields = ('hero_carousel_preview',)
+
+    # Organizar campos en secciones
+    fieldsets = (
+        ('Identidad de la Empresa', {
+            'fields': ('name', 'logo', 'description')
+        }),
+        ('Página Principal (Hero)', {
+            'fields': ('app_hero_title', 'app_hero_description', 'hero_mode', 'hero_characters', 'hero_carousel_preview'),
+            'description': 'Configura el texto y los personajes del carrusel principal. Usa "Guardar y continuar" para actualizar la vista previa.'
+        }),
+        ('Contacto y Redes', {
+            'fields': ('phone', 'email', 'facebook', 'discord')
+        }),
+    )
+
     def has_add_permission(self, request):
         if self.model.objects.exists(): return False
         return super().has_add_permission(request)
     def has_delete_permission(self, request, obj=None): return False
+
+    # --- FUNCIÓN DE VISTA PREVIA ---
+    def hero_carousel_preview(self, obj):
+        if not obj or not obj.pk:
+            return "Guarda la configuración primero para ver la previsualización."
+        
+        # Obtener personajes seleccionados
+        chars = obj.hero_characters.all()
+        if not chars:
+            return "No hay personajes seleccionados."
+
+        html = '<div style="display: flex; gap: 15px; flex-wrap: wrap; margin-top: 10px;">'
+        
+        for char in chars:
+            # Buscar la primera imagen pública (misma lógica que en la vista)
+            img = char.images.filter(Q(user__isnull=True) | Q(user__is_staff=True)).first()
+            
+            if img:
+                html += f'''
+                    <div style="text-align: center; background: #1e293b; padding: 10px; border-radius: 8px; border: 1px solid #334155;">
+                        <img src="{img.image.url}" style="height: 120px; width: 120px; object-fit: cover; border-radius: 5px; margin-bottom: 5px;">
+                        <div style="font-weight: bold; color: #fff; font-size: 12px;">{char.name}</div>
+                    </div>
+                '''
+            else:
+                html += f'''
+                    <div style="text-align: center; background: #1e293b; padding: 10px; border-radius: 8px; border: 1px solid #334155; width: 120px; display: flex; flex-direction: column; justify-content: center;">
+                        <div style="font-size: 24px; color: #64748b;">?</div>
+                        <div style="font-weight: bold; color: #fff; font-size: 12px;">{char.name}</div>
+                        <div style="font-size: 10px; color: #94a3b8;">Sin imagen</div>
+                    </div>
+                '''
+        
+        html += '</div>'
+        return mark_safe(html)
+    
+    hero_carousel_preview.short_description = "Vista Previa (Imágenes Reales)"
 
 @admin.register(ConnectionConfig)
 class ConnectionConfigAdmin(admin.ModelAdmin):
@@ -202,9 +273,13 @@ class CharacterAdmin(admin.ModelAdmin):
     list_display = ('name', 'base_workflow', 'character_actions')
     inlines = [CharacterImageInline]
     
+    # CAMBIO AQUÍ: Añadido 'description' al fieldset principal
     fieldsets = (
-        (None, {'fields': ('name', 'base_workflow')}),
-        ('Prompts por Defecto', {'fields': ('positive_prompt', 'negative_prompt')}),
+        (None, {'fields': ('name', 'description', 'base_workflow')}),
+        ('Prompts por Defecto (Sándwich)', {
+            'fields': ('prompt_prefix', 'positive_prompt', 'negative_prompt'),
+            'description': 'Estructura: [Prefijo] + (Usuario:1.2) + [Sufijo]'
+        }),
         ('Configuración Avanzada', {'classes': ('collapse',), 'fields': ('character_config',)}),
     )
     readonly_fields = ('character_config',)
@@ -314,20 +389,23 @@ class CharacterAdmin(admin.ModelAdmin):
             else:
                 try:
                     # USAMOS EL SERVICIO CENTRALIZADO
-                    image_bytes, prompt_id = async_to_sync(generate_image_from_character)(character, prompt)
+                    images_bytes_list, prompt_id = async_to_sync(generate_image_from_character)(character, prompt)
                     
-                    if image_bytes:
-                        # AHORA GUARDAMOS EL USUARIO (request.user)
-                        new_image = CharacterImage(
-                            character=character, 
-                            description=prompt,
-                            user=request.user # <-- AQUÍ ESTÁ EL CAMBIO IMPORTANTE
-                        )
-                        image_filename = f"generated_{character.name}_{prompt_id}.png"
-                        new_image.image.save(image_filename, ContentFile(image_bytes), save=True)
+                    if images_bytes_list:
+                        count = 0
+                        for i, img_bytes in enumerate(images_bytes_list):
+                            # AHORA GUARDAMOS EL USUARIO (request.user)
+                            new_image = CharacterImage(
+                                character=character, 
+                                description=prompt,
+                                user=request.user # <-- AQUÍ ESTÁ EL CAMBIO IMPORTANTE
+                            )
+                            image_filename = f"generated_{character.name}_{prompt_id}_{i}.png"
+                            new_image.image.save(image_filename, ContentFile(img_bytes), save=True)
+                            count += 1
                         
                         if is_ajax: return JsonResponse({'status': 'success'})
-                        self.message_user(request, "Imagen generada y guardada exitosamente.")
+                        self.message_user(request, f"{count} imágenes generadas y guardadas exitosamente.")
                     else:
                         msg = "La generación no produjo una imagen."
                         if is_ajax: return JsonResponse({'status': 'error', 'message': msg})
