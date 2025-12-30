@@ -422,6 +422,11 @@
 
             .workspace-header { padding: 0 15px; }
 
+            /* Ajuste para evitar que el bottom-nav tape el input */
+            .input-container {
+                padding-bottom: 85px;
+            }
+
             /* Mostrar botones toggle */
             .mobile-toggle-btn { display: block; }
 
@@ -877,6 +882,27 @@
                 sendPrompt();
             }
         });
+
+        // Ocultar Bottom Nav al escribir en móvil para ganar espacio
+        const bottomNav = document.querySelector('.bottom-nav');
+
+        if (bottomNav && textarea) {
+            textarea.addEventListener('focus', () => {
+                if (window.innerWidth <= 768) {
+                    bottomNav.style.display = 'none';
+                    document.querySelector('.input-container').style.paddingBottom = '20px';
+                }
+            });
+
+            textarea.addEventListener('blur', () => {
+                if (window.innerWidth <= 768) {
+                    setTimeout(() => {
+                        bottomNav.style.display = 'flex';
+                        document.querySelector('.input-container').style.paddingBottom = '85px';
+                    }, 200);
+                }
+            });
+        }
     </script>
 
 </body>
