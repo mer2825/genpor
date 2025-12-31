@@ -58,6 +58,10 @@ class CharacterImage(models.Model):
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='generated_images', null=True, blank=True)
     image = models.ImageField(upload_to=character_image_path)
     description = models.TextField(blank=True)
+    
+    # NUEVO: Dimensiones
+    width = models.IntegerField(default=0)
+    height = models.IntegerField(default=0)
 
     def __str__(self):
         if self.user:
@@ -91,6 +95,15 @@ class ConnectionConfig(models.Model):
 class CompanySettings(models.Model):
     name = models.CharField(max_length=200, verbose_name="Nombre de la Empresa", default="Mi Empresa")
     logo = models.ImageField(upload_to='company_logos/', verbose_name="Logo", blank=True, null=True)
+    
+    # BARRA DE OFERTA (NUEVO)
+    offer_bar_text = models.CharField(
+        max_length=255, 
+        verbose_name="Texto Barra de Oferta", 
+        blank=True, 
+        null=True, 
+        help_text="Texto que aparece en la barra superior (ej: '🎉 ¡Oferta Especial!'). Déjalo vacío para ocultar la barra."
+    )
     
     # HERO TEXTO
     app_hero_title = models.CharField(max_length=200, verbose_name="Título Principal (Hero)", default="Generador Anime - Realista", help_text="El título grande que aparece en la página principal.")
@@ -131,3 +144,20 @@ class CompanySettings(models.Model):
 
     def __str__(self):
         return self.name
+
+# --- NUEVO: MODELO DE HISTORIAL DE CHAT ---
+class ChatMessage(models.Model):
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='chat_history')
+    character = models.ForeignKey(Character, on_delete=models.CASCADE, related_name='chat_messages')
+    message = models.TextField(blank=True, null=True) # El texto del prompt o mensaje del sistema
+    is_from_user = models.BooleanField(default=True) # True = Usuario, False = IA
+    generated_images = models.ManyToManyField(CharacterImage, blank=True, related_name='chat_messages')
+    image_count = models.IntegerField(default=0, help_text="Número de imágenes generadas originalmente en este mensaje.")
+    timestamp = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['timestamp'] # Orden cronológico
+
+    def __str__(self):
+        sender = self.user.username if self.is_from_user else f"IA ({self.character.name})"
+        return f"{sender}: {self.message[:30]}..."

@@ -81,7 +81,7 @@ class CompanySettingsAdmin(admin.ModelAdmin):
     # Organizar campos en secciones
     fieldsets = (
         ('Identidad de la Empresa', {
-            'fields': ('name', 'logo', 'description')
+            'fields': ('name', 'logo', 'offer_bar_text', 'description')
         }),
         ('Página Principal (Hero)', {
             'fields': ('app_hero_title', 'app_hero_description', 'hero_mode', 'hero_characters', 'hero_carousel_preview'),
@@ -389,18 +389,20 @@ class CharacterAdmin(admin.ModelAdmin):
             else:
                 try:
                     # USAMOS EL SERVICIO CENTRALIZADO
-                    images_bytes_list, prompt_id = async_to_sync(generate_image_from_character)(character, prompt)
+                    # Ahora devuelve una lista de tuplas (bytes, clasificacion)
+                    images_data_list, prompt_id = async_to_sync(generate_image_from_character)(character, prompt)
                     
-                    if images_bytes_list:
+                    if images_data_list:
                         count = 0
-                        for i, img_bytes in enumerate(images_bytes_list):
+                        for i, (img_bytes, classification) in enumerate(images_data_list):
                             # AHORA GUARDAMOS EL USUARIO (request.user)
                             new_image = CharacterImage(
                                 character=character, 
                                 description=prompt,
                                 user=request.user # <-- AQUÍ ESTÁ EL CAMBIO IMPORTANTE
                             )
-                            image_filename = f"generated_{character.name}_{prompt_id}_{i}.png"
+                            # Agregamos la clasificación al nombre del archivo
+                            image_filename = f"generated_{character.name}_{prompt_id}_{classification}_{i}.png"
                             new_image.image.save(image_filename, ContentFile(img_bytes), save=True)
                             count += 1
                         

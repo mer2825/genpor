@@ -1,6 +1,6 @@
 from django.shortcuts import render, redirect, get_object_or_404
 from django.db import models
-from .models import Workflow, Character, CharacterImage, ConnectionConfig, CompanySettings
+from .models import Workflow, Character, CharacterImage, ConnectionConfig, CompanySettings, ChatMessage
 import json
 import os
 from django.conf import settings
@@ -10,9 +10,11 @@ from django.core.files.base import ContentFile
 from django.contrib.auth.decorators import login_required
 from django.utils import timezone
 from django.urls import reverse
-from django.db.models import Prefetch, Q, Count
+from django.db.models import Prefetch, Q, Count, Max
 from django.contrib.auth.models import User
-from .services import generate_image_from_character, get_active_comfyui_address, get_comfyui_object_info, analyze_workflow, update_workflow, queue_prompt, get_history, get_image, get_protocols
+from .services import generate_image_from_character, get_active_comfyui_address, get_comfyui_object_info, analyze_workflow, update_workflow, queue_prompt, get_history, get_image, get_protocols, analyze_workflow_outputs
+from PIL import Image as PILImage
+import io
 
 # --- VISTA SEGURA PARA SERVIR ARCHIVOS ---
 def serve_private_media(request, path):
@@ -160,6 +162,84 @@ async def delete_images_view(request):
     
     return JsonResponse({'status': 'error', 'message': 'Método no permitido'}, status=405)
 
+# --- VISTA PARA ELIMINAR MENSAJE INDIVIDUAL ---
+async def delete_message_view(request):
+    user = await get_user_from_request(request)
+    if not user.is_authenticated:
+        return JsonResponse({'status': 'error', 'message': 'No autorizado'}, status=401)
+    
+    if request.method == 'POST':
+        try:
+            message_id = request.POST.get('message_id')
+            delete_images = request.POST.get('delete_images') == 'true'
+            
+            @sync_to_async
+            def perform_message_delete(msg_id, user_obj, del_imgs):
+                try:
+                    msg = ChatMessage.objects.get(id=msg_id, user=user_obj)
+                    
+                    if del_imgs:
+                        # Borrar imágenes asociadas
+                        images = msg.generated_images.all()
+                        for img in images:
+                            if img.image:
+                                img.image.delete(save=False) # Borrar archivo
+                            img.delete() # Borrar registro
+                    
+                    msg.delete()
+                    return True
+                except ChatMessage.DoesNotExist:
+                    return False
+
+            success = await perform_message_delete(message_id, user, delete_images)
+            
+            if success:
+                return JsonResponse({'status': 'success'})
+            else:
+                return JsonResponse({'status': 'error', 'message': 'Mensaje no encontrado'})
+                
+        except Exception as e:
+            return JsonResponse({'status': 'error', 'message': str(e)}, status=500)
+            
+    return JsonResponse({'status': 'error', 'message': 'Método no permitido'}, status=405)
+
+# --- VISTA PARA ELIMINAR HISTORIAL COMPLETO ---
+async def clear_chat_history_view(request):
+    user = await get_user_from_request(request)
+    if not user.is_authenticated:
+        return JsonResponse({'status': 'error', 'message': 'No autorizado'}, status=401)
+    
+    if request.method == 'POST':
+        try:
+            character_id = request.POST.get('character_id')
+            delete_images = request.POST.get('delete_images') == 'true'
+            
+            @sync_to_async
+            def perform_clear_chat(char_id, user_obj, del_imgs):
+                # Obtener todos los mensajes de este chat
+                msgs = ChatMessage.objects.filter(user=user_obj, character_id=char_id)
+                
+                if del_imgs:
+                    # Recolectar todas las imágenes de estos mensajes
+                    for msg in msgs:
+                        images = msg.generated_images.all()
+                        for img in images:
+                            if img.image:
+                                img.image.delete(save=False)
+                            img.delete()
+                
+                # Borrar los mensajes
+                count, _ = msgs.delete()
+                return count
+
+            deleted_count = await perform_clear_chat(character_id, user, delete_images)
+            return JsonResponse({'status': 'success', 'deleted_count': deleted_count})
+                
+        except Exception as e:
+            return JsonResponse({'status': 'error', 'message': str(e)}, status=500)
+            
+    return JsonResponse({'status': 'error', 'message': 'Método no permitido'}, status=405)
+
 # --- VISTA DEL WORKSPACE (ACTUALIZADA) ---
 async def workspace_view(request):
     user = await get_user_from_request(request)
@@ -173,25 +253,150 @@ async def workspace_view(request):
     
     # Verificar si hay un personaje seleccionado
     character_id = request.GET.get('character_id')
+    # CAMBIO: Verificar si se solicitó cargar el historial
+    should_load_history = request.GET.get('load_history') == 'true'
+    
     selected_character = None
+    chat_history = [] # Lista para el historial del chat central
+    recent_chats = [] # Lista para la sidebar izquierda
     
     # Valores por defecto si no hay personaje
     default_width = 1024
     default_height = 1024
+    default_seed = -1 # -1 significa aleatorio
     
+    # Capacidades del workflow (para mostrar/ocultar checkboxes)
+    workflow_capabilities = {
+        'can_upscale': False,
+        'can_facedetail': False
+    }
+
+    # --- NUEVO: Obtener lista de chats recientes CON IMÁGENES ---
+    @sync_to_async
+    def get_recent_chats_list():
+        # 1. Obtener IDs de personajes con los que se ha hablado, ordenados por fecha
+        recent_ids = list(ChatMessage.objects.filter(user=user)
+                          .values_list('character_id', flat=True)
+                          .order_by('-timestamp'))
+        
+        # 2. Eliminar duplicados manteniendo el orden
+        seen = set()
+        unique_ids = [x for x in recent_ids if not (x in seen or seen.add(x))]
+        
+        if not unique_ids:
+            return []
+
+        # 3. Obtener los objetos Character completos (con imágenes)
+        # Reutilizamos la lógica de prefetch para tener las imágenes públicas
+        public_images_prefetch = Prefetch(
+            'images',
+            queryset=CharacterImage.objects.filter(Q(user__isnull=True) | Q(user__is_staff=True)),
+            to_attr='public_images'
+        )
+        
+        # Traemos los personajes que están en la lista de IDs
+        chars_qs = Character.objects.filter(id__in=unique_ids).prefetch_related(public_images_prefetch)
+        chars_dict = {c.id: c for c in chars_qs}
+        
+        # 4. Reconstruir la lista en el orden correcto
+        ordered_chars = []
+        for cid in unique_ids:
+            if cid in chars_dict:
+                ordered_chars.append(chars_dict[cid])
+                
+        return ordered_chars
+
+    recent_chats = await get_recent_chats_list()
+
     if character_id:
         try:
             # Buscar en la lista ya cargada para evitar otra consulta
             selected_character = next((c for c in all_characters if str(c.id) == str(character_id)), None)
-            
-            # --- NUEVO: Extraer dimensiones por defecto del JSON del personaje ---
+
+            # --- NUEVO: Extraer dimensiones y semilla por defecto del JSON del personaje ---
             if selected_character and selected_character.character_config:
                 try:
                     config = json.loads(selected_character.character_config)
                     if 'width' in config: default_width = int(config['width'])
                     if 'height' in config: default_height = int(config['height'])
+                    
+                    # Lógica de semilla:
+                    # Si seed_behavior es 'fixed', usamos la semilla guardada.
+                    # Si es 'random', mostramos -1 (o vacío) para indicar aleatorio.
+                    if config.get('seed_behavior') == 'fixed' and 'seed' in config:
+                        default_seed = int(config['seed'])
+                    else:
+                        default_seed = -1
+                        
                 except (json.JSONDecodeError, ValueError):
-                    pass # Si falla, se queda en 1024
+                    pass # Si falla, se queda en defaults
+            
+            # --- NUEVO: Analizar Workflow para determinar capacidades ---
+            if selected_character:
+                @sync_to_async
+                def get_workflow_json():
+                    with open(selected_character.base_workflow.json_file.path, 'r', encoding='utf-8') as f:
+                        return json.load(f)
+                
+                try:
+                    wf_json = await get_workflow_json()
+                    # Si tiene configuración específica, la usamos para sobreescribir (aunque la estructura de nodos es la del base)
+                    # Pero analyze_workflow_outputs necesita la estructura de nodos, así que usamos el base.
+                    workflow_capabilities = analyze_workflow_outputs(wf_json)
+                except Exception as e:
+                    print(f"Error analizando workflow: {e}")
+
+            # --- CAMBIO: Cargar Historial SOLO SI SE SOLICITA ---
+            if selected_character and should_load_history:
+                chat_qs = await sync_to_async(list)(
+                    ChatMessage.objects.filter(
+                        user=user, 
+                        character=selected_character
+                    ).prefetch_related('generated_images').order_by('timestamp')
+                )
+                
+                # Formatear para el template
+                for msg in chat_qs:
+                    item = {
+                        'id': msg.id, # Necesario para borrar
+                        'is_user': msg.is_from_user,
+                        'text': msg.message,
+                        'images': []
+                    }
+                    if not msg.is_from_user:
+                        # Obtener imágenes asociadas
+                        imgs = await sync_to_async(list)(msg.generated_images.all())
+                        
+                        # --- LÓGICA DE PLACEHOLDERS ---
+                        # Si hay menos imágenes de las que debería haber, rellenamos con placeholders
+                        real_images_count = len(imgs)
+                        expected_count = msg.image_count
+                        
+                        # Primero agregamos las imágenes reales
+                        for img in imgs:
+                            img_type = "NORMAL"
+                            if "UpScaler" in img.image.name: img_type = "UPSCALER"
+                            elif "FaceDetailer" in img.image.name: img_type = "FACEDETAILER"
+                            
+                            item['images'].append({
+                                'url': img.image.url,
+                                'type': img_type,
+                                'width': img.width, # Pasamos dimensiones
+                                'height': img.height,
+                                'is_deleted': False
+                            })
+                        
+                        # Luego rellenamos con placeholders si faltan
+                        if expected_count > real_images_count:
+                            missing_count = expected_count - real_images_count
+                            for _ in range(missing_count):
+                                item['images'].append({
+                                    'url': None,
+                                    'type': "ELIMINADA",
+                                    'is_deleted': True
+                                })
+                                
+                    chat_history.append(item)
                     
         except Exception:
             pass
@@ -201,7 +406,11 @@ async def workspace_view(request):
         'selected_character': selected_character,
         'all_characters': all_characters,
         'default_width': default_width, # Pasamos al contexto
-        'default_height': default_height # Pasamos al contexto
+        'default_height': default_height, # Pasamos al contexto
+        'default_seed': default_seed, # Pasamos la semilla al contexto
+        'chat_history': chat_history, # Pasamos el historial del chat
+        'recent_chats': recent_chats, # Pasamos la lista de chats recientes
+        'workflow_capabilities': workflow_capabilities # Pasamos las capacidades
     }
     return await sync_to_async(render)(request, 'myapp/workspace.html', context)
 
@@ -225,6 +434,24 @@ async def generate_image_view(request):
             width = request.POST.get('width')
             height = request.POST.get('height')
             
+            # --- NUEVO: Obtener semilla del cliente ---
+            seed = request.POST.get('seed')
+            
+            # --- NUEVO: Obtener preferencias de salida ---
+            # Convertimos 'true'/'false' string a booleano
+            use_normal = request.POST.get('use_normal') == 'true'
+            use_upscale = request.POST.get('use_upscale') == 'true'
+            use_facedetailer = request.POST.get('use_facedetailer') == 'true'
+            
+            # Construir lista de tipos permitidos
+            allowed_types = []
+            if use_normal: allowed_types.append("Gen_Normal")
+            if use_upscale: allowed_types.append("Gen_UpScaler")
+            if use_facedetailer: allowed_types.append("Gen_FaceDetailer")
+            
+            # Si no seleccionó nada, forzamos al menos Normal para que no falle
+            if not allowed_types: allowed_types.append("Gen_Normal")
+
             last_generation = request.session.get('last_generation_time')
             now = timezone.now().timestamp()
             
@@ -237,29 +464,85 @@ async def generate_image_view(request):
             try:
                 character = await sync_to_async(Character.objects.select_related('base_workflow').get)(id=character_id)
 
-                # USAMOS EL SERVICIO CENTRALIZADO
-                # Ahora devuelve una lista de imágenes
-                images_bytes_list, prompt_id = await generate_image_from_character(character, user_prompt, width, height)
+                # --- 1. GUARDAR MENSAJE DEL USUARIO ---
+                @sync_to_async
+                def save_user_message():
+                    return ChatMessage.objects.create(
+                        user=user,
+                        character=character,
+                        message=user_prompt,
+                        is_from_user=True
+                    )
+                user_msg = await save_user_message()
 
-                if images_bytes_list:
-                    image_urls = []
+                # USAMOS EL SERVICIO CENTRALIZADO
+                # Pasamos allowed_types y seed
+                images_data_list, prompt_id = await generate_image_from_character(
+                    character, user_prompt, width, height, seed=seed, allowed_types=allowed_types
+                )
+
+                if images_data_list:
+                    # CAMBIO: Ahora devolvemos objetos con URL y TIPO
+                    generated_results = []
+                    created_images = [] # Para asociar al mensaje de IA
                     
                     @sync_to_async
-                    def save_generated_image(img_bytes, index):
+                    def save_generated_image(img_bytes, classification, index):
                         new_image = CharacterImage(character=character, user=user, description=user_prompt)
-                        # Agregamos un índice al nombre del archivo para diferenciarlas
-                        filename = f"user_gen_{character.name}_{prompt_id}_{index}.png"
-                        new_image.image.save(filename, ContentFile(img_bytes), save=True)
-                        return new_image.image.name
+                        # Agregamos la clasificación al nombre del archivo
+                        filename = f"user_gen_{character.name}_{prompt_id}_{classification}_{index}.png"
+                        
+                        # Guardar archivo
+                        new_image.image.save(filename, ContentFile(img_bytes), save=False)
+                        
+                        # --- NUEVO: Obtener dimensiones reales ---
+                        try:
+                            with PILImage.open(io.BytesIO(img_bytes)) as pil_img:
+                                new_image.width, new_image.height = pil_img.size
+                        except Exception:
+                            pass # Si falla, se queda en 0
+                            
+                        new_image.save()
+                        return new_image
 
-                    for i, img_bytes in enumerate(images_bytes_list):
-                        image_name = await save_generated_image(img_bytes, i)
-                        image_url = reverse('serve_private_media', kwargs={'path': image_name})
-                        image_urls.append(image_url)
+                    for i, (img_bytes, classification) in enumerate(images_data_list):
+                        img_obj = await save_generated_image(img_bytes, classification, i)
+                        created_images.append(img_obj)
+                        
+                        image_url = reverse('serve_private_media', kwargs={'path': img_obj.image.name})
+                        
+                        # Agregamos el objeto a la lista de resultados
+                        generated_results.append({
+                            'url': image_url,
+                            'type': classification,
+                            'width': img_obj.width,
+                            'height': img_obj.height
+                        })
                     
-                    return JsonResponse({'status': 'success', 'image_urls': image_urls})
+                    # --- 2. GUARDAR MENSAJE DE LA IA (CON IMÁGENES) ---
+                    @sync_to_async
+                    def save_ai_message(imgs):
+                        ai_msg = ChatMessage.objects.create(
+                            user=user,
+                            character=character,
+                            message="Aquí tienes tus imágenes generadas.",
+                            is_from_user=False,
+                            image_count=len(imgs) # Guardamos la cantidad original
+                        )
+                        ai_msg.generated_images.set(imgs)
+                        return ai_msg
+                    
+                    ai_msg = await save_ai_message(created_images)
+                    
+                    # Devolvemos también los IDs de los mensajes para poder borrarlos
+                    return JsonResponse({
+                        'status': 'success', 
+                        'results': generated_results,
+                        'user_msg_id': user_msg.id,
+                        'ai_msg_id': ai_msg.id
+                    })
                 
-                return JsonResponse({'status': 'error', 'message': 'No se generó ninguna imagen.'}, status=500)
+                return JsonResponse({'status': 'error', 'message': 'No se generó ninguna imagen válida según tus filtros.'}, status=500)
 
             except Character.DoesNotExist:
                 return JsonResponse({'status': 'error', 'message': 'Personaje no encontrado.'}, status=404)

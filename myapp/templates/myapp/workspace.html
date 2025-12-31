@@ -3,7 +3,7 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Mi Entorno - Nayelina AI</title>
 
     <!-- Estilos -->
@@ -11,239 +11,352 @@
     <link rel="stylesheet" href="{% static 'myapp/css/styles.css' %}">
 
     <style>
-        /* Estilos específicos para el Workspace (Grid Layout) */
-        body {
-            height: 100vh;
-            overflow: hidden; /* Evitar scroll en el body, solo en paneles */
+        /* --- SCROLLBAR PREMIUM (Visible y Elegante) --- */
+        ::-webkit-scrollbar {
+            width: 10px; /* Ancho vertical */
+            height: 10px; /* Alto horizontal */
+        }
+        ::-webkit-scrollbar-track {
+            background: transparent; /* Fondo invisible */
+        }
+        ::-webkit-scrollbar-thumb {
+            background-color: rgba(255, 255, 255, 0.15); /* Color de la barra */
+            border-radius: 20px; /* Bordes muy redondos */
+            border: 2px solid transparent; /* Espacio para efecto flotante */
+            background-clip: content-box; /* Recorta el fondo al contenido */
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background-color: rgba(255, 255, 255, 0.3); /* Más visible al tocar/hover */
         }
 
+        /* --- LAYOUT PRINCIPAL --- */
+        :root {
+            --header-height: 60px;
+            --nav-height: 65px;
+            --sidebar-width: 280px;
+        }
+
+        html, body {
+            height: 100dvh;
+            width: 100%;
+            max-width: 100%;
+            overflow: hidden; /* Bloquear scroll global del body */
+            background-color: var(--bg-color);
+            display: flex;
+            flex-direction: column;
+            margin: 0;
+            padding: 0;
+        }
+
+        /* Grid Layout para Desktop */
         .layout-grid {
             display: grid;
-            grid-template-columns: 260px 1fr 280px; /* Paneles laterales fijos */
-            grid-template-rows: 70px 1fr; /* Header fijo, contenido flexible */
-            height: 100vh;
+            grid-template-columns: var(--sidebar-width) 1fr var(--sidebar-width);
+            grid-template-rows: var(--header-height) 1fr;
+            height: 100%;
             width: 100%;
-            background-color: var(--bg-color);
+            overflow-x: hidden;
         }
 
-        /* Header específico del Workspace (ocupa todo el ancho) */
+        /* --- HEADER --- */
         .workspace-header {
             grid-column: 1 / -1;
             display: flex;
             justify-content: space-between;
             align-items: center;
-            padding: 0 24px;
+            padding: 0 20px;
             background-color: rgba(15, 23, 42, 0.95);
             border-bottom: 1px solid var(--border-subtle);
-            z-index: 10;
+            z-index: 20;
+            height: var(--header-height);
+            width: 100%;
+            box-sizing: border-box;
         }
 
-        /* Paneles Laterales */
+        .logo-container h1 {
+            font-size: 1.2rem;
+            background: linear-gradient(to right, #fff, #ffcccc);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        /* Botones de Navegación Desktop */
+        .desktop-nav-btn {
+            padding: 8px 16px;
+            border-radius: 8px;
+            font-size: 0.85rem;
+            font-weight: 600;
+            text-decoration: none;
+            color: var(--text-muted);
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            transition: all 0.2s;
+            border: 1px solid transparent;
+        }
+        .desktop-nav-btn:hover {
+            background-color: rgba(255, 255, 255, 0.05);
+            color: white;
+            border-color: var(--border-subtle);
+        }
+
+        /* --- SIDEBARS --- */
         .sidebar {
-            background-color: rgba(30, 41, 59, 0.5); /* Semi-transparente */
+            background-color: rgba(15, 23, 42, 0.6);
             border-right: 1px solid var(--border-subtle);
             display: flex;
             flex-direction: column;
             padding: 20px;
-            overflow-y: auto;
-            transition: transform 0.3s ease;
+            overflow-y: auto; /* Scrollbar aparecerá aquí */
+            backdrop-filter: blur(10px);
         }
 
         .sidebar-right {
             border-right: none;
             border-left: 1px solid var(--border-subtle);
-            background-color: rgba(30, 41, 59, 0.3);
         }
 
         .sidebar-title {
-            font-size: 0.85rem;
-            font-weight: 600;
+            font-size: 0.75rem;
+            font-weight: 700;
             color: var(--text-muted);
             text-transform: uppercase;
-            letter-spacing: 1px;
+            letter-spacing: 1.2px;
             margin-bottom: 15px;
             display: flex;
             align-items: center;
             gap: 8px;
         }
 
-        .history-item {
-            padding: 10px 12px;
-            margin-bottom: 4px;
-            border-radius: 8px;
-            cursor: pointer;
-            color: var(--text-main);
-            font-size: 0.9rem;
-            transition: all 0.2s;
-            display: flex;
-            align-items: center;
-            gap: 10px;
-        }
-        .history-item:hover {
-            background-color: rgba(255, 255, 255, 0.05);
-            color: white;
-        }
-        .history-item.active {
-            background-color: rgba(59, 130, 246, 0.15);
-            color: var(--primary-blue);
-            border: 1px solid rgba(59, 130, 246, 0.3);
-        }
-
-        /* Área Principal (Chat) */
+        /* --- MAIN CONTENT (CHAT) --- */
         .main-content {
             display: flex;
             flex-direction: column;
             position: relative;
             background-color: var(--bg-color);
-            background-image: radial-gradient(circle at 50% 50%, rgba(59, 130, 246, 0.03) 0%, transparent 50%);
-            overflow: hidden; /* Importante para que el scroll sea interno */
+            background-image: radial-gradient(circle at 50% 30%, rgba(59, 130, 246, 0.04) 0%, transparent 60%);
+            overflow: hidden;
+            height: 100%;
+            width: 100%;
         }
 
-        /* NUEVO: Header Estático del Personaje */
+        /* Header del Personaje (Sticky) */
         .character-header {
             display: flex;
             align-items: center;
-            gap: 15px;
-            padding: 15px 25px;
-            background-color: rgba(15, 23, 42, 0.8);
+            gap: 12px;
+            padding: 10px 20px;
+            background-color: rgba(15, 23, 42, 0.85);
             border-bottom: 1px solid var(--border-subtle);
-            backdrop-filter: blur(5px);
-            flex-shrink: 0; /* Evita que se encoja */
+            backdrop-filter: blur(8px);
+            z-index: 10;
+            flex-shrink: 0;
+            transition: all 0.3s ease;
+            width: 100%;
+            box-sizing: border-box;
         }
 
         .char-avatar {
-            width: 45px;
-            height: 45px;
+            width: 40px;
+            height: 40px;
             border-radius: 50%;
             object-fit: cover;
             border: 2px solid var(--primary-blue);
-            box-shadow: 0 0 10px rgba(59, 130, 246, 0.3);
+            flex-shrink: 0;
+        }
+
+        .char-info {
+            min-width: 0;
+            flex: 1;
         }
 
         .char-info h2 {
             margin: 0;
-            font-size: 1.1rem;
+            font-size: 1rem;
             color: var(--text-main);
             font-weight: 600;
-        }
-
-        .char-info span {
-            font-size: 0.85rem;
-            color: var(--text-muted); /* Color más suave para la descripción */
-            display: block; /* En bloque para que vaya debajo */
-            margin-top: 2px;
-            max-width: 600px;
             white-space: nowrap;
             overflow: hidden;
             text-overflow: ellipsis;
         }
 
+        .char-info span {
+            font-size: 0.8rem;
+            color: var(--text-muted);
+            display: block;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        /* Área de Chat */
         .chat-area {
             flex: 1;
             padding: 20px;
-            overflow-y: auto; /* Scroll vertical activado */
+            padding-bottom: 10px;
+            overflow-y: auto; /* Scrollbar aparecerá aquí */
+            overflow-x: hidden;
             display: flex;
             flex-direction: column;
-            gap: 20px;
+            gap: 24px;
             scroll-behavior: smooth;
+            width: 100%;
+            box-sizing: border-box;
         }
 
-        /* Estilizar barra de scroll */
-        .chat-area::-webkit-scrollbar { width: 8px; }
-        .chat-area::-webkit-scrollbar-track { background: rgba(0,0,0,0.1); }
-        .chat-area::-webkit-scrollbar-thumb { background: #334155; border-radius: 4px; }
-        .chat-area::-webkit-scrollbar-thumb:hover { background: #475569; }
-
-        /* Mensajes del Chat */
+        /* Mensajes */
         .message {
-            max-width: 80%;
-            padding: 12px 16px;
-            border-radius: 12px;
+            max-width: 85%;
+            padding: 14px 18px;
+            border-radius: 18px;
             font-size: 0.95rem;
-            line-height: 1.5;
+            line-height: 1.6;
+            position: relative;
+            animation: fadeInUp 0.3s ease-out;
+            word-wrap: break-word;
+            overflow-wrap: break-word;
+            word-break: break-word;
         }
+
+        .message:hover .delete-msg-btn {
+            opacity: 1;
+        }
+
+        @keyframes fadeInUp {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
         .message.user {
             align-self: flex-end;
-            background-color: var(--primary-blue);
+            background: linear-gradient(135deg, var(--primary-blue) 0%, #2563eb 100%);
             color: white;
-            border-bottom-right-radius: 2px;
+            border-bottom-right-radius: 4px;
+            box-shadow: 0 4px 15px rgba(37, 99, 235, 0.2);
         }
+
         .message.ai {
             align-self: flex-start;
-            background-color: var(--card-bg);
+            background-color: rgba(30, 41, 59, 0.5);
             border: 1px solid var(--border-subtle);
             color: var(--text-main);
-            border-bottom-left-radius: 2px;
-            width: 100%; /* Ocupar ancho disponible si es necesario */
-            max-width: 900px;
+            border-bottom-left-radius: 4px;
+            width: 100%;
+            max-width: 800px;
         }
 
-        /* --- ESTILOS RESULTADOS DE IMAGEN (NUEVO) --- */
+        /* Resultados de Imagen */
         .result-grid {
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-            gap: 15px;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 12px;
             margin-top: 15px;
+            width: 100%;
         }
-
         .result-card {
-            background-color: rgba(0,0,0,0.2);
-            border: 1px solid var(--border-subtle);
-            border-radius: 10px;
+            border-radius: 12px;
             overflow: hidden;
-            transition: transform 0.2s;
+            border: 1px solid var(--border-subtle);
+            background: #000;
+            position: relative;
         }
-        .result-card:hover { border-color: var(--primary-blue); }
-
-        .result-header {
-            padding: 8px 12px;
-            background-color: rgba(255,255,255,0.05);
-            border-bottom: 1px solid var(--border-subtle);
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            font-size: 0.8rem;
-            color: var(--text-muted);
-        }
-
-        .quality-tag {
-            background-color: rgba(16, 185, 129, 0.1);
-            color: var(--success-color);
-            padding: 2px 8px;
-            border-radius: 4px;
-            font-weight: 600;
-            font-size: 0.75rem;
-            border: 1px solid rgba(16, 185, 129, 0.2);
-        }
-
         .result-card img {
             width: 100%;
             height: auto;
             display: block;
-            cursor: pointer;
+            transition: transform 0.3s;
+        }
+        .result-card img:hover { transform: scale(1.03); }
+
+        /* ETIQUETAS DE TIPO DE IMAGEN */
+        .result-badge {
+            position: absolute;
+            top: 8px;
+            right: 8px;
+            padding: 4px 8px;
+            border-radius: 6px;
+            font-size: 0.75rem;
+            font-weight: 600;
+            color: white;
+            backdrop-filter: blur(4px);
+            box-shadow: 0 2px 4px rgba(0,0,0,0.3);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            z-index: 5;
         }
 
-        /* Caja de Input Flotante */
+        .badge-normal { background: rgba(59, 130, 246, 0.8); border: 1px solid rgba(255,255,255,0.2); }
+        .badge-upscale { background: rgba(16, 185, 129, 0.8); border: 1px solid rgba(255,255,255,0.2); }
+        .badge-face { background: rgba(244, 63, 94, 0.8); border: 1px solid rgba(255,255,255,0.2); }
+
+        /* ETIQUETA DE RESOLUCIÓN */
+        .resolution-badge {
+            position: absolute;
+            bottom: 8px;
+            right: 8px;
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-size: 0.7rem;
+            font-weight: 500;
+            color: rgba(255, 255, 255, 0.9);
+            background: rgba(0, 0, 0, 0.6);
+            backdrop-filter: blur(2px);
+            z-index: 5;
+            font-family: monospace;
+        }
+
+        /* PLACEHOLDER ELIMINADO (MEJORADO) */
+        .deleted-placeholder {
+            width: 100%;
+            aspect-ratio: 3/4; /* Mantiene la forma vertical típica */
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            background: rgba(30, 41, 59, 0.5);
+            color: #64748b;
+            text-align: center;
+            padding: 15px;
+            box-sizing: border-box;
+            border: 2px dashed #475569; /* Borde más visible */
+            border-radius: 12px;
+        }
+        .deleted-placeholder i {
+            font-size: 2rem;
+            margin-bottom: 10px;
+            color: #ef4444; /* Icono rojo */
+        }
+        .deleted-placeholder span {
+            font-size: 0.85rem;
+            font-weight: 600;
+        }
+
+        /* --- INPUT AREA --- */
         .input-container {
-            padding: 20px;
-            background-color: var(--bg-color);
-            border-top: 1px solid var(--border-subtle);
+            padding: 15px 20px 20px;
+            background: linear-gradient(to top, var(--bg-color) 80%, transparent);
             z-index: 20;
+            position: relative;
+            width: 100%;
+            box-sizing: border-box;
         }
 
         .input-box {
-            background-color: var(--card-bg);
+            background-color: #1e293b;
             border: 1px solid var(--border-subtle);
-            border-radius: 12px;
-            padding: 12px;
+            border-radius: 28px;
+            padding: 8px 8px 8px 20px;
             display: flex;
             align-items: flex-end;
             gap: 10px;
-            transition: border-color 0.2s;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.2);
         }
+
         .input-box:focus-within {
             border-color: var(--primary-blue);
-            box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.2);
+            background-color: #252f42;
+            box-shadow: 0 4px 25px rgba(59, 130, 246, 0.15);
         }
 
         textarea {
@@ -254,134 +367,61 @@
             font-family: inherit;
             font-size: 1rem;
             resize: none;
-            max-height: 150px;
-            padding: 8px 0;
+            max-height: 120px;
+            padding: 10px 0;
+            line-height: 1.4;
         }
         textarea:focus { outline: none; }
 
         .send-btn {
             background-color: var(--primary-blue);
             color: white;
-            width: 40px;
-            height: 40px;
-            border-radius: 8px;
+            width: 42px;
+            height: 42px;
+            border-radius: 50%;
             border: none;
             cursor: pointer;
             display: flex;
             align-items: center;
             justify-content: center;
             transition: all 0.2s;
+            flex-shrink: 0;
         }
-        .send-btn:hover { background-color: #2563eb; transform: scale(1.05); }
-        .send-btn:disabled { background-color: var(--text-muted); cursor: not-allowed; }
+        .send-btn:hover { transform: scale(1.1); background-color: #3b82f6; }
+        .send-btn:disabled { background-color: #334155; color: #64748b; transform: none; }
 
-        /* Ajustes Sidebar Derecha */
-        .settings-item {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            padding: 12px 0;
-            border-bottom: 1px solid rgba(255,255,255,0.05);
-        }
-        .settings-label { font-size: 0.9rem; color: var(--text-main); }
-
-        /* Inputs de Dimensiones */
-        .dimension-input {
-            background-color: rgba(0,0,0,0.2);
-            border: 1px solid var(--border-subtle);
-            color: white;
-            padding: 6px 10px;
-            border-radius: 6px;
-            width: 70px;
-            text-align: center;
-            font-family: inherit;
-        }
-        .dimension-input:focus { outline: none; border-color: var(--primary-blue); }
-
-        /* Botones de Recursos (Sidebar Derecha) */
-        .resource-btn {
+        /* --- BOTTOM NAV (MOBILE) --- */
+        .bottom-nav {
+            display: none;
+            position: fixed;
+            bottom: 0;
+            left: 0;
             width: 100%;
-            padding: 12px;
-            margin-bottom: 15px;
-            border-radius: 10px;
-            border: 1px solid transparent;
-            cursor: pointer;
-            display: flex;
+            height: var(--nav-height);
+            background-color: rgba(10, 10, 10, 0.9);
+            backdrop-filter: blur(12px);
+            border-top: 1px solid var(--border-subtle);
+            z-index: 100;
+            justify-content: space-around;
             align-items: center;
-            gap: 10px;
-            font-size: 0.9rem;
-            font-weight: 500;
-            transition: all 0.2s;
-            color: white;
-        }
-        .btn-staff {
-            background-color: rgba(59, 130, 246, 0.1);
-            border-color: rgba(59, 130, 246, 0.3);
-            color: #60a5fa;
-        }
-        .btn-staff:hover { background-color: rgba(59, 130, 246, 0.2); }
-
-        .btn-user {
-            background-color: rgba(16, 185, 129, 0.1);
-            border-color: rgba(16, 185, 129, 0.3);
-            color: #34d399;
-        }
-        .btn-user:hover { background-color: rgba(16, 185, 129, 0.2); }
-
-        /* Estilos para Modales en Workspace */
-        .modal-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
-            gap: 15px;
-            max-height: 60vh;
-            overflow-y: auto;
-            padding-right: 5px;
-        }
-        .modal-grid img {
-            width: 100%;
-            height: 150px;
-            object-fit: cover;
-            border-radius: 8px;
-            border: 1px solid var(--border-subtle);
-            transition: transform 0.2s;
-            cursor: pointer;
-        }
-        .modal-grid img:hover { transform: scale(1.05); border-color: var(--primary-blue); }
-
-        /* Estilos Modal Personajes */
-        .char-list-container {
-            max-height: 60vh;
-            overflow-y: auto;
-        }
-        .char-list-item {
-            display: flex;
-            align-items: center;
-            gap: 15px;
-            padding: 12px;
-            border-bottom: 1px solid var(--border-subtle);
-            cursor: pointer;
-            transition: background 0.2s;
-            text-decoration: none;
-            color: var(--text-main);
-        }
-        .char-list-item:hover { background-color: rgba(255,255,255,0.05); }
-        .char-list-avatar {
-            width: 40px;
-            height: 40px;
-            border-radius: 50%;
-            object-fit: cover;
-            border: 1px solid var(--border-subtle);
-        }
-        .search-box {
-            width: 100%;
-            padding: 12px;
-            background-color: #0f172a;
-            border: 1px solid var(--border-subtle);
-            color: white;
-            border-radius: 8px;
-            margin-bottom: 15px;
+            padding-bottom: env(safe-area-inset-bottom);
+            transition: transform 0.3s ease;
             box-sizing: border-box;
         }
+
+        .bottom-nav-item {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            color: var(--text-muted);
+            text-decoration: none;
+            font-size: 0.7rem;
+            width: 100%;
+            height: 100%;
+        }
+        .bottom-nav-item i { font-size: 1.3rem; margin-bottom: 4px; }
+        .bottom-nav-item.active { color: var(--primary-blue); }
 
         /* Botones Toggle para Móvil */
         .mobile-toggle-btn {
@@ -394,78 +434,226 @@
             padding: 8px;
         }
 
-        /* Overlay para cerrar paneles en móvil */
-        .sidebar-overlay {
-            display: none;
-            position: fixed;
-            top: 0; left: 0; width: 100%; height: 100%;
-            background: rgba(0,0,0,0.5);
-            z-index: 40;
-            backdrop-filter: blur(2px);
-        }
-
-        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
-
-        /* Responsive */
+        /* --- RESPONSIVE --- */
         @media (max-width: 1024px) {
             .layout-grid {
-                grid-template-columns: 200px 1fr; /* Ocultar panel derecho en tablets */
-            }
-            .sidebar-right { display: none; }
-        }
-
-        @media (max-width: 768px) {
-            .layout-grid {
-                grid-template-columns: 1fr;
-                grid-template-rows: 60px 1fr;
+                /* CAMBIO: Ahora usamos el mismo layout que en móvil para tablets/pantallas medianas */
+                display: flex;
+                flex-direction: column;
+                height: 100dvh;
+                width: 100%;
+                overflow-x: hidden;
             }
 
-            .workspace-header { padding: 0 15px; }
-
-            /* Ajuste para evitar que el bottom-nav tape el input */
-            .input-container {
-                padding-bottom: 85px;
+            .workspace-header {
+                padding: 0 15px;
+                height: 55px;
+                flex-shrink: 0;
             }
 
-            /* Mostrar botones toggle */
-            .mobile-toggle-btn { display: block; }
+            /* Ocultamos elementos desktop */
+            .logo-container h1 { display: none; }
+            .logo-container .logo-wrapper { width: 32px; height: 32px; }
+            .desktop-nav-btn { display: none !important; }
 
-            /* Ocultar sidebars por defecto y estilizarlas como cajones */
+            /* Sidebar Izquierda (Off-canvas) */
             .sidebar {
-                display: block; /* Necesario para que la transición funcione, se oculta con transform */
                 position: fixed;
-                top: 60px; /* Debajo del header */
-                bottom: 60px; /* Encima del nav */
-                width: 280px;
-                z-index: 50;
-                background-color: #1e293b; /* Color sólido */
-                box-shadow: 5px 0 15px rgba(0,0,0,0.5);
-                transition: transform 0.3s ease;
+                top: 0; left: 0; height: 100%; width: 80%;
+                max-width: 300px;
+                z-index: 200;
+                transform: translateX(-100%);
+                transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+                box-shadow: 10px 0 30px rgba(0,0,0,0.5);
+                background-color: #0f172a;
             }
+            .sidebar.open { transform: translateX(0); }
 
-            /* Sidebar Izquierda (Ajustes) */
-            .sidebar:not(.sidebar-right) {
-                left: 0;
-                transform: translateX(-100%); /* Oculto a la izquierda */
-                border-right: 1px solid var(--border-subtle);
-            }
-            .sidebar:not(.sidebar-right).open { transform: translateX(0); }
-
-            /* Sidebar Derecha (Recursos) */
+            /* Sidebar Derecha (Off-canvas) */
             .sidebar-right {
-                display: block; /* Restaurar display */
+                display: flex; /* Aseguramos que sea flex, no none */
+                position: fixed; /* Fijo para superponerse */
+                top: 0;
+                left: auto;
                 right: 0;
-                left: auto; /* Resetear left */
+                height: 100%;
+                width: 80%;
+                max-width: 300px;
+                z-index: 200;
                 transform: translateX(100%); /* Oculto a la derecha */
+                transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+                box-shadow: -10px 0 30px rgba(0,0,0,0.5);
+                background-color: #0f172a;
                 border-left: 1px solid var(--border-subtle);
                 border-right: none;
             }
             .sidebar-right.open { transform: translateX(0); }
 
-            /* Ensure content isn't hidden behind nav */
-            body:not(.no-pad-bottom) {
-                padding-bottom: 70px;
+            .main-content {
+                flex: 1;
+                height: auto;
+                width: 100%;
             }
+
+            /* Ajustes de Chat */
+            .character-header {
+                padding: 8px 15px;
+                background: rgba(15, 23, 42, 0.95);
+            }
+            .char-avatar { width: 32px; height: 32px; }
+            .char-info h2 { font-size: 0.9rem; }
+            .char-info span { font-size: 0.75rem; max-width: 200px; }
+
+            .chat-area {
+                padding: 15px;
+                width: 100%;
+                box-sizing: border-box;
+            }
+            .message { max-width: 90%; font-size: 0.9rem; padding: 12px 15px; }
+
+            /* Input Area */
+            .input-container {
+                padding: 10px 15px 15px;
+                background: var(--bg-color);
+                border-top: 1px solid var(--border-subtle);
+                margin-bottom: var(--nav-height);
+            }
+
+            .input-box {
+                border-radius: 24px;
+                padding: 6px 6px 6px 15px;
+            }
+
+            .send-btn { width: 36px; height: 36px; }
+
+            /* Mostrar controles móviles */
+            .bottom-nav { display: flex; }
+            .mobile-toggle-btn { display: block; }
+        }
+
+        /* Ajuste específico para móviles muy pequeños si es necesario */
+        @media (max-width: 768px) {
+            /* Ya cubierto por la regla anterior, pero mantenemos por si acaso */
+        }
+
+        /* Overlay */
+        .sidebar-overlay {
+            display: none;
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.6);
+            z-index: 150;
+            backdrop-filter: blur(3px);
+            opacity: 0;
+            transition: opacity 0.3s;
+        }
+        .sidebar-overlay.show { display: block; opacity: 1; }
+
+        /* Estilos Generales de UI */
+        .resource-btn {
+            width: 100%; padding: 12px; margin-bottom: 10px; border-radius: 12px;
+            border: 1px solid rgba(255,255,255,0.1); background: rgba(255,255,255,0.03);
+            color: var(--text-muted); cursor: pointer; display: flex; align-items: center; gap: 10px;
+            transition: all 0.2s;
+        }
+        .resource-btn:hover { background: rgba(255,255,255,0.08); color: white; }
+
+        .dimension-input {
+            background: #0f172a; border: 1px solid var(--border-subtle); color: white;
+            padding: 8px; border-radius: 8px; width: 80px; text-align: center;
+        }
+
+        /* Estilo para el input de semilla (más ancho) */
+        .seed-input {
+            background: #0f172a; border: 1px solid var(--border-subtle); color: white;
+            padding: 8px; border-radius: 8px; width: 100%; text-align: center;
+            box-sizing: border-box;
+        }
+
+        /* Checkbox Styles */
+        .checkbox-wrapper {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 10px;
+            color: var(--text-muted);
+            font-size: 0.9rem;
+            cursor: pointer;
+        }
+        .checkbox-wrapper input {
+            accent-color: var(--primary-blue);
+            width: 16px;
+            height: 16px;
+        }
+
+        /* History Item Styles */
+        .history-item {
+            padding: 10px;
+            border-radius: 8px;
+            font-size: 0.9rem;
+            display: flex;
+            gap: 10px;
+            align-items: center;
+            color: var(--text-muted);
+            text-decoration: none;
+            margin-bottom: 5px;
+            transition: background-color 0.2s;
+        }
+        .history-item:hover {
+            background-color: rgba(255,255,255,0.05);
+            color: white;
+        }
+        .history-item.active {
+            background: rgba(59,130,246,0.1);
+            color: var(--primary-blue);
+            font-weight: 600;
+        }
+        .history-item img {
+            width: 24px;
+            height: 24px;
+            border-radius: 50%;
+            object-fit: cover;
+        }
+
+        /* Modales */
+        .modal { display: none; position: fixed; z-index: 300; left: 0; top: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); backdrop-filter: blur(5px); }
+        .modal-content { background: #1e293b; margin: 10% auto; width: 90%; max-width: 500px; border-radius: 20px; border: 1px solid var(--border-subtle); overflow: hidden; }
+        .modal-header { padding: 15px 20px; border-bottom: 1px solid rgba(255,255,255,0.05); display: flex; justify-content: space-between; align-items: center; }
+        .modal-body { padding: 20px; max-height: 60vh; overflow-y: auto; }
+        .modal-footer { padding: 15px 20px; border-top: 1px solid rgba(255,255,255,0.05); display: flex; justify-content: flex-end; gap: 10px; }
+        .modal-btn { padding: 8px 16px; border-radius: 8px; border: none; cursor: pointer; }
+        .modal-btn-danger { background-color: #ef4444; color: white; }
+        .modal-btn-secondary { background-color: #475569; color: white; }
+
+        /* Lista Personajes */
+        .char-list-item { display: flex; align-items: center; gap: 15px; padding: 10px; border-radius: 10px; cursor: pointer; color: white; text-decoration: none; }
+        .char-list-item:hover { background: rgba(255,255,255,0.05); }
+
+        /* Botones de Borrado */
+        .delete-msg-btn {
+            position: absolute;
+            top: 50%;
+            transform: translateY(-50%);
+            background: #ef4444;
+            color: white;
+            border: none;
+            width: 24px;
+            height: 24px;
+            border-radius: 50%;
+            cursor: pointer;
+            opacity: 0;
+            transition: opacity 0.2s;
+            font-size: 0.8rem;
+        }
+        .message.user .delete-msg-btn { left: -35px; }
+        .message.ai .delete-msg-btn { right: -35px; }
+
+        .clear-chat-btn {
+            color: #ef4444;
+            background: transparent;
+            border: none;
+            cursor: pointer;
+            font-size: 1.2rem;
         }
     </style>
 </head>
@@ -477,205 +665,198 @@
     <div class="layout-grid">
         <!-- Header -->
         <header class="workspace-header">
-            <!-- Botón Izquierdo (Móvil) -->
+            <!-- Botón Izquierdo (Configuración / Personajes) -->
             <button class="mobile-toggle-btn" onclick="toggleSidebar('left')">
                 <i class="fas fa-bars"></i>
             </button>
 
-            <a href="/" class="logo-container">
-                <div class="logo-wrapper">
+            <a href="/" class="logo-container" style="display:flex; align-items:center; gap:10px; text-decoration:none;">
+                <div class="logo-wrapper" style="width:36px; height:36px; border-radius:8px; overflow:hidden; background:var(--primary-gradient);">
                     {% if company.logo %}
-                        <img src="{{ company.logo.url }}" alt="Logo" class="logo">
+                        <img src="{{ company.logo.url }}" style="width:100%; height:100%; object-fit:cover;">
                     {% else %}
                         <div style="width:100%;height:100%;background:var(--primary-blue);"></div>
                     {% endif %}
                 </div>
-                <h1>Nayelina AI <span style="font-size:0.8em; opacity:0.6; font-weight:400;">| Workspace</span></h1>
+                <h1>Nayelina AI</h1>
             </a>
 
-            <div class="user-menu">
-                <a href="{% url 'gallery' %}" class="action-btn gallery-btn desktop-nav-btn" style="padding: 6px 12px; font-size: 0.85rem; text-decoration: none;">
+            <div class="user-menu" style="display:flex; gap:15px; align-items:center;">
+                <!-- Botones de Navegación Desktop (Restaurados) -->
+                <a href="{% url 'gallery' %}" class="desktop-nav-btn">
                     <i class="fas fa-images"></i> Galería
                 </a>
-                <a href="{% url 'generate_image' %}" class="action-btn gallery-btn desktop-nav-btn" style="padding: 6px 12px; font-size: 0.85rem; text-decoration: none;">
+                <a href="{% url 'generate_image' %}" class="desktop-nav-btn">
                     <i class="fas fa-home"></i> Inicio
                 </a>
-                <div class="user-avatar desktop-nav-btn">{{ user.username|slice:":1"|upper }}</div>
 
-                <!-- Botón Derecho (Móvil) -->
+                <div class="user-avatar" style="width:32px; height:32px; background:var(--primary-gradient); border-radius:50%; display:flex; align-items:center; justify-content:center; font-weight:bold; color:white;">
+                    {{ user.username|slice:":1"|upper }}
+                </div>
+                <!-- Botón Derecho (Recursos / Carpeta) -->
                 <button class="mobile-toggle-btn" onclick="toggleSidebar('right')">
                     <i class="fas fa-folder"></i>
                 </button>
             </div>
         </header>
 
-        <!-- Sidebar Izquierda (Historial y Dimensiones) -->
+        <!-- Sidebar Izquierda -->
         <aside class="sidebar" id="sidebar-left">
-
-            <!-- Botón Personajes (Nuevo) -->
-            <button onclick="document.getElementById('modal-characters').style.display='block'" class="resource-btn" style="background-color: var(--primary-blue); border: none; margin-bottom: 20px; justify-content: center;">
-                <i class="fas fa-users"></i> Seleccionar Personaje
+            <button onclick="document.getElementById('modal-characters').style.display='block'" class="resource-btn" style="background: var(--primary-gradient); border:none; color:white; justify-content:center; font-weight:600;">
+                <i class="fas fa-plus"></i> Nuevo Chat / Personaje
             </button>
 
-            <!-- Sección Dimensiones -->
-            <div class="sidebar-title"><i class="fas fa-ruler-combined"></i> Dimensiones</div>
-
-            <div class="settings-item">
-                <span class="settings-label">Ancho (Width)</span>
-                <!-- CAMBIO: Usar default_width -->
+            <div class="sidebar-title" style="margin-top:20px;">Dimensiones</div>
+            <div style="display:flex; justify-content:space-between; margin-bottom:15px; align-items:center;">
+                <span style="font-size:0.9rem; color:var(--text-muted);">Ancho</span>
                 <input type="number" id="width-input" class="dimension-input" value="{{ default_width }}" step="64" min="512" max="2048">
             </div>
-
-            <div class="settings-item">
-                <span class="settings-label">Alto (Height)</span>
-                <!-- CAMBIO: Usar default_height -->
+            <div style="display:flex; justify-content:space-between; margin-bottom:15px; align-items:center;">
+                <span style="font-size:0.9rem; color:var(--text-muted);">Alto</span>
                 <input type="number" id="height-input" class="dimension-input" value="{{ default_height }}" step="64" min="512" max="2048">
             </div>
 
-            <div style="margin-top: 20px; border-top: 1px solid var(--border-subtle); padding-top: 20px;">
-                <div class="sidebar-title"><i class="fas fa-history"></i> Historial</div>
-                <div class="history-item active">
-                    <i class="far fa-comment-alt"></i>
-                    <span>Sesión Actual</span>
+            <!-- NUEVO: Input de Semilla -->
+            <div class="sidebar-title" style="margin-top:20px;">Semilla (Seed)</div>
+            <div style="margin-bottom:15px;">
+                <input type="number" id="seed-input" class="seed-input" placeholder="Aleatoria (-1)" value="{% if default_seed != -1 %}{{ default_seed }}{% endif %}" step="4">
+                <div style="font-size:0.7rem; color:var(--text-muted); margin-top:5px; text-align:center;">
+                    Déjalo vacío o -1 para aleatorio.
                 </div>
             </div>
+
+            <!-- NUEVO: Opciones de Salida (CONDICIONALES) -->
+            <div class="sidebar-title" style="margin-top:20px;">Opciones de Salida</div>
+            <label class="checkbox-wrapper">
+                <input type="checkbox" id="check-normal" checked>
+                <span>Generar Normal (Rápida)</span>
+            </label>
+
+            {% if workflow_capabilities.can_upscale %}
+            <label class="checkbox-wrapper">
+                <input type="checkbox" id="check-upscale" checked>
+                <span>Generar Upscale (HD)</span>
+            </label>
+            {% endif %}
+
+            {% if workflow_capabilities.can_facedetail %}
+            <label class="checkbox-wrapper">
+                <input type="checkbox" id="check-facedetailer" checked>
+                <span>Face Detailer (Rostros)</span>
+            </label>
+            {% endif %}
         </aside>
 
-        <!-- Contenido Central (Chat) -->
+        <!-- Contenido Central -->
         <main class="main-content">
-
-            <!-- Header Estático del Personaje -->
             {% if selected_character %}
                 <div class="character-header">
                     {% if selected_character.public_images %}
-                        <img src="{{ selected_character.public_images.0.image.url }}" class="char-avatar" alt="{{ selected_character.name }}">
+                        <img src="{{ selected_character.public_images.0.image.url }}" class="char-avatar">
                     {% else %}
-                        <img src="https://via.placeholder.com/100x100?text={{ selected_character.name }}" class="char-avatar" alt="Placeholder">
+                        <img src="https://via.placeholder.com/100x100" class="char-avatar">
                     {% endif %}
                     <div class="char-info">
                         <h2>{{ selected_character.name }}</h2>
-                        <!-- NUEVO: Descripción en el Workspace -->
-                        <span>
-                            {% if selected_character.description %}
-                                {{ selected_character.description|truncatechars:100 }}
-                            {% else %}
-                                <i class="fas fa-circle" style="font-size: 0.6rem; color: var(--success-color);"></i> Generando con este personaje
-                            {% endif %}
-                        </span>
+                        <span>{{ selected_character.description|default:"Asistente IA" }}</span>
                     </div>
+                    <button class="clear-chat-btn" onclick="openDeleteModal(null, true)">
+                        <i class="fas fa-trash-alt"></i>
+                    </button>
                 </div>
             {% endif %}
 
             <div class="chat-area" id="chat-area">
-
                 {% if selected_character %}
                     <div class="message ai">
-                        ¡Hola! Estoy listo para crear imágenes de <strong>{{ selected_character.name }}</strong>. Escribe tu prompt abajo.
+                        ¡Hola! Soy <strong>{{ selected_character.name }}</strong>. ¿Qué imagen te gustaría crear hoy? 🎨
                     </div>
+
+                    <!-- HISTORIAL DE CHAT CARGADO DESDE EL BACKEND -->
+                    {% for msg in chat_history %}
+                        <div class="message {% if msg.is_user %}user{% else %}ai{% endif %}" data-msg-id="{{ msg.id }}">
+                            <button class="delete-msg-btn" onclick="openDeleteModal('{{ msg.id }}')"><i class="fas fa-trash"></i></button>
+                            {{ msg.text }}
+                            {% if msg.images %}
+                                <div class="result-grid">
+                                    {% for img in msg.images %}
+                                        <div class="result-card">
+                                            {% if img.is_deleted %}
+                                                <div class="deleted-placeholder">
+                                                    <i class="fas fa-trash-alt"></i>
+                                                    <span>Imagen eliminada</span>
+                                                </div>
+                                            {% else %}
+                                                {% if img.type == "UPSCALER" %}
+                                                    <span class="result-badge badge-upscale">UPSCALER</span>
+                                                {% elif img.type == "FACEDETAILER" %}
+                                                    <span class="result-badge badge-face">FACEDETAILER</span>
+                                                {% else %}
+                                                    <span class="result-badge badge-normal">NORMAL</span>
+                                                {% endif %}
+
+                                                {% if img.width and img.height %}
+                                                    <span class="resolution-badge">{{ img.width }}x{{ img.height }}</span>
+                                                {% endif %}
+
+                                                <img src="{{ img.url }}" onclick="window.open('{{ img.url }}')">
+                                            {% endif %}
+                                        </div>
+                                    {% endfor %}
+                                </div>
+                            {% endif %}
+                        </div>
+                    {% endfor %}
+
                 {% else %}
-                    <!-- Mensaje Bienvenida Genérico -->
                     <div class="message ai">
-                        Hola <strong>{{ user.username }}</strong>, soy tu asistente creativo. Selecciona un personaje para empezar.
+                        Bienvenido al Workspace. Selecciona un personaje para comenzar a generar imágenes increíbles.
                     </div>
                 {% endif %}
-
             </div>
 
             <div class="input-container">
                 <div class="input-box">
-                    <textarea id="prompt-input" placeholder="Describe tu imagen o escribe un comando..." rows="1"></textarea>
-                    <button id="send-btn" class="send-btn" {% if not selected_character %}disabled{% endif %}><i class="fas fa-paper-plane"></i></button>
-                </div>
-                <div style="margin-top: 8px; font-size: 0.8rem; color: var(--text-muted); text-align: center;">
-                    Presiona Enter para enviar. Shift + Enter para salto de línea.
+                    <textarea id="prompt-input" placeholder="Describe tu imagen aquí..." rows="1"></textarea>
+                    <button id="send-btn" class="send-btn" {% if not selected_character %}disabled{% endif %}>
+                        <i class="fas fa-arrow-up"></i>
+                    </button>
                 </div>
             </div>
         </main>
 
-        <!-- Sidebar Derecha (Recursos) -->
+        <!-- Sidebar Derecha -->
         <aside class="sidebar sidebar-right" id="sidebar-right">
             {% if selected_character %}
-                <div class="sidebar-title"><i class="fas fa-folder-open"></i> Recursos</div>
-
-                <button id="btn-show-reference" class="resource-btn btn-staff">
-                    <i class="fas fa-images"></i> Imágenes Previas
+                <div class="sidebar-title">Recursos</div>
+                <button id="btn-show-reference" class="resource-btn">
+                    <i class="fas fa-images" style="color:#60a5fa;"></i> Referencias
                 </button>
-
-                <button id="btn-show-gallery" class="resource-btn btn-user">
-                    <i class="fas fa-photo-video"></i> Galería de {{ selected_character.name }}
+                <button id="btn-show-gallery" class="resource-btn">
+                    <i class="fas fa-photo-video" style="color:#34d399;"></i> Galería Generada
                 </button>
             {% else %}
-                <div style="padding: 20px; text-align: center; color: var(--text-muted); font-size: 0.9rem;">
-                    <i class="fas fa-arrow-left"></i><br><br>
-                    Selecciona un personaje para ver sus recursos.
-                </div>
+                <p style="color:var(--text-muted); text-align:center; font-size:0.9rem;">Selecciona un personaje.</p>
             {% endif %}
+
+            <div class="sidebar-title" style="margin-top:20px;">Historial</div>
+            <!-- LISTA DE CHATS RECIENTES -->
+            {% for chat in recent_chats %}
+                <a href="?character_id={{ chat.id }}&load_history=true" class="history-item {% if selected_character.id == chat.id %}active{% endif %}">
+                    {% if chat.public_images %}
+                        <img src="{{ chat.public_images.0.image.url }}">
+                    {% else %}
+                        <div style="width:24px; height:24px; border-radius:50%; background:#334155;"></div>
+                    {% endif %}
+                    <span>{{ chat.name }}</span>
+                </a>
+            {% empty %}
+                <p style="font-size:0.8rem; color:var(--text-muted); text-align:center;">Aún no hay chats.</p>
+            {% endfor %}
         </aside>
     </div>
 
-    <!-- Modal Lista de Personajes (Nuevo) -->
-    <div id="modal-characters" class="modal">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h2>Seleccionar Personaje</h2>
-                <span class="close-btn" onclick="document.getElementById('modal-characters').style.display='none'">&times;</span>
-            </div>
-            <div class="modal-body">
-                <input type="text" id="char-search" class="search-box" placeholder="Buscar personaje..." onkeyup="filterCharacters()">
-
-                <div class="char-list-container" id="char-list">
-                    {% for char in all_characters %}
-                    <a href="?character_id={{ char.id }}" class="char-list-item">
-                        {% if char.public_images %}
-                            <img src="{{ char.public_images.0.image.url }}" class="char-list-avatar">
-                        {% else %}
-                            <div class="char-list-avatar" style="background:#334155;"></div>
-                        {% endif %}
-                        <span>{{ char.name }}</span>
-                    </a>
-                    {% endfor %}
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <!-- Modal Imágenes Previas (Staff) -->
-    <div id="modal-reference" class="modal">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h2>Imágenes Previas</h2>
-                <span class="close-btn" onclick="document.getElementById('modal-reference').style.display='none'">&times;</span>
-            </div>
-            <div class="modal-body">
-                <div class="modal-grid">
-                    {% if selected_character and selected_character.public_images %}
-                        {% for img in selected_character.public_images %}
-                            <img src="{{ img.image.url }}" alt="Referencia" onclick="window.open(this.src, '_blank')">
-                        {% endfor %}
-                    {% else %}
-                        <p style="color: var(--text-muted); text-align: center;">No hay imágenes previas disponibles.</p>
-                    {% endif %}
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <!-- Modal Galería Usuario -->
-    <div id="modal-gallery" class="modal">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h2>Galería de {{ selected_character.name }}</h2>
-                <span class="close-btn" onclick="document.getElementById('modal-gallery').style.display='none'">&times;</span>
-            </div>
-            <div class="modal-body">
-                <div class="modal-grid" id="user-gallery-grid">
-                    <p style="text-align:center; color: var(--text-muted);">Cargando...</p>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <!-- Bottom Navigation for Mobile -->
+    <!-- Bottom Nav (Móvil) -->
     <nav class="bottom-nav">
         <a href="{% url 'generate_image' %}" class="bottom-nav-item">
             <i class="fas fa-home"></i>
@@ -691,118 +872,166 @@
         </a>
     </nav>
 
+    <!-- Modales -->
+    <div id="modal-characters" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 style="margin:0; color:white;">Seleccionar Personaje</h3>
+                <span class="close-btn" onclick="document.getElementById('modal-characters').style.display='none'" style="color:white; cursor:pointer;">&times;</span>
+            </div>
+            <div class="modal-body">
+                <input type="text" id="char-search" placeholder="Buscar..." style="width:100%; padding:10px; background:#0f172a; border:1px solid var(--border-subtle); color:white; border-radius:8px; margin-bottom:15px;" onkeyup="filterCharacters()">
+                <div id="char-list">
+                    {% for char in all_characters %}
+                    <a href="?character_id={{ char.id }}" class="char-list-item">
+                        {% if char.public_images %}
+                            <img src="{{ char.public_images.0.image.url }}" style="width:40px; height:40px; border-radius:50%; object-fit:cover;">
+                        {% else %}
+                            <div style="width:40px; height:40px; border-radius:50%; background:#334155;"></div>
+                        {% endif %}
+                        <span>{{ char.name }}</span>
+                    </a>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="modal-reference" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 style="margin:0; color:white;">Referencias</h3>
+                <span onclick="document.getElementById('modal-reference').style.display='none'" style="cursor:pointer; color:white;">&times;</span>
+            </div>
+            <div class="modal-body">
+                <div class="modal-grid" style="display:grid; grid-template-columns:1fr 1fr; gap:10px;">
+                    {% if selected_character and selected_character.public_images %}
+                        {% for img in selected_character.public_images %}
+                            <img src="{{ img.image.url }}" style="width:100%; border-radius:8px;" onclick="window.open(this.src)">
+                        {% endfor %}
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="modal-gallery" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 style="margin:0; color:white;">Tu Galería</h3>
+                <span onclick="document.getElementById('modal-gallery').style.display='none'" style="cursor:pointer; color:white;">&times;</span>
+            </div>
+            <div class="modal-body">
+                <div id="user-gallery-grid" style="display:grid; grid-template-columns:1fr 1fr; gap:10px;"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL DE CONFIRMACIÓN DE BORRADO -->
+    <div id="modal-delete" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 style="margin:0; color:white;">Confirmar Eliminación</h3>
+            </div>
+            <div class="modal-body">
+                <p id="delete-modal-text" style="color:var(--text-muted);">¿Estás seguro?</p>
+                <label class="checkbox-wrapper">
+                    <input type="checkbox" id="delete-images-checkbox">
+                    <span>Borrar también las imágenes de la galería</span>
+                </label>
+            </div>
+            <div class="modal-footer">
+                <button class="modal-btn modal-btn-secondary" onclick="closeDeleteModal()">Cancelar</button>
+                <button id="confirm-delete-btn" class="modal-btn modal-btn-danger">Eliminar</button>
+            </div>
+        </div>
+    </div>
+
     <script>
-        // Variables de contexto
         const generateUrl = "{% url 'generate_image' %}";
+        const deleteMsgUrl = "{% url 'delete_message' %}";
+        const clearChatUrl = "{% url 'clear_chat' %}";
         const csrfToken = "{{ csrf_token }}";
         const characterId = "{{ selected_character.id|default:'' }}";
 
-        // Filtrado de Personajes
-        function filterCharacters() {
-            const input = document.getElementById('char-search');
-            const filter = input.value.toLowerCase();
-            const list = document.getElementById('char-list');
-            const items = list.getElementsByClassName('char-list-item');
-
-            for (let i = 0; i < items.length; i++) {
-                const txtValue = items[i].textContent || items[i].innerText;
-                if (txtValue.toLowerCase().indexOf(filter) > -1) {
-                    items[i].style.display = "";
-                } else {
-                    items[i].style.display = "none";
-                }
-            }
-        }
-
-        // Auto-resize del textarea
+        // --- UI LOGIC ---
         const textarea = document.getElementById('prompt-input');
-        const sendBtn = document.getElementById('send-btn');
         const chatArea = document.getElementById('chat-area');
-        const widthInput = document.getElementById('width-input');
-        const heightInput = document.getElementById('height-input');
+        const bottomNav = document.querySelector('.bottom-nav');
+        const inputContainer = document.querySelector('.input-container');
 
+        // Auto-resize Textarea
         textarea.addEventListener('input', function() {
             this.style.height = 'auto';
-            this.style.height = (this.scrollHeight) + 'px';
+            this.style.height = Math.min(this.scrollHeight, 120) + 'px';
         });
 
-        // Lógica de Modales
-        const modalRef = document.getElementById('modal-reference');
-        const modalGal = document.getElementById('modal-gallery');
-        const modalChars = document.getElementById('modal-characters');
-        const btnRef = document.getElementById('btn-show-reference');
-        const btnGal = document.getElementById('btn-show-gallery');
+        // Scroll al fondo al cargar
+        window.onload = scrollToBottom;
 
-        if (btnRef) {
-            btnRef.onclick = () => modalRef.style.display = 'block';
+        // Mobile Keyboard Handling (Gemini Style)
+        if (window.innerWidth <= 768) {
+            textarea.addEventListener('focus', () => {
+                // Ocultar nav para dar espacio al teclado
+                bottomNav.style.transform = 'translateY(100%)';
+                inputContainer.style.marginBottom = '0';
+                setTimeout(() => scrollToBottom(), 300); // Esperar al teclado
+            });
+
+            textarea.addEventListener('blur', () => {
+                // Restaurar nav
+                bottomNav.style.transform = 'translateY(0)';
+                inputContainer.style.marginBottom = 'var(--nav-height)';
+            });
         }
 
-        if (btnGal) {
-            btnGal.onclick = () => {
-                modalGal.style.display = 'block';
-                loadUserGallery();
-            };
+        function scrollToBottom() {
+            chatArea.scrollTop = chatArea.scrollHeight;
         }
 
-        // Lógica de Sidebars Móviles
+        // Sidebars
         function toggleSidebar(side) {
-            const sidebar = document.getElementById(`sidebar-${side}`);
+            const el = document.getElementById(`sidebar-${side}`);
             const overlay = document.getElementById('sidebar-overlay');
 
-            // Cerrar el otro sidebar si está abierto
-            const otherSide = side === 'left' ? 'right' : 'left';
-            document.getElementById(`sidebar-${otherSide}`).classList.remove('open');
+            // Cerrar el opuesto
+            const other = side === 'left' ? 'right' : 'left';
+            document.getElementById(`sidebar-${other}`).classList.remove('open');
 
-            if (sidebar.classList.contains('open')) {
-                sidebar.classList.remove('open');
-                overlay.style.display = 'none';
+            if (el.classList.contains('open')) {
+                el.classList.remove('open');
+                overlay.classList.remove('show');
+                setTimeout(() => overlay.style.display = 'none', 300);
             } else {
-                sidebar.classList.add('open');
                 overlay.style.display = 'block';
+                setTimeout(() => overlay.classList.add('show'), 10);
+                el.classList.add('open');
             }
         }
 
         function closeAllSidebars() {
             document.getElementById('sidebar-left').classList.remove('open');
             document.getElementById('sidebar-right').classList.remove('open');
-            document.getElementById('sidebar-overlay').style.display = 'none';
+            const overlay = document.getElementById('sidebar-overlay');
+            overlay.classList.remove('show');
+            setTimeout(() => overlay.style.display = 'none', 300);
         }
 
-        window.onclick = (event) => {
-            if (event.target == modalRef) modalRef.style.display = 'none';
-            if (event.target == modalGal) modalGal.style.display = 'none';
-            if (event.target == modalChars) modalChars.style.display = 'none';
+        // Modales
+        const btnRef = document.getElementById('btn-show-reference');
+        const btnGal = document.getElementById('btn-show-gallery');
+        if(btnRef) btnRef.onclick = () => document.getElementById('modal-reference').style.display = 'block';
+        if(btnGal) btnGal.onclick = () => {
+            document.getElementById('modal-gallery').style.display = 'block';
+            loadUserGallery();
         };
 
-        function loadUserGallery() {
-            const grid = document.getElementById('user-gallery-grid');
-            if (!characterId) return;
-
-            fetch(`${generateUrl}?character_id=${characterId}`, { headers: { 'X-Requested-With': 'XMLHttpRequest' } })
-            .then(res => res.json())
-            .then(data => {
-                grid.innerHTML = '';
-                if (data.status === 'success' && data.images.length > 0) {
-                    data.images.forEach(url => {
-                        const img = document.createElement('img');
-                        img.src = url;
-                        img.onclick = () => window.open(url, '_blank');
-                        grid.appendChild(img);
-                    });
-                } else {
-                    grid.innerHTML = '<p style="text-align:center; color: var(--text-muted);">No has generado imágenes aún.</p>';
-                }
-            });
-        }
-
-        // Enviar Prompt
+        // --- GENERATION LOGIC ---
         function sendPrompt() {
             const prompt = textarea.value.trim();
             if (!prompt || !characterId) return;
 
-            const width = widthInput.value;
-            const height = heightInput.value;
-
+            // Add User Message
             const userMsg = document.createElement('div');
             userMsg.className = 'message user';
             userMsg.textContent = prompt;
@@ -810,19 +1039,39 @@
 
             textarea.value = '';
             textarea.style.height = 'auto';
-            chatArea.scrollTop = chatArea.scrollHeight;
+            scrollToBottom();
 
+            // Add Loader
             const loaderMsg = document.createElement('div');
             loaderMsg.className = 'message ai';
-            loaderMsg.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Generando imagen...';
+            loaderMsg.innerHTML = '<i class="fas fa-circle-notch fa-spin"></i> Creando tu imagen...';
             chatArea.appendChild(loaderMsg);
-            chatArea.scrollTop = chatArea.scrollHeight;
+            scrollToBottom();
+
+            const width = document.getElementById('width-input').value;
+            const height = document.getElementById('height-input').value;
+            const seed = document.getElementById('seed-input').value; // NUEVO: Obtener semilla
+
+            // Obtener estado de los checkboxes (si existen)
+            const checkNormal = document.getElementById('check-normal');
+            const checkUpscale = document.getElementById('check-upscale');
+            const checkFacedetailer = document.getElementById('check-facedetailer');
+
+            const useNormal = checkNormal ? checkNormal.checked : true;
+            const useUpscale = checkUpscale ? checkUpscale.checked : false;
+            const useFaceDetailer = checkFacedetailer ? checkFacedetailer.checked : false;
 
             const formData = new FormData();
             formData.append('character_id', characterId);
             formData.append('prompt', prompt);
             formData.append('width', width);
             formData.append('height', height);
+            formData.append('seed', seed); // NUEVO: Enviar semilla
+
+            // Enviar preferencias
+            formData.append('use_normal', useNormal);
+            formData.append('use_upscale', useUpscale);
+            formData.append('use_facedetailer', useFaceDetailer);
 
             fetch(generateUrl, {
                 method: 'POST',
@@ -832,78 +1081,166 @@
             .then(res => res.json())
             .then(data => {
                 chatArea.removeChild(loaderMsg);
-
                 if (data.status === 'success') {
+                    // Añadimos los IDs a los mensajes para poder borrarlos
+                    userMsg.setAttribute('data-msg-id', data.user_msg_id);
+
                     const resultMsg = document.createElement('div');
                     resultMsg.className = 'message ai';
+                    resultMsg.setAttribute('data-msg-id', data.ai_msg_id);
 
-                    let imagesHtml = '';
-                    if (data.image_urls) {
-                        imagesHtml += '<div class="result-grid">';
-                        data.image_urls.forEach((url, index) => {
-                            imagesHtml += `
-                                <div class="result-card">
-                                    <div class="result-header">
-                                        <span>Resultado #${index + 1}</span>
-                                        <span class="quality-tag">${width}x${height}</span>
-                                    </div>
-                                    <img src="${url}" onclick="window.open('${url}', '_blank')">
-                                </div>
-                            `;
-                        });
-                        imagesHtml += '</div>';
-                    }
-                    resultMsg.innerHTML = `¡Aquí tienes! ✨<br>${imagesHtml}`;
+                    let html = 'Aquí tienes tus imágenes generadas.<br><div class="result-grid">';
+
+                    data.results.forEach(item => {
+                        let badgeText = "NORMAL";
+                        let badgeClass = "badge-normal";
+
+                        if (item.type === "Gen_UpScaler") {
+                            badgeText = "UPSCALER";
+                            badgeClass = "badge-upscale";
+                        } else if (item.type === "Gen_FaceDetailer") {
+                            badgeText = "FACEDETAILER";
+                            badgeClass = "badge-face";
+                        }
+
+                        // Añadir etiqueta de resolución si existe
+                        let resBadge = '';
+                        if (item.width && item.height) {
+                            resBadge = `<span class="resolution-badge">${item.width}x${item.height}</span>`;
+                        }
+
+                        html += `
+                            <div class="result-card">
+                                <span class="result-badge ${badgeClass}">${badgeText}</span>
+                                ${resBadge}
+                                <img src="${item.url}" onclick="window.open('${item.url}')">
+                            </div>
+                        `;
+                    });
+
+                    html += '</div>';
+                    resultMsg.innerHTML = html;
                     chatArea.appendChild(resultMsg);
                 } else {
-                    const errorMsg = document.createElement('div');
-                    errorMsg.className = 'message ai';
-                    errorMsg.style.color = '#ef4444';
-                    errorMsg.textContent = `Error: ${data.message}`;
-                    chatArea.appendChild(errorMsg);
+                    const err = document.createElement('div');
+                    err.className = 'message ai';
+                    err.style.color = '#ef4444';
+                    err.textContent = 'Error: ' + data.message;
+                    chatArea.appendChild(err);
                 }
-                chatArea.scrollTop = chatArea.scrollHeight;
+                scrollToBottom();
             })
-            .catch(err => {
+            .catch(() => {
                 chatArea.removeChild(loaderMsg);
-                const errorMsg = document.createElement('div');
-                errorMsg.className = 'message ai';
-                errorMsg.style.color = '#ef4444';
-                errorMsg.textContent = "Error de conexión.";
-                chatArea.appendChild(errorMsg);
+                const err = document.createElement('div');
+                err.className = 'message ai';
+                err.textContent = 'Error de conexión.';
+                chatArea.appendChild(err);
             });
         }
 
-        sendBtn.addEventListener('click', sendPrompt);
-
-        textarea.addEventListener('keypress', function(e) {
-            if (e.key === 'Enter' && !e.shiftKey) {
-                e.preventDefault();
-                sendPrompt();
-            }
+        document.getElementById('send-btn').addEventListener('click', sendPrompt);
+        textarea.addEventListener('keypress', (e) => {
+            if(e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendPrompt(); }
         });
 
-        // Ocultar Bottom Nav al escribir en móvil para ganar espacio
-        const bottomNav = document.querySelector('.bottom-nav');
+        // --- DELETE LOGIC ---
+        const deleteModal = document.getElementById('modal-delete');
+        const deleteModalText = document.getElementById('delete-modal-text');
+        const confirmDeleteBtn = document.getElementById('confirm-delete-btn');
+        const deleteImagesCheckbox = document.getElementById('delete-images-checkbox');
 
-        if (bottomNav && textarea) {
-            textarea.addEventListener('focus', () => {
-                if (window.innerWidth <= 768) {
-                    bottomNav.style.display = 'none';
-                    document.querySelector('.input-container').style.paddingBottom = '20px';
+        let messageToDelete = null;
+        let isClearingChat = false;
+
+        function openDeleteModal(msgId, clearChat = false) {
+            messageToDelete = msgId;
+            isClearingChat = clearChat;
+
+            if (clearChat) {
+                deleteModalText.textContent = `¿Estás seguro de que quieres borrar TODO el historial de este chat? Esta acción no se puede deshacer.`;
+            } else {
+                deleteModalText.textContent = `¿Estás seguro de que quieres borrar este mensaje?`;
+            }
+
+            deleteModal.style.display = 'block';
+        }
+
+        function closeDeleteModal() {
+            deleteModal.style.display = 'none';
+            messageToDelete = null;
+            isClearingChat = false;
+        }
+
+        confirmDeleteBtn.onclick = function() {
+            const deleteImages = deleteImagesCheckbox.checked;
+
+            if (isClearingChat) {
+                // Borrar historial completo
+                const formData = new FormData();
+                formData.append('character_id', characterId);
+                formData.append('delete_images', deleteImages);
+
+                fetch(clearChatUrl, {
+                    method: 'POST',
+                    headers: { 'X-CSRFToken': csrfToken, 'X-Requested-With': 'XMLHttpRequest' },
+                    body: new URLSearchParams(formData)
+                }).then(res => res.json()).then(data => {
+                    if (data.status === 'success') {
+                        window.location.reload(); // Recargar para ver el chat limpio
+                    }
+                });
+
+            } else if (messageToDelete) {
+                // Borrar mensaje individual
+                const formData = new FormData();
+                formData.append('message_id', messageToDelete);
+                formData.append('delete_images', deleteImages);
+
+                fetch(deleteMsgUrl, {
+                    method: 'POST',
+                    headers: { 'X-CSRFToken': csrfToken, 'X-Requested-With': 'XMLHttpRequest' },
+                    body: new URLSearchParams(formData)
+                }).then(res => res.json()).then(data => {
+                    if (data.status === 'success') {
+                        const msgElement = document.querySelector(`[data-msg-id="${messageToDelete}"]`);
+                        if (msgElement) msgElement.remove();
+                        closeDeleteModal();
+                    }
+                });
+            }
+        };
+
+        function loadUserGallery() {
+            const grid = document.getElementById('user-gallery-grid');
+            grid.innerHTML = '<p style="color:gray;">Cargando...</p>';
+            fetch(`${generateUrl}?character_id=${characterId}`, { headers: { 'X-Requested-With': 'XMLHttpRequest' } })
+            .then(res => res.json())
+            .then(data => {
+                grid.innerHTML = '';
+                if(data.images && data.images.length > 0) {
+                    data.images.forEach(url => {
+                        const img = document.createElement('img');
+                        img.src = url;
+                        img.style.width = '100%';
+                        img.style.borderRadius = '8px';
+                        img.onclick = () => window.open(url);
+                        grid.appendChild(img);
+                    });
+                } else {
+                    grid.innerHTML = '<p style="color:gray;">Sin imágenes.</p>';
                 }
             });
+        }
 
-            textarea.addEventListener('blur', () => {
-                if (window.innerWidth <= 768) {
-                    setTimeout(() => {
-                        bottomNav.style.display = 'flex';
-                        document.querySelector('.input-container').style.paddingBottom = '85px';
-                    }, 200);
-                }
+        function filterCharacters() {
+            const val = document.getElementById('char-search').value.toLowerCase();
+            const items = document.getElementsByClassName('char-list-item');
+            Array.from(items).forEach(item => {
+                const txt = item.textContent.toLowerCase();
+                item.style.display = txt.includes(val) ? 'flex' : 'none';
             });
         }
     </script>
-
 </body>
 </html>
