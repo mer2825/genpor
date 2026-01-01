@@ -1,7 +1,7 @@
 {% load static %}
 {% load socialaccount %}
 <!DOCTYPE html>
-<html lang="es">
+<html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -48,12 +48,12 @@
             {% if user.is_authenticated %}
                 <!-- Botón GALERÍA (Nuevo) -->
                 <a href="{% url 'gallery' %}" class="action-btn gallery-btn desktop-nav-btn" style="padding: 8px 16px; font-size: 0.85rem; text-decoration: none;">
-                    <i class="fas fa-images"></i> Galería
+                    <i class="fas fa-images"></i> Gallery
                 </a>
 
                 <!-- Botón MI ENTORNO -->
                 <a href="{% url 'workspace' %}" class="action-btn desktop-nav-btn" style="padding: 8px 16px; font-size: 0.85rem; text-decoration: none; background: linear-gradient(135deg, #3b82f6, #2563eb); box-shadow: 0 4px 10px rgba(59, 130, 246, 0.3);">
-                    <i class="fas fa-rocket"></i> MI ENTORNO
+                    <i class="fas fa-rocket"></i> MY WORKSPACE
                 </a>
 
                 <div class="token-badge"><i class="fas fa-coins"></i> 120 Tokens</div>
@@ -62,12 +62,12 @@
                     <div class="user-avatar">{{ user.username|slice:":1"|upper }}</div>
                 </div>
                 <div class="auth-links">
-                    <a href="{% url 'account_logout' %}" title="Salir"><i class="fas fa-sign-out-alt"></i></a>
+                    <a href="{% url 'account_logout' %}" title="Logout"><i class="fas fa-sign-out-alt"></i></a>
                 </div>
             {% else %}
                 <div class="auth-links">
-                    <a href="{% url 'account_login' %}">Entrar</a>
-                    <a href="{% url 'account_signup' %}">Registrarse</a>
+                    <a href="{% url 'account_login' %}">Login</a>
+                    <a href="{% url 'account_signup' %}">Sign Up</a>
                 </div>
             {% endif %}
         </div>
@@ -84,9 +84,9 @@
     <section class="hero-section">
         <div class="hero-text">
             <!-- Título y Descripción Dinámicos desde Admin -->
-            <h1>{% if company.app_hero_title %}{{ company.app_hero_title }}{% else %}Generador Anime - Realista{% endif %}</h1>
-            <p>{% if company.app_hero_description %}{{ company.app_hero_description }}{% else %}Transforma tus ideas en arte con nuestro potente motor de IA. Crea personajes únicos en segundos.{% endif %}</p>
-            <button onclick="document.querySelector('.personajes-section').scrollIntoView({behavior: 'smooth'})" class="cta-button">Empezar a Crear</button>
+            <h1>{% if company.app_hero_title %}{{ company.app_hero_title }}{% else %}Anime - Realistic Generator{% endif %}</h1>
+            <p>{% if company.app_hero_description %}{{ company.app_hero_description }}{% else %}Transform your ideas into art with our powerful AI engine. Create unique characters in seconds.{% endif %}</p>
+            <button onclick="document.querySelector('.personajes-section').scrollIntoView({behavior: 'smooth'})" class="cta-button">Start Creating</button>
         </div>
 
         <!-- Carrusel Automático Hero (Doble Imagen) -->
@@ -109,10 +109,10 @@
                 <!-- Fallback si no hay imágenes configuradas -->
                 <div class="hero-slide active">
                     <div class="hero-image-half">
-                        <img src="https://images.unsplash.com/photo-1635805737707-575885ab0820?q=80&w=1000&auto=format&fit=crop" alt="Arte IA">
+                        <img src="https://images.unsplash.com/photo-1635805737707-575885ab0820?q=80&w=1000&auto=format&fit=crop" alt="AI Art">
                     </div>
                     <div class="hero-image-half">
-                        <img src="https://images.unsplash.com/photo-1578632767115-351597cf2477?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80" alt="Arte IA">
+                        <img src="https://images.unsplash.com/photo-1578632767115-351597cf2477?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80" alt="AI Art">
                     </div>
                 </div>
             {% endfor %}
@@ -123,8 +123,8 @@
     <section class="personajes-section">
         <!-- Botones de Filtro (Reemplazan al título "Tus Personajes") -->
         <div class="filter-buttons-container">
-            <button class="filter-btn active">TODO</button>
-            <button class="filter-btn">Realista</button>
+            <button class="filter-btn active">ALL</button>
+            <button class="filter-btn">Realistic</button>
             <button class="filter-btn">Anime</button>
         </div>
 
@@ -151,7 +151,7 @@
                             {% endfor %}
                         </div>
                     {% else %}
-                        <img src="https://via.placeholder.com/300x300.png?text=Sin+Imágenes" class="carousel-image active" alt="Sin imágenes">
+                        <img src="https://via.placeholder.com/300x300.png?text=No+Images" class="carousel-image active" alt="No images">
                     {% endif %}
                 </div>
             </a>
@@ -163,16 +163,16 @@
     <footer>
         <div class="footer-content">
             <div class="footer-section">
-                <h3>Sobre Nosotros</h3>
-                <p>{% if company.description %}{{ company.description }}{% else %}Plataforma líder en generación de arte con IA.{% endif %}</p>
+                <h3>About Us</h3>
+                <p>{% if company.description %}{{ company.description }}{% else %}Leading platform in AI art generation.{% endif %}</p>
             </div>
             <div class="footer-section">
-                <h3>Contacto</h3>
+                <h3>Contact</h3>
                 {% if company.phone %}<p><i class="fas fa-phone"></i> {{ company.phone }}</p>{% endif %}
                 {% if company.email %}<p><i class="fas fa-envelope"></i> {{ company.email }}</p>{% endif %}
             </div>
             <div class="footer-section">
-                <h3>Síguenos</h3>
+                <h3>Follow Us</h3>
                 <div class="social-links">
                     {% if company.facebook %}
                         <a href="{{ company.facebook }}" target="_blank" title="Facebook"><i class="fab fa-facebook-f"></i></a>
@@ -184,7 +184,7 @@
             </div>
         </div>
         <div class="copyright">
-            &copy; {% now "Y" %} {% if company.name %}{{ company.name }}{% else %}Nayelina AI{% endif %}. Todos los derechos reservados.
+            &copy; {% now "Y" %} {% if company.name %}{{ company.name }}{% else %}Nayelina AI{% endif %}. All rights reserved.
         </div>
     </footer>
 
@@ -192,7 +192,7 @@
     <nav class="bottom-nav">
         <a href="{% url 'generate_image' %}" class="bottom-nav-item active">
             <i class="fas fa-home"></i>
-            <span>Inicio</span>
+            <span>Home</span>
         </a>
         <a href="{% url 'workspace' %}" class="bottom-nav-item">
             <i class="fas fa-rocket"></i>
@@ -200,7 +200,7 @@
         </a>
         <a href="{% url 'gallery' %}" class="bottom-nav-item">
             <i class="fas fa-images"></i>
-            <span>Galería</span>
+            <span>Gallery</span>
         </a>
     </nav>
 

@@ -99,7 +99,7 @@ class CompanySettings(models.Model):
     # BARRA DE OFERTA (NUEVO)
     offer_bar_text = models.CharField(
         max_length=255, 
-        verbose_name="Texto Barra de Oferta", 
+        verbose_name="Texto Barra de Oferta",
         blank=True, 
         null=True, 
         help_text="Texto que aparece en la barra superior (ej: '🎉 ¡Oferta Especial!'). Déjalo vacío para ocultar la barra."

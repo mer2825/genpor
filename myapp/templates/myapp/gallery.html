@@ -1,10 +1,10 @@
 {% load static %}
 <!DOCTYPE html>
-<html lang="es">
+<html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Mi Galería - Nayelina AI</title>
+    <title>My Gallery - Nayelina AI</title>
 
     <!-- Estilos -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
@@ -266,7 +266,7 @@
 
         <div class="user-menu">
             <a href="{% url 'generate_image' %}" class="action-btn gallery-btn desktop-nav-btn" style="padding: 6px 12px; font-size: 0.85rem;">
-                <i class="fas fa-home"></i> Inicio
+                <i class="fas fa-home"></i> Home
             </a>
             <a href="{% url 'workspace' %}" class="action-btn gallery-btn desktop-nav-btn" style="padding: 6px 12px; font-size: 0.85rem;">
                 <i class="fas fa-rocket"></i> Workspace
@@ -281,8 +281,8 @@
         <div id="folders-view">
             <div class="gallery-header">
                 <div>
-                    <h1>Mis Creaciones</h1>
-                    <p>Explora todas las imágenes que has generado, organizadas por personaje.</p>
+                    <h1>My Creations</h1>
+                    <p>Explore all the images you have generated, organized by character.</p>
                 </div>
             </div>
 
@@ -300,11 +300,11 @@
                     </div>
                     <div class="folder-info">
                         <h3>{{ item.character.name }}</h3>
-                        <span>{{ item.count }} imágenes</span>
+                        <span>{{ item.count }} images</span>
                     </div>
                 </div>
                 {% empty %}
-                <p style="color: var(--text-muted);">Aún no has generado ninguna imagen.</p>
+                <p style="color: var(--text-muted);">You haven't generated any images yet.</p>
                 {% endfor %}
             </div>
         </div>
@@ -312,19 +312,19 @@
         <!-- Vista Detalle: Imágenes del Personaje -->
         <div id="images-view" style="display: none;">
             <button class="back-btn" onclick="showFolders()">
-                <i class="fas fa-arrow-left"></i> Volver a Carpetas
+                <i class="fas fa-arrow-left"></i> Back to Folders
             </button>
 
             <div class="gallery-header">
-                <h1 id="detail-title">Personaje</h1>
+                <h1 id="detail-title">Character</h1>
 
                 <!-- Barra de Herramientas -->
                 <div class="toolbar" id="gallery-toolbar">
                     <button class="tool-btn" onclick="toggleSelectAll()">
-                        <i class="far fa-check-square"></i> Seleccionar Todo
+                        <i class="far fa-check-square"></i> Select All
                     </button>
                     <button class="tool-btn btn-delete" onclick="askDeleteConfirmation()">
-                        <i class="fas fa-trash-alt"></i> Eliminar (<span id="selected-count">0</span>)
+                        <i class="fas fa-trash-alt"></i> Delete (<span id="selected-count">0</span>)
                     </button>
                 </div>
             </div>
@@ -343,12 +343,12 @@
                 <div class="confirm-icon">
                     <i class="fas fa-exclamation-triangle"></i>
                 </div>
-                <h2 style="color: var(--text-main); margin-bottom: 10px;">¿Estás seguro?</h2>
-                <p style="color: var(--text-muted);">Vas a eliminar permanentemente <strong id="confirm-count-text">0</strong> imágenes. Esta acción no se puede deshacer.</p>
+                <h2 style="color: var(--text-main); margin-bottom: 10px;">Are you sure?</h2>
+                <p style="color: var(--text-muted);">You are about to permanently delete <strong id="confirm-count-text">0</strong> images. This action cannot be undone.</p>
 
                 <div class="confirm-actions">
-                    <button class="btn-cancel" onclick="closeConfirm()">Cancelar</button>
-                    <button class="btn-confirm-delete" onclick="executeDelete()">Sí, eliminar</button>
+                    <button class="btn-cancel" onclick="closeConfirm()">Cancel</button>
+                    <button class="btn-confirm-delete" onclick="executeDelete()">Yes, delete</button>
                 </div>
             </div>
         </div>
@@ -358,7 +358,7 @@
     <nav class="bottom-nav">
         <a href="{% url 'generate_image' %}" class="bottom-nav-item">
             <i class="fas fa-home"></i>
-            <span>Inicio</span>
+            <span>Home</span>
         </a>
         <a href="{% url 'workspace' %}" class="bottom-nav-item">
             <i class="fas fa-rocket"></i>
@@ -366,7 +366,7 @@
         </a>
         <a href="{% url 'gallery' %}" class="bottom-nav-item active">
             <i class="fas fa-images"></i>
-            <span>Galería</span>
+            <span>Gallery</span>
         </a>
     </nav>
 
@@ -508,13 +508,13 @@
                     renderGrid();
 
                     if (charData.images.length === 0) {
-                        document.getElementById('detail-grid').innerHTML = '<p style="color:var(--text-muted);">Carpeta vacía.</p>';
+                        document.getElementById('detail-grid').innerHTML = '<p style="color:var(--text-muted);">Empty folder.</p>';
                     }
                 } else {
-                    alert('Error al eliminar: ' + data.message);
+                    alert('Error deleting: ' + data.message);
                 }
             })
-            .catch(err => alert('Error de conexión'));
+            .catch(err => alert('Connection error'));
         }
 
         // Cerrar modal si se hace clic fuera

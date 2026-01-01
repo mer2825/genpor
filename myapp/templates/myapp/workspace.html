@@ -1,10 +1,10 @@
 {% load static %}
 <!DOCTYPE html>
-<html lang="es">
+<html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Mi Entorno - Nayelina AI</title>
+    <title>My Workspace - Nayelina AI</title>
 
     <!-- Estilos -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
@@ -684,10 +684,10 @@
             <div class="user-menu" style="display:flex; gap:15px; align-items:center;">
                 <!-- Botones de Navegación Desktop (Restaurados) -->
                 <a href="{% url 'gallery' %}" class="desktop-nav-btn">
-                    <i class="fas fa-images"></i> Galería
+                    <i class="fas fa-images"></i> Gallery
                 </a>
                 <a href="{% url 'generate_image' %}" class="desktop-nav-btn">
-                    <i class="fas fa-home"></i> Inicio
+                    <i class="fas fa-home"></i> Home
                 </a>
 
                 <div class="user-avatar" style="width:32px; height:32px; background:var(--primary-gradient); border-radius:50%; display:flex; align-items:center; justify-content:center; font-weight:bold; color:white;">
@@ -703,46 +703,46 @@
         <!-- Sidebar Izquierda -->
         <aside class="sidebar" id="sidebar-left">
             <button onclick="document.getElementById('modal-characters').style.display='block'" class="resource-btn" style="background: var(--primary-gradient); border:none; color:white; justify-content:center; font-weight:600;">
-                <i class="fas fa-plus"></i> Nuevo Chat / Personaje
+                <i class="fas fa-plus"></i> New Chat / Character
             </button>
 
-            <div class="sidebar-title" style="margin-top:20px;">Dimensiones</div>
+            <div class="sidebar-title" style="margin-top:20px;">Dimensions</div>
             <div style="display:flex; justify-content:space-between; margin-bottom:15px; align-items:center;">
-                <span style="font-size:0.9rem; color:var(--text-muted);">Ancho</span>
+                <span style="font-size:0.9rem; color:var(--text-muted);">Width</span>
                 <input type="number" id="width-input" class="dimension-input" value="{{ default_width }}" step="64" min="512" max="2048">
             </div>
             <div style="display:flex; justify-content:space-between; margin-bottom:15px; align-items:center;">
-                <span style="font-size:0.9rem; color:var(--text-muted);">Alto</span>
+                <span style="font-size:0.9rem; color:var(--text-muted);">Height</span>
                 <input type="number" id="height-input" class="dimension-input" value="{{ default_height }}" step="64" min="512" max="2048">
             </div>
 
             <!-- NUEVO: Input de Semilla -->
-            <div class="sidebar-title" style="margin-top:20px;">Semilla (Seed)</div>
+            <div class="sidebar-title" style="margin-top:20px;">Seed</div>
             <div style="margin-bottom:15px;">
-                <input type="number" id="seed-input" class="seed-input" placeholder="Aleatoria (-1)" value="{% if default_seed != -1 %}{{ default_seed }}{% endif %}" step="4">
+                <input type="number" id="seed-input" class="seed-input" placeholder="Random (-1)" value="{% if default_seed != -1 %}{{ default_seed }}{% endif %}" step="4">
                 <div style="font-size:0.7rem; color:var(--text-muted); margin-top:5px; text-align:center;">
-                    Déjalo vacío o -1 para aleatorio.
+                    Leave empty or -1 for random.
                 </div>
             </div>
 
             <!-- NUEVO: Opciones de Salida (CONDICIONALES) -->
-            <div class="sidebar-title" style="margin-top:20px;">Opciones de Salida</div>
+            <div class="sidebar-title" style="margin-top:20px;">Output Options</div>
             <label class="checkbox-wrapper">
                 <input type="checkbox" id="check-normal" checked>
-                <span>Generar Normal (Rápida)</span>
+                <span>Generate Normal (Fast)</span>
             </label>
 
             {% if workflow_capabilities.can_upscale %}
             <label class="checkbox-wrapper">
                 <input type="checkbox" id="check-upscale" checked>
-                <span>Generar Upscale (HD)</span>
+                <span>Generate Upscale (HD)</span>
             </label>
             {% endif %}
 
             {% if workflow_capabilities.can_facedetail %}
             <label class="checkbox-wrapper">
                 <input type="checkbox" id="check-facedetailer" checked>
-                <span>Face Detailer (Rostros)</span>
+                <span>Face Detailer (Faces)</span>
             </label>
             {% endif %}
         </aside>
@@ -758,7 +758,7 @@
                     {% endif %}
                     <div class="char-info">
                         <h2>{{ selected_character.name }}</h2>
-                        <span>{{ selected_character.description|default:"Asistente IA" }}</span>
+                        <span>{{ selected_character.description|default:"AI Assistant" }}</span>
                     </div>
                     <button class="clear-chat-btn" onclick="openDeleteModal(null, true)">
                         <i class="fas fa-trash-alt"></i>
@@ -769,7 +769,7 @@
             <div class="chat-area" id="chat-area">
                 {% if selected_character %}
                     <div class="message ai">
-                        ¡Hola! Soy <strong>{{ selected_character.name }}</strong>. ¿Qué imagen te gustaría crear hoy? 🎨
+                        Hello! I am <strong>{{ selected_character.name }}</strong>. What image would you like to create today? 🎨
                     </div>
 
                     <!-- HISTORIAL DE CHAT CARGADO DESDE EL BACKEND -->
@@ -784,7 +784,7 @@
                                             {% if img.is_deleted %}
                                                 <div class="deleted-placeholder">
                                                     <i class="fas fa-trash-alt"></i>
-                                                    <span>Imagen eliminada</span>
+                                                    <span>Image deleted</span>
                                                 </div>
                                             {% else %}
                                                 {% if img.type == "UPSCALER" %}
@@ -810,14 +810,14 @@
 
                 {% else %}
                     <div class="message ai">
-                        Bienvenido al Workspace. Selecciona un personaje para comenzar a generar imágenes increíbles.
+                        Welcome to the Workspace. Select a character to start generating amazing images.
                     </div>
                 {% endif %}
             </div>
 
             <div class="input-container">
                 <div class="input-box">
-                    <textarea id="prompt-input" placeholder="Describe tu imagen aquí..." rows="1"></textarea>
+                    <textarea id="prompt-input" placeholder="Describe your image here..." rows="1"></textarea>
                     <button id="send-btn" class="send-btn" {% if not selected_character %}disabled{% endif %}>
                         <i class="fas fa-arrow-up"></i>
                     </button>
@@ -828,18 +828,18 @@
         <!-- Sidebar Derecha -->
         <aside class="sidebar sidebar-right" id="sidebar-right">
             {% if selected_character %}
-                <div class="sidebar-title">Recursos</div>
+                <div class="sidebar-title">Resources</div>
                 <button id="btn-show-reference" class="resource-btn">
-                    <i class="fas fa-images" style="color:#60a5fa;"></i> Referencias
+                    <i class="fas fa-images" style="color:#60a5fa;"></i> References
                 </button>
                 <button id="btn-show-gallery" class="resource-btn">
-                    <i class="fas fa-photo-video" style="color:#34d399;"></i> Galería Generada
+                    <i class="fas fa-photo-video" style="color:#34d399;"></i> Generated Gallery
                 </button>
             {% else %}
-                <p style="color:var(--text-muted); text-align:center; font-size:0.9rem;">Selecciona un personaje.</p>
+                <p style="color:var(--text-muted); text-align:center; font-size:0.9rem;">Select a character.</p>
             {% endif %}
 
-            <div class="sidebar-title" style="margin-top:20px;">Historial</div>
+            <div class="sidebar-title" style="margin-top:20px;">History</div>
             <!-- LISTA DE CHATS RECIENTES -->
             {% for chat in recent_chats %}
                 <a href="?character_id={{ chat.id }}&load_history=true" class="history-item {% if selected_character.id == chat.id %}active{% endif %}">
@@ -851,7 +851,7 @@
                     <span>{{ chat.name }}</span>
                 </a>
             {% empty %}
-                <p style="font-size:0.8rem; color:var(--text-muted); text-align:center;">Aún no hay chats.</p>
+                <p style="font-size:0.8rem; color:var(--text-muted); text-align:center;">No chats yet.</p>
             {% endfor %}
         </aside>
     </div>
@@ -860,7 +860,7 @@
     <nav class="bottom-nav">
         <a href="{% url 'generate_image' %}" class="bottom-nav-item">
             <i class="fas fa-home"></i>
-            <span>Inicio</span>
+            <span>Home</span>
         </a>
         <a href="{% url 'workspace' %}" class="bottom-nav-item active">
             <i class="fas fa-rocket"></i>
@@ -868,7 +868,7 @@
         </a>
         <a href="{% url 'gallery' %}" class="bottom-nav-item">
             <i class="fas fa-images"></i>
-            <span>Galería</span>
+            <span>Gallery</span>
         </a>
     </nav>
 
@@ -876,11 +876,11 @@
     <div id="modal-characters" class="modal">
         <div class="modal-content">
             <div class="modal-header">
-                <h3 style="margin:0; color:white;">Seleccionar Personaje</h3>
+                <h3 style="margin:0; color:white;">Select Character</h3>
                 <span class="close-btn" onclick="document.getElementById('modal-characters').style.display='none'" style="color:white; cursor:pointer;">&times;</span>
             </div>
             <div class="modal-body">
-                <input type="text" id="char-search" placeholder="Buscar..." style="width:100%; padding:10px; background:#0f172a; border:1px solid var(--border-subtle); color:white; border-radius:8px; margin-bottom:15px;" onkeyup="filterCharacters()">
+                <input type="text" id="char-search" placeholder="Search..." style="width:100%; padding:10px; background:#0f172a; border:1px solid var(--border-subtle); color:white; border-radius:8px; margin-bottom:15px;" onkeyup="filterCharacters()">
                 <div id="char-list">
                     {% for char in all_characters %}
                     <a href="?character_id={{ char.id }}" class="char-list-item">
@@ -900,7 +900,7 @@
     <div id="modal-reference" class="modal">
         <div class="modal-content">
             <div class="modal-header">
-                <h3 style="margin:0; color:white;">Referencias</h3>
+                <h3 style="margin:0; color:white;">References</h3>
                 <span onclick="document.getElementById('modal-reference').style.display='none'" style="cursor:pointer; color:white;">&times;</span>
             </div>
             <div class="modal-body">
@@ -918,7 +918,7 @@
     <div id="modal-gallery" class="modal">
         <div class="modal-content">
             <div class="modal-header">
-                <h3 style="margin:0; color:white;">Tu Galería</h3>
+                <h3 style="margin:0; color:white;">Your Gallery</h3>
                 <span onclick="document.getElementById('modal-gallery').style.display='none'" style="cursor:pointer; color:white;">&times;</span>
             </div>
             <div class="modal-body">
@@ -931,18 +931,18 @@
     <div id="modal-delete" class="modal">
         <div class="modal-content">
             <div class="modal-header">
-                <h3 style="margin:0; color:white;">Confirmar Eliminación</h3>
+                <h3 style="margin:0; color:white;">Confirm Deletion</h3>
             </div>
             <div class="modal-body">
-                <p id="delete-modal-text" style="color:var(--text-muted);">¿Estás seguro?</p>
+                <p id="delete-modal-text" style="color:var(--text-muted);">Are you sure?</p>
                 <label class="checkbox-wrapper">
                     <input type="checkbox" id="delete-images-checkbox">
-                    <span>Borrar también las imágenes de la galería</span>
+                    <span>Also delete images from gallery</span>
                 </label>
             </div>
             <div class="modal-footer">
-                <button class="modal-btn modal-btn-secondary" onclick="closeDeleteModal()">Cancelar</button>
-                <button id="confirm-delete-btn" class="modal-btn modal-btn-danger">Eliminar</button>
+                <button class="modal-btn modal-btn-secondary" onclick="closeDeleteModal()">Cancel</button>
+                <button id="confirm-delete-btn" class="modal-btn modal-btn-danger">Delete</button>
             </div>
         </div>
     </div>
@@ -1044,7 +1044,7 @@
             // Add Loader
             const loaderMsg = document.createElement('div');
             loaderMsg.className = 'message ai';
-            loaderMsg.innerHTML = '<i class="fas fa-circle-notch fa-spin"></i> Creando tu imagen...';
+            loaderMsg.innerHTML = '<i class="fas fa-circle-notch fa-spin"></i> Creating your image...';
             chatArea.appendChild(loaderMsg);
             scrollToBottom();
 
@@ -1089,7 +1089,7 @@
                     resultMsg.className = 'message ai';
                     resultMsg.setAttribute('data-msg-id', data.ai_msg_id);
 
-                    let html = 'Aquí tienes tus imágenes generadas.<br><div class="result-grid">';
+                    let html = 'Here are your generated images.<br><div class="result-grid">';
 
                     data.results.forEach(item => {
                         let badgeText = "NORMAL";
@@ -1134,7 +1134,7 @@
                 chatArea.removeChild(loaderMsg);
                 const err = document.createElement('div');
                 err.className = 'message ai';
-                err.textContent = 'Error de conexión.';
+                err.textContent = 'Connection error.';
                 chatArea.appendChild(err);
             });
         }
@@ -1158,9 +1158,9 @@
             isClearingChat = clearChat;
 
             if (clearChat) {
-                deleteModalText.textContent = `¿Estás seguro de que quieres borrar TODO el historial de este chat? Esta acción no se puede deshacer.`;
+                deleteModalText.textContent = `Are you sure you want to delete the ENTIRE history of this chat? This action cannot be undone.`;
             } else {
-                deleteModalText.textContent = `¿Estás seguro de que quieres borrar este mensaje?`;
+                deleteModalText.textContent = `Are you sure you want to delete this message?`;
             }
 
             deleteModal.style.display = 'block';
@@ -1213,7 +1213,7 @@
 
         function loadUserGallery() {
             const grid = document.getElementById('user-gallery-grid');
-            grid.innerHTML = '<p style="color:gray;">Cargando...</p>';
+            grid.innerHTML = '<p style="color:gray;">Loading...</p>';
             fetch(`${generateUrl}?character_id=${characterId}`, { headers: { 'X-Requested-With': 'XMLHttpRequest' } })
             .then(res => res.json())
             .then(data => {
@@ -1228,7 +1228,7 @@
                         grid.appendChild(img);
                     });
                 } else {
-                    grid.innerHTML = '<p style="color:gray;">Sin imágenes.</p>';
+                    grid.innerHTML = '<p style="color:gray;">No images.</p>';
                 }
             });
         }
