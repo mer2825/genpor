@@ -751,8 +751,9 @@
         <main class="main-content">
             {% if selected_character %}
                 <div class="character-header">
-                    {% if selected_character.public_images %}
-                        <img src="{{ selected_character.public_images.0.image.url }}" class="char-avatar">
+                    <!-- CAMBIO: Usamos catalog_images en lugar de public_images -->
+                    {% if selected_character.catalog_images.all %}
+                        <img src="{{ selected_character.catalog_images.all.0.image.url }}" class="char-avatar">
                     {% else %}
                         <img src="https://via.placeholder.com/100x100" class="char-avatar">
                     {% endif %}
@@ -843,8 +844,9 @@
             <!-- LISTA DE CHATS RECIENTES -->
             {% for chat in recent_chats %}
                 <a href="?character_id={{ chat.id }}&load_history=true" class="history-item {% if selected_character.id == chat.id %}active{% endif %}">
-                    {% if chat.public_images %}
-                        <img src="{{ chat.public_images.0.image.url }}">
+                    <!-- CAMBIO: Usamos catalog_images -->
+                    {% if chat.catalog_images.all %}
+                        <img src="{{ chat.catalog_images.all.0.image.url }}">
                     {% else %}
                         <div style="width:24px; height:24px; border-radius:50%; background:#334155;"></div>
                     {% endif %}
@@ -884,8 +886,9 @@
                 <div id="char-list">
                     {% for char in all_characters %}
                     <a href="?character_id={{ char.id }}" class="char-list-item">
-                        {% if char.public_images %}
-                            <img src="{{ char.public_images.0.image.url }}" style="width:40px; height:40px; border-radius:50%; object-fit:cover;">
+                        <!-- CAMBIO: Usamos catalog_images -->
+                        {% if char.catalog_images.all %}
+                            <img src="{{ char.catalog_images.all.0.image.url }}" style="width:40px; height:40px; border-radius:50%; object-fit:cover;">
                         {% else %}
                             <div style="width:40px; height:40px; border-radius:50%; background:#334155;"></div>
                         {% endif %}
@@ -905,8 +908,9 @@
             </div>
             <div class="modal-body">
                 <div class="modal-grid" style="display:grid; grid-template-columns:1fr 1fr; gap:10px;">
-                    {% if selected_character and selected_character.public_images %}
-                        {% for img in selected_character.public_images %}
+                    <!-- CAMBIO: Usamos catalog_images -->
+                    {% if selected_character and selected_character.catalog_images.all %}
+                        {% for img in selected_character.catalog_images.all %}
                             <img src="{{ img.image.url }}" style="width:100%; border-radius:8px;" onclick="window.open(this.src)">
                         {% endfor %}
                     {% endif %}

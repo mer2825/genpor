@@ -28,16 +28,16 @@ def serve_private_media(request, path):
     file_path = os.path.join(settings.MEDIA_ROOT, path)
     
     if not os.path.abspath(file_path).startswith(os.path.abspath(settings.MEDIA_ROOT)):
-        raise Http404("Ruta de archivo no válida.")
+        raise Http404("Invalid file path.")
 
     try:
         parts = path.split('/')
         if parts[0] == 'user_images' and len(parts) > 1:
             owner_id = int(parts[1])
         else:
-            raise Http404("No es un archivo de usuario.")
+            raise Http404("Not a user file.")
     except (ValueError, IndexError):
-        raise Http404("Ruta de archivo mal formada.")
+        raise Http404("Malformed file path.")
 
     # Verificar permisos
     has_access = False
@@ -60,32 +60,23 @@ def serve_private_media(request, path):
         if os.path.exists(file_path):
             return FileResponse(open(file_path, 'rb'))
         else:
-            raise Http404("El archivo no existe.")
+            raise Http404("File does not exist.")
     else:
-        raise Http404("Acceso denegado.")
+        raise Http404("Access denied.")
 
 # --- NUEVA FUNCIÓN SEGURA PARA OBTENER PERSONAJES ---
 @sync_to_async
 def get_characters_with_images():
-    # Incluir imágenes sin usuario (legacy) O imágenes de usuarios staff
-    public_images_prefetch = Prefetch(
-        'images',
-        queryset=CharacterImage.objects.filter(Q(user__isnull=True) | Q(user__is_staff=True)),
-        to_attr='public_images'
-    )
-    return list(Character.objects.prefetch_related(public_images_prefetch).all())
+    # CAMBIO: Ahora usamos 'catalog_images' para las imágenes públicas
+    # Esto trae SOLO las imágenes seleccionadas manualmente en el admin
+    return list(Character.objects.prefetch_related('catalog_images').all())
 
 # --- FUNCIÓN PARA OBTENER LA CONFIGURACIÓN DE LA EMPRESA ---
 @sync_to_async
 def get_company_settings():
-    # Prefetch para obtener los personajes del carrusel y sus imágenes públicas
-    public_images_prefetch = Prefetch(
-        'images',
-        queryset=CharacterImage.objects.filter(Q(user__isnull=True) | Q(user__is_staff=True)),
-        to_attr='public_images'
-    )
+    # Prefetch para obtener los personajes del carrusel y sus imágenes de catálogo
     return CompanySettings.objects.prefetch_related(
-        Prefetch('hero_characters', queryset=Character.objects.prefetch_related(public_images_prefetch))
+        Prefetch('hero_characters', queryset=Character.objects.prefetch_related('catalog_images'))
     ).first()
 
 # --- FUNCIÓN AUXILIAR PARA OBTENER EL USUARIO DE FORMA SEGURA ---
@@ -136,13 +127,13 @@ async def gallery_view(request):
 async def delete_images_view(request):
     user = await get_user_from_request(request)
     if not user.is_authenticated:
-        return JsonResponse({'status': 'error', 'message': 'No autorizado'}, status=401)
+        return JsonResponse({'status': 'error', 'message': 'Unauthorized'}, status=401)
     
     if request.method == 'POST':
         try:
             image_ids = request.POST.getlist('image_ids[]')
             if not image_ids:
-                return JsonResponse({'status': 'error', 'message': 'No se seleccionaron imágenes'})
+                return JsonResponse({'status': 'error', 'message': 'No images selected'})
             
             @sync_to_async
             def perform_delete(ids, user_obj):
@@ -160,13 +151,13 @@ async def delete_images_view(request):
         except Exception as e:
             return JsonResponse({'status': 'error', 'message': str(e)}, status=500)
     
-    return JsonResponse({'status': 'error', 'message': 'Método no permitido'}, status=405)
+    return JsonResponse({'status': 'error', 'message': 'Method not allowed'}, status=405)
 
 # --- VISTA PARA ELIMINAR MENSAJE INDIVIDUAL ---
 async def delete_message_view(request):
     user = await get_user_from_request(request)
     if not user.is_authenticated:
-        return JsonResponse({'status': 'error', 'message': 'No autorizado'}, status=401)
+        return JsonResponse({'status': 'error', 'message': 'Unauthorized'}, status=401)
     
     if request.method == 'POST':
         try:
@@ -196,18 +187,18 @@ async def delete_message_view(request):
             if success:
                 return JsonResponse({'status': 'success'})
             else:
-                return JsonResponse({'status': 'error', 'message': 'Mensaje no encontrado'})
+                return JsonResponse({'status': 'error', 'message': 'Message not found'})
                 
         except Exception as e:
             return JsonResponse({'status': 'error', 'message': str(e)}, status=500)
             
-    return JsonResponse({'status': 'error', 'message': 'Método no permitido'}, status=405)
+    return JsonResponse({'status': 'error', 'message': 'Method not allowed'}, status=405)
 
 # --- VISTA PARA ELIMINAR HISTORIAL COMPLETO ---
 async def clear_chat_history_view(request):
     user = await get_user_from_request(request)
     if not user.is_authenticated:
-        return JsonResponse({'status': 'error', 'message': 'No autorizado'}, status=401)
+        return JsonResponse({'status': 'error', 'message': 'Unauthorized'}, status=401)
     
     if request.method == 'POST':
         try:
@@ -238,7 +229,7 @@ async def clear_chat_history_view(request):
         except Exception as e:
             return JsonResponse({'status': 'error', 'message': str(e)}, status=500)
             
-    return JsonResponse({'status': 'error', 'message': 'Método no permitido'}, status=405)
+    return JsonResponse({'status': 'error', 'message': 'Method not allowed'}, status=405)
 
 # --- VISTA DEL WORKSPACE (ACTUALIZADA) ---
 async def workspace_view(request):
@@ -286,16 +277,8 @@ async def workspace_view(request):
         if not unique_ids:
             return []
 
-        # 3. Obtener los objetos Character completos (con imágenes)
-        # Reutilizamos la lógica de prefetch para tener las imágenes públicas
-        public_images_prefetch = Prefetch(
-            'images',
-            queryset=CharacterImage.objects.filter(Q(user__isnull=True) | Q(user__is_staff=True)),
-            to_attr='public_images'
-        )
-        
-        # Traemos los personajes que están en la lista de IDs
-        chars_qs = Character.objects.filter(id__in=unique_ids).prefetch_related(public_images_prefetch)
+        # 3. Obtener los objetos Character completos (con imágenes de catálogo)
+        chars_qs = Character.objects.filter(id__in=unique_ids).prefetch_related('catalog_images')
         chars_dict = {c.id: c for c in chars_qs}
         
         # 4. Reconstruir la lista en el orden correcto
@@ -344,7 +327,7 @@ async def workspace_view(request):
                     # Pero analyze_workflow_outputs necesita la estructura de nodos, así que usamos el base.
                     workflow_capabilities = analyze_workflow_outputs(wf_json)
                 except Exception as e:
-                    print(f"Error analizando workflow: {e}")
+                    print(f"Error analyzing workflow: {e}")
 
             # --- CAMBIO: Cargar Historial SOLO SI SE SOLICITA ---
             if selected_character and should_load_history:
@@ -392,7 +375,7 @@ async def workspace_view(request):
                             for _ in range(missing_count):
                                 item['images'].append({
                                     'url': None,
-                                    'type': "ELIMINADA",
+                                    'type': "DELETED",
                                     'is_deleted': True
                                 })
                                 
@@ -421,14 +404,14 @@ async def generate_image_view(request):
     if is_ajax:
         if request.method == 'POST':
             if not user.is_authenticated:
-                return JsonResponse({'status': 'error', 'message': 'Debes iniciar sesión para generar imágenes.'}, status=401)
+                return JsonResponse({'status': 'error', 'message': 'You must be logged in to generate images.'}, status=401)
             
             character_id = request.POST.get('character_id')
             user_prompt = request.POST.get('prompt')
             
             # CAMBIO AQUÍ: Aumentado de 500 a 5000 caracteres
             if len(user_prompt) > 5000:
-                return JsonResponse({'status': 'error', 'message': 'El prompt es demasiado largo (máximo 5000 caracteres).'}, status=400)
+                return JsonResponse({'status': 'error', 'message': 'Prompt is too long (max 5000 characters).'}, status=400)
             
             # Obtener dimensiones del cliente (si las envía)
             width = request.POST.get('width')
@@ -457,7 +440,7 @@ async def generate_image_view(request):
             
             if last_generation and (now - last_generation) < 10:
                 wait_time = int(10 - (now - last_generation))
-                return JsonResponse({'status': 'error', 'message': f'Por favor espera {wait_time} segundos antes de generar otra imagen.'}, status=429)
+                return JsonResponse({'status': 'error', 'message': f'Please wait {wait_time} seconds before generating another image.'}, status=429)
             
             request.session['last_generation_time'] = now
 
@@ -525,7 +508,7 @@ async def generate_image_view(request):
                         ai_msg = ChatMessage.objects.create(
                             user=user,
                             character=character,
-                            message="Aquí tienes tus imágenes generadas.",
+                            message="Here are your generated images.",
                             is_from_user=False,
                             image_count=len(imgs) # Guardamos la cantidad original
                         )
@@ -542,10 +525,10 @@ async def generate_image_view(request):
                         'ai_msg_id': ai_msg.id
                     })
                 
-                return JsonResponse({'status': 'error', 'message': 'No se generó ninguna imagen válida según tus filtros.'}, status=500)
+                return JsonResponse({'status': 'error', 'message': 'No valid images generated based on your filters.'}, status=500)
 
             except Character.DoesNotExist:
-                return JsonResponse({'status': 'error', 'message': 'Personaje no encontrado.'}, status=404)
+                return JsonResponse({'status': 'error', 'message': 'Character not found.'}, status=404)
             except Exception as e:
                 return JsonResponse({'status': 'error', 'message': str(e)}, status=500)
 
@@ -574,18 +557,21 @@ async def generate_image_view(request):
                 # Obtener personajes seleccionados manualmente
                 hero_chars = await sync_to_async(list)(company_settings.hero_characters.all())
                 for char in hero_chars:
-                    # Buscar la primera imagen pública disponible
-                    if hasattr(char, 'public_images') and char.public_images:
+                    # Buscar la primera imagen de catálogo disponible
+                    # CAMBIO: Usamos catalog_images en lugar de public_images
+                    if hasattr(char, 'catalog_images') and char.catalog_images.exists():
+                        first_img = await sync_to_async(char.catalog_images.first)()
                         hero_items.append({
-                            'image_url': char.public_images[0].image.url,
+                            'image_url': first_img.image.url,
                             'name': char.name
                         })
             else:
                 # Modo Aleatorio: Tomamos los primeros 6 personajes que tengan imágenes
                 for char in characters[:6]:
-                    if hasattr(char, 'public_images') and char.public_images:
+                    if hasattr(char, 'catalog_images') and char.catalog_images.exists():
+                        first_img = await sync_to_async(char.catalog_images.first)()
                         hero_items.append({
-                            'image_url': char.public_images[0].image.url,
+                            'image_url': first_img.image.url,
                             'name': char.name
                         })
         

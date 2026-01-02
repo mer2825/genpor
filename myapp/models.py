@@ -6,7 +6,7 @@ import os
 class Workflow(models.Model):
     name = models.CharField(max_length=100)
     json_file = models.FileField(upload_to='workflows/')
-    active_config = models.TextField(blank=True, null=True, help_text="Configuración JSON activa para la generación. Se rellena desde el panel de configuración.")
+    active_config = models.TextField(blank=True, null=True, help_text="Active JSON configuration for generation. Filled from the configuration panel.")
 
     def __str__(self):
         return self.name
@@ -20,34 +20,43 @@ def character_image_path(instance, filename):
 
 class Character(models.Model):
     name = models.CharField(max_length=100, unique=True)
-    description = models.TextField(blank=True, null=True, help_text="Descripción interna del personaje, notas sobre su estilo, etc.")
+    description = models.TextField(blank=True, null=True, help_text="Internal character description, style notes, etc.")
     base_workflow = models.ForeignKey(Workflow, on_delete=models.CASCADE, related_name="characters")
-    character_config = models.TextField(blank=True, null=True, help_text="Configuración JSON específica para este personaje.")
+    character_config = models.TextField(blank=True, null=True, help_text="Specific JSON configuration for this character.")
+    
+    # NUEVO: Imágenes del Catálogo (Selección Manual)
+    catalog_images = models.ManyToManyField(
+        'CharacterImage', 
+        blank=True, 
+        related_name='featured_in_character',
+        verbose_name="Catalog Images",
+        help_text="Select images to display in the public catalog/carousel."
+    )
     
     # NUEVO: Prefijo (Calidad y Estilo)
     prompt_prefix = models.TextField(
         blank=True, 
         null=True, 
-        verbose_name="Prompt Prefijo (Calidad)",
+        verbose_name="Prompt Prefix (Quality)",
         default="score_9, score_8_up, score_7_up, score_6_up, source_anime, rating_explicit, (masterpiece, best quality)",
-        help_text="PREFIJO: Va ANTES del prompt del usuario. Úsalo para Quality Tags (score_9...) y estilo."
+        help_text="PREFIX: Goes BEFORE the user prompt. Use for Quality Tags (score_9...) and style."
     )
     
     # ANTES positive_prompt, AHORA actúa como SUFIJO
     positive_prompt = models.TextField(
         blank=True, 
         null=True, 
-        verbose_name="Prompt Sufijo (Identidad)", # CAMBIO VISUAL AQUÍ
+        verbose_name="Prompt Suffix (Identity)", 
         default="1girl, solo, beautiful woman, detailed skin",
-        help_text="SUFIJO: Va DESPUÉS del prompt del usuario. Úsalo para describir al personaje (pelo, ojos, cuerpo)."
+        help_text="SUFFIX: Goes AFTER the user prompt. Use to describe the character (hair, eyes, body)."
     )
     
     negative_prompt = models.TextField(
         blank=True, 
         null=True, 
-        verbose_name="Prompt Negativo",
+        verbose_name="Negative Prompt",
         default="score_6, score_5, score_4, source_cartoon, 3d, illustration, (worst quality, low quality:1.2), deformed, bad anatomy",
-        help_text="NEGATIVO: Cosas que NO quieres en la imagen."
+        help_text="NEGATIVE: Things you DO NOT want in the image."
     )
 
     def __str__(self):
@@ -65,7 +74,7 @@ class CharacterImage(models.Model):
 
     def __str__(self):
         if self.user:
-            return f"Imagen de {self.user.username} para {self.character.name}"
+            return f"Image by {self.user.username} for {self.character.name}"
         return f"{self.character.name} - {os.path.basename(self.image.name)}"
 
     def delete(self, *args, **kwargs):
@@ -75,13 +84,13 @@ class CharacterImage(models.Model):
         super().delete(*args, **kwargs)
 
 class ConnectionConfig(models.Model):
-    name = models.CharField(max_length=100, help_text="Ej: Local, GPU Empresa")
-    base_url = models.CharField(max_length=255, help_text="Ej: http://127.0.0.1:8188 o https://tu-url.trycloudflare.com")
-    is_active = models.BooleanField(default=False, help_text="Marca esta casilla para usar esta conexión.")
+    name = models.CharField(max_length=100, help_text="Ex: Local, Company GPU")
+    base_url = models.CharField(max_length=255, help_text="Ex: http://127.0.0.1:8188 or https://your-url.trycloudflare.com")
+    is_active = models.BooleanField(default=False, help_text="Check this box to use this connection.")
 
     class Meta:
-        verbose_name = "Configuración de Conexión"
-        verbose_name_plural = "Configuraciones de Conexión"
+        verbose_name = "Connection Configuration"
+        verbose_name_plural = "Connection Configurations"
 
     def save(self, *args, **kwargs):
         if self.is_active:
@@ -89,52 +98,52 @@ class ConnectionConfig(models.Model):
         super().save(*args, **kwargs)
 
     def __str__(self):
-        status = " (ACTIVA)" if self.is_active else ""
+        status = " (ACTIVE)" if self.is_active else ""
         return f"{self.name} - {self.base_url}{status}"
 
 class CompanySettings(models.Model):
-    name = models.CharField(max_length=200, verbose_name="Nombre de la Empresa", default="Mi Empresa")
+    name = models.CharField(max_length=200, verbose_name="Company Name", default="My Company")
     logo = models.ImageField(upload_to='company_logos/', verbose_name="Logo", blank=True, null=True)
     
     # BARRA DE OFERTA (NUEVO)
     offer_bar_text = models.CharField(
         max_length=255, 
-        verbose_name="Texto Barra de Oferta",
+        verbose_name="Offer Bar Text", 
         blank=True, 
         null=True, 
-        help_text="Texto que aparece en la barra superior (ej: '🎉 ¡Oferta Especial!'). Déjalo vacío para ocultar la barra."
+        help_text="Text appearing in the top bar (e.g., '🎉 Special Offer!'). Leave empty to hide."
     )
     
     # HERO TEXTO
-    app_hero_title = models.CharField(max_length=200, verbose_name="Título Principal (Hero)", default="Generador Anime - Realista", help_text="El título grande que aparece en la página principal.")
-    app_hero_description = models.TextField(verbose_name="Descripción Principal (Hero)", blank=True, default="Transforma tus ideas en arte con nuestro potente motor de IA. Crea personajes únicos en segundos.", help_text="El texto descriptivo debajo del título principal.")
+    app_hero_title = models.CharField(max_length=200, verbose_name="Main Title (Hero)", default="Anime - Realistic Generator", help_text="The large title appearing on the main page.")
+    app_hero_description = models.TextField(verbose_name="Main Description (Hero)", blank=True, default="Transform your ideas into art with our powerful AI engine. Create unique characters in seconds.", help_text="The descriptive text below the main title.")
 
     # HERO CARRUSEL (MODIFICADO: PERSONAJES)
     HERO_MODES = [
-        ('random', 'Aleatorio (Automático)'),
-        ('manual', 'Manual (Seleccionado)')
+        ('random', 'Random (Automatic)'),
+        ('manual', 'Manual (Selected)')
     ]
-    hero_mode = models.CharField(max_length=10, choices=HERO_MODES, default='random', verbose_name="Modo del Carrusel")
+    hero_mode = models.CharField(max_length=10, choices=HERO_MODES, default='random', verbose_name="Carousel Mode")
     
     # CAMBIO: Ahora seleccionamos Personajes, no imágenes
     hero_characters = models.ManyToManyField(
         Character, 
         blank=True, 
-        verbose_name="Personajes del Carrusel",
-        help_text="Selecciona hasta 6 personajes. Se mostrará la primera imagen disponible de cada uno."
+        verbose_name="Carousel Characters",
+        help_text="Select up to 6 characters. The first available image of each will be shown."
     )
 
-    description = models.TextField(verbose_name="Descripción (Footer)", blank=True)
+    description = models.TextField(verbose_name="Description (Footer)", blank=True)
     
-    phone = models.CharField(max_length=50, verbose_name="Teléfono", blank=True)
-    email = models.EmailField(verbose_name="Correo Electrónico", blank=True)
+    phone = models.CharField(max_length=50, verbose_name="Phone", blank=True)
+    email = models.EmailField(verbose_name="Email", blank=True)
     
     facebook = models.URLField(verbose_name="Facebook", blank=True)
     discord = models.URLField(verbose_name="Discord", blank=True)
     
     class Meta:
-        verbose_name = "Configuración de Empresa"
-        verbose_name_plural = "Configuración de Empresa"
+        verbose_name = "Company Settings"
+        verbose_name_plural = "Company Settings"
 
     def save(self, *args, **kwargs):
         if not self.pk and CompanySettings.objects.exists():
@@ -152,12 +161,12 @@ class ChatMessage(models.Model):
     message = models.TextField(blank=True, null=True) # El texto del prompt o mensaje del sistema
     is_from_user = models.BooleanField(default=True) # True = Usuario, False = IA
     generated_images = models.ManyToManyField(CharacterImage, blank=True, related_name='chat_messages')
-    image_count = models.IntegerField(default=0, help_text="Número de imágenes generadas originalmente en este mensaje.")
+    image_count = models.IntegerField(default=0, help_text="Number of images originally generated in this message.")
     timestamp = models.DateTimeField(auto_now_add=True)
 
     class Meta:
         ordering = ['timestamp'] # Orden cronológico
 
     def __str__(self):
-        sender = self.user.username if self.is_from_user else f"IA ({self.character.name})"
+        sender = self.user.username if self.is_from_user else f"AI ({self.character.name})"
         return f"{sender}: {self.message[:30]}..."

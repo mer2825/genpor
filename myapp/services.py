@@ -100,9 +100,12 @@ def analyze_workflow(prompt_workflow):
         "seed": None, "steps": None, "cfg": None, "sampler_name": None, "scheduler": None,
     }
     if not isinstance(prompt_workflow, dict): return analysis
+    
+    # Primera pasada: Buscar nodos específicos conocidos
     for node_id, details in prompt_workflow.items():
         if not isinstance(details, dict): continue
         class_type, inputs = details.get("class_type"), details.get("inputs", {})
+        
         if class_type == "CheckpointLoaderSimple": analysis["checkpoint"] = inputs.get("ckpt_name")
         elif class_type == "VAELoader": analysis["vae"] = inputs.get("vae_name")
         elif class_type == "DW_LoRAStackApplySimple":
@@ -118,12 +121,24 @@ def analyze_workflow(prompt_workflow):
         elif class_type == "EmptyLatentImage":
             if analysis["width"] is None: analysis["width"] = inputs.get("width")
             if analysis["height"] is None: analysis["height"] = inputs.get("height")
-        elif class_type == "KSampler":
-            if analysis["seed"] is None: analysis["seed"] = inputs.get("seed")
-            if analysis["steps"] is None: analysis["steps"] = inputs.get("steps")
-            if analysis["cfg"] is None: analysis["cfg"] = inputs.get("cfg")
-            if analysis["sampler_name"] is None: analysis["sampler_name"] = inputs.get("sampler_name")
-            if analysis["scheduler"] is None: analysis["scheduler"] = inputs.get("scheduler")
+    
+    # Segunda pasada: Buscar en cualquier nodo que tenga estos campos (ej. KSampler, KSamplerAdvanced)
+    # Solo si no se han encontrado aún
+    for node_id, details in prompt_workflow.items():
+        if not isinstance(details, dict): continue
+        inputs = details.get("inputs", {})
+        
+        if analysis["seed"] is None and "seed" in inputs and isinstance(inputs["seed"], (int, float)):
+             analysis["seed"] = inputs["seed"]
+        if analysis["steps"] is None and "steps" in inputs and isinstance(inputs["steps"], int):
+             analysis["steps"] = inputs["steps"]
+        if analysis["cfg"] is None and "cfg" in inputs and isinstance(inputs["cfg"], (int, float)):
+             analysis["cfg"] = inputs["cfg"]
+        if analysis["sampler_name"] is None and "sampler_name" in inputs and isinstance(inputs["sampler_name"], str):
+             analysis["sampler_name"] = inputs["sampler_name"]
+        if analysis["scheduler"] is None and "scheduler" in inputs and isinstance(inputs["scheduler"], str):
+             analysis["scheduler"] = inputs["scheduler"]
+
     return analysis
 
 def update_workflow(prompt_workflow, new_values, lora_names=None, lora_strengths=None):
@@ -245,8 +260,7 @@ def update_workflow(prompt_workflow, new_values, lora_names=None, lora_strengths
         if class_type == "CheckpointLoaderSimple" and "checkpoint" in new_values: inputs["ckpt_name"] = new_values["checkpoint"]
         elif class_type == "VAELoader" and "vae" in new_values and new_values["vae"] != "None": inputs["vae_name"] = new_values["vae"]
         elif class_type == "DW_resolution" and "width" in new_values: inputs["WIDTH"], inputs["HEIGHT"] = int(new_values["width"]), int(new_values["height"])
-        elif class_type == "DW_SamplerSelector" and "sampler_name" in new_values: inputs["sampler_name"] = new_values["sampler_name"]
-        elif class_type == "DW_SchedulerSelector" and "scheduler" in new_values: inputs["scheduler"] = new_values["scheduler"]
+        # ELIMINADO: DW_SamplerSelector y DW_SchedulerSelector
         elif class_type == "EmptyLatentImage" and "width" in new_values: inputs["width"], inputs["height"] = int(new_values["width"]), int(new_values["height"])
 
         if node_id == steps_source_id and "steps" in new_values: inputs["value"] = int(new_values["steps"])
@@ -272,8 +286,7 @@ def update_workflow(prompt_workflow, new_values, lora_names=None, lora_strengths
                  if "seed" in new_values and "seed" in inputs and not isinstance(inputs["seed"], list): inputs["seed"] = int(new_values["seed"])
                  if "steps" in new_values and "steps" in inputs and not isinstance(inputs["steps"], list): inputs["steps"] = int(new_values["steps"])
                  if "cfg" in new_values and "cfg" in inputs and not isinstance(inputs["cfg"], list): inputs["cfg"] = float(new_values["cfg"])
-                 if "sampler_name" in new_values and "sampler_name" in inputs: inputs["sampler_name"] = new_values["sampler_name"]
-                 if "scheduler" in new_values and "scheduler" in inputs: inputs["scheduler"] = new_values["scheduler"]
+                 # ELIMINADO: sampler_name y scheduler
             
     return prompt_workflow
 

@@ -8,7 +8,7 @@ from django.core.files.base import ContentFile
 from django.contrib.auth.admin import UserAdmin
 from django.contrib.auth.models import User
 from django.db.models import Q
-from django.forms import ModelForm, ValidationError
+from django.forms import ModelForm, ValidationError, CheckboxSelectMultiple
 from .models import Workflow, Character, CharacterImage, ConnectionConfig, CompanySettings
 from .services import generate_image_from_character, get_active_comfyui_address, get_comfyui_object_info, analyze_workflow
 import json
@@ -74,7 +74,7 @@ class CompanySettingsAdmin(admin.ModelAdmin):
     form = CompanySettingsForm
     list_display = ('name', 'hero_mode', 'email')
     filter_horizontal = ('hero_characters',) # Mejor interfaz para ManyToMany
-    
+
     # Campos de solo lectura (incluida la vista previa)
     readonly_fields = ('hero_carousel_preview',)
 
@@ -142,8 +142,14 @@ class ConnectionConfigAdmin(admin.ModelAdmin):
 
 @admin.register(Workflow)
 class WorkflowAdmin(admin.ModelAdmin):
-    list_display = ('name', 'workflow_actions')
+    list_display = ('name', 'download_file', 'workflow_actions')
     
+    def download_file(self, obj):
+        if obj.json_file:
+            return format_html('<a href="{}" download>Descargar JSON</a>', obj.json_file.url)
+        return "Sin archivo"
+    download_file.short_description = 'Descargar'
+
     def workflow_actions(self, obj):
         return format_html(
             '<a class="button" href="{}">Configurar</a>',
@@ -187,8 +193,7 @@ class WorkflowAdmin(admin.ModelAdmin):
                 if 'seed' in saved_config: workflow_params['seed'] = saved_config['seed']
                 if 'steps' in saved_config: workflow_params['steps'] = saved_config['steps']
                 if 'cfg' in saved_config: workflow_params['cfg'] = saved_config['cfg']
-                if 'sampler_name' in saved_config: workflow_params['sampler_name'] = saved_config['sampler_name']
-                if 'scheduler' in saved_config: workflow_params['scheduler'] = saved_config['scheduler']
+                # ELIMINADO: sampler_name y scheduler
                 
                 if 'lora_names' in saved_config and 'lora_strengths' in saved_config:
                     workflow_params['loras'] = []
@@ -207,8 +212,7 @@ class WorkflowAdmin(admin.ModelAdmin):
                 'seed_behavior': request.POST.get('seed_behavior', 'random'),
                 'steps': request.POST.get('steps'),
                 'cfg': request.POST.get('cfg'),
-                'sampler_name': request.POST.get('sampler_name'),
-                'scheduler': request.POST.get('scheduler'),
+                # ELIMINADO: sampler_name y scheduler
                 'lora_names': request.POST.getlist('lora_name'),
                 'lora_strengths': request.POST.getlist('lora_strength'),
                 'prompt': request.POST.get('prompt'), 
@@ -245,37 +249,61 @@ class CharacterImageAdmin(admin.ModelAdmin):
     # Habilitamos el borrado
     def has_delete_permission(self, request, obj=None): return True
 
-class CharacterImageInline(admin.TabularInline):
-    model = CharacterImage
-    extra = 0 # No mostrar filas vacías extra
-    fields = ('image_preview', 'user', 'description') # Mostrar explícitamente el usuario
-    readonly_fields = ('image_preview', 'user', 'description') # Todo solo lectura
-    
-    # Habilitamos el borrado en el inline también
-    def has_delete_permission(self, request, obj=None): return True
+# --- WIDGET PERSONALIZADO PARA IMÁGENES ---
+class ImageSelectWidget(CheckboxSelectMultiple):
+    def create_option(self, name, value, label, selected, index, subindex=None, attrs=None):
+        option = super().create_option(name, value, label, selected, index, subindex, attrs)
+        if value:
+            try:
+                image_obj = CharacterImage.objects.get(pk=value.value)
+                if image_obj.image:
+                    # Añadir HTML de la imagen a la etiqueta
+                    img_html = format_html(
+                        '<div style="display:inline-block; margin:5px; text-align:center; vertical-align:top;">'
+                        '<img src="{}" style="height:100px; width:auto; display:block; border-radius:5px; border:1px solid #ccc;">'
+                        '</div>',
+                        image_obj.image.url
+                    )
+                    option['label'] = mark_safe(f"{img_html}<br>{option['label']}")
+            except CharacterImage.DoesNotExist:
+                pass
+        return option
 
-    def image_preview(self, obj):
-        if obj.image: return format_html('<img src="{}" width="150" height="auto" />', obj.image.url)
-        return "(Sin imagen)"
-    image_preview.short_description = 'Vista Previa'
+# --- FORMULARIO PERSONALIZADO PARA PERSONAJES ---
+class CharacterForm(ModelForm):
+    class Meta:
+        model = Character
+        fields = '__all__'
+        widgets = {
+            'catalog_images': ImageSelectWidget(), # Usar el widget personalizado
+        }
 
-    def get_queryset(self, request):
-        """
-        Filtra las imágenes para mostrar SOLO las creadas por administradores (staff)
-        o las que no tienen usuario asignado (legacy). Oculta las de clientes.
-        """
-        qs = super().get_queryset(request)
-        # Mostrar si user es None O si el usuario es staff
-        return qs.filter(Q(user__isnull=True) | Q(user__is_staff=True))
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        # Filtrar las imágenes del catálogo para mostrar SOLO las de este personaje
+        # y SOLO las que son públicas o de staff
+        if self.instance and self.instance.pk:
+            self.fields['catalog_images'].queryset = CharacterImage.objects.filter(
+                character=self.instance
+            ).filter(
+                Q(user__isnull=True) | Q(user__is_staff=True)
+            )
+        else:
+            # Si es un personaje nuevo, no hay imágenes aún
+            self.fields['catalog_images'].queryset = CharacterImage.objects.none()
 
 @admin.register(Character)
 class CharacterAdmin(admin.ModelAdmin):
+    form = CharacterForm # Usar el formulario personalizado
     list_display = ('name', 'base_workflow', 'character_actions')
-    inlines = [CharacterImageInline]
-    
-    # CAMBIO AQUÍ: Añadido 'description' al fieldset principal
+    # filter_horizontal = ('catalog_images',) # QUITAMOS filter_horizontal para usar el widget personalizado
+
     fieldsets = (
         (None, {'fields': ('name', 'description', 'base_workflow')}),
+        ('Imágenes del Catálogo', {
+            'fields': ('catalog_images',),
+            'description': 'Selecciona las imágenes para mostrar en la tarjeta del personaje.'
+        }),
         ('Prompts por Defecto (Sándwich)', {
             'fields': ('prompt_prefix', 'positive_prompt', 'negative_prompt'),
             'description': 'Estructura: [Prefijo] + (Usuario:1.2) + [Sufijo]'
@@ -334,8 +362,7 @@ class CharacterAdmin(admin.ModelAdmin):
                 if 'seed' in saved_config: workflow_params['seed'] = saved_config['seed']
                 if 'steps' in saved_config: workflow_params['steps'] = saved_config['steps']
                 if 'cfg' in saved_config: workflow_params['cfg'] = saved_config['cfg']
-                if 'sampler_name' in saved_config: workflow_params['sampler_name'] = saved_config['sampler_name']
-                if 'scheduler' in saved_config: workflow_params['scheduler'] = saved_config['scheduler']
+                # ELIMINADO: sampler_name y scheduler
                 
                 if 'lora_names' in saved_config and 'lora_strengths' in saved_config:
                     workflow_params['loras'] = []
@@ -354,8 +381,7 @@ class CharacterAdmin(admin.ModelAdmin):
                 'seed_behavior': request.POST.get('seed_behavior', 'random'),
                 'steps': request.POST.get('steps'),
                 'cfg': request.POST.get('cfg'),
-                'sampler_name': request.POST.get('sampler_name'),
-                'scheduler': request.POST.get('scheduler'),
+                # ELIMINADO: sampler_name y scheduler
                 'lora_names': request.POST.getlist('lora_name'),
                 'lora_strengths': request.POST.getlist('lora_strength'),
                 'prompt': request.POST.get('prompt'), 
