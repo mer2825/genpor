@@ -67,17 +67,14 @@ def serve_private_media(request, path):
 # --- NUEVA FUNCIÓN SEGURA PARA OBTENER PERSONAJES ---
 @sync_to_async
 def get_characters_with_images():
-    # CAMBIO: Ahora usamos 'catalog_images' para las imágenes públicas
-    # Esto trae SOLO las imágenes seleccionadas manualmente en el admin
-    return list(Character.objects.prefetch_related('catalog_images').all())
+    # CAMBIO: Ahora usamos 'catalog_images_set' para las imágenes públicas
+    return list(Character.objects.prefetch_related('catalog_images_set').all())
 
 # --- FUNCIÓN PARA OBTENER LA CONFIGURACIÓN DE LA EMPRESA ---
 @sync_to_async
 def get_company_settings():
-    # Prefetch para obtener los personajes del carrusel y sus imágenes de catálogo
-    return CompanySettings.objects.prefetch_related(
-        Prefetch('hero_characters', queryset=Character.objects.prefetch_related('catalog_images'))
-    ).first()
+    # Prefetch para obtener las imágenes del carrusel hero
+    return CompanySettings.objects.prefetch_related('hero_images').first()
 
 # --- FUNCIÓN AUXILIAR PARA OBTENER EL USUARIO DE FORMA SEGURA ---
 @sync_to_async
@@ -278,7 +275,7 @@ async def workspace_view(request):
             return []
 
         # 3. Obtener los objetos Character completos (con imágenes de catálogo)
-        chars_qs = Character.objects.filter(id__in=unique_ids).prefetch_related('catalog_images')
+        chars_qs = Character.objects.filter(id__in=unique_ids).prefetch_related('catalog_images_set')
         chars_dict = {c.id: c for c in chars_qs}
         
         # 4. Reconstruir la lista en el orden correcto
@@ -550,30 +547,17 @@ async def generate_image_view(request):
         characters = await get_characters_with_images()
         company_settings = await get_company_settings()
         
-        # --- LÓGICA DEL CARRUSEL HERO ---
+        # --- LÓGICA DEL CARRUSEL HERO (NUEVA) ---
         hero_items = []
         if company_settings:
-            if company_settings.hero_mode == 'manual':
-                # Obtener personajes seleccionados manualmente
-                hero_chars = await sync_to_async(list)(company_settings.hero_characters.all())
-                for char in hero_chars:
-                    # Buscar la primera imagen de catálogo disponible
-                    # CAMBIO: Usamos catalog_images en lugar de public_images
-                    if hasattr(char, 'catalog_images') and char.catalog_images.exists():
-                        first_img = await sync_to_async(char.catalog_images.first)()
-                        hero_items.append({
-                            'image_url': first_img.image.url,
-                            'name': char.name
-                        })
-            else:
-                # Modo Aleatorio: Tomamos los primeros 6 personajes que tengan imágenes
-                for char in characters[:6]:
-                    if hasattr(char, 'catalog_images') and char.catalog_images.exists():
-                        first_img = await sync_to_async(char.catalog_images.first)()
-                        hero_items.append({
-                            'image_url': first_img.image.url,
-                            'name': char.name
-                        })
+            # Obtener imágenes del carrusel directamente del modelo HeroCarouselImage
+            hero_images = await sync_to_async(list)(company_settings.hero_images.all())
+            
+            for img in hero_images:
+                hero_items.append({
+                    'image_url': img.image.url,
+                    'name': img.caption or "" # Usar caption o vacío
+                })
         
         context = {
             'characters': characters,

@@ -141,13 +141,13 @@
                 {% endif %}
 
                 <div class="carousel">
-                    <!-- CAMBIO: Usamos catalog_images.all en lugar de public_images -->
-                    {% if character.catalog_images.all %}
-                        {% for image in character.catalog_images.all %}
+                    <!-- CAMBIO: Usamos catalog_images_set.all -->
+                    {% if character.catalog_images_set.all %}
+                        {% for image in character.catalog_images_set.all %}
                         <img src="{{ image.image.url }}" class="carousel-image {% if forloop.first %}active{% endif %}" alt="{{ image.description }}">
                         {% endfor %}
                         <div class="carousel-progress-bar">
-                            {% for image in character.catalog_images.all %}
+                            {% for image in character.catalog_images_set.all %}
                             <div class="progress-segment {% if forloop.first %}active{% endif %}"></div>
                             {% endfor %}
                         </div>

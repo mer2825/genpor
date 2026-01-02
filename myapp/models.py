@@ -18,20 +18,16 @@ def character_image_path(instance, filename):
     # Fallback para imágenes sin usuario (ej. las del admin o las iniciales)
     return f'character_images/{instance.character.name}/{filename}'
 
+def character_catalog_path(instance, filename):
+    return f'character_catalog/{instance.character.name}/{filename}'
+
 class Character(models.Model):
     name = models.CharField(max_length=100, unique=True)
     description = models.TextField(blank=True, null=True, help_text="Internal character description, style notes, etc.")
     base_workflow = models.ForeignKey(Workflow, on_delete=models.CASCADE, related_name="characters")
     character_config = models.TextField(blank=True, null=True, help_text="Specific JSON configuration for this character.")
     
-    # NUEVO: Imágenes del Catálogo (Selección Manual)
-    catalog_images = models.ManyToManyField(
-        'CharacterImage', 
-        blank=True, 
-        related_name='featured_in_character',
-        verbose_name="Catalog Images",
-        help_text="Select images to display in the public catalog/carousel."
-    )
+    # ELIMINADO: catalog_images (Ahora se usa CharacterCatalogImage)
     
     # NUEVO: Prefijo (Calidad y Estilo)
     prompt_prefix = models.TextField(
@@ -61,6 +57,25 @@ class Character(models.Model):
 
     def __str__(self):
         return self.name
+
+class CharacterCatalogImage(models.Model):
+    character = models.ForeignKey(Character, related_name='catalog_images_set', on_delete=models.CASCADE)
+    image = models.ImageField(upload_to=character_catalog_path)
+    order = models.PositiveIntegerField(default=0, help_text="Order in the carousel")
+
+    class Meta:
+        ordering = ['order']
+        verbose_name = "Catalog Image"
+        verbose_name_plural = "Catalog Images"
+
+    def __str__(self):
+        return f"Catalog Image for {self.character.name}"
+
+    def delete(self, *args, **kwargs):
+        if self.image:
+            if os.path.isfile(self.image.path):
+                os.remove(self.image.path)
+        super().delete(*args, **kwargs)
 
 class CharacterImage(models.Model):
     character = models.ForeignKey(Character, related_name='images', on_delete=models.CASCADE)
@@ -118,20 +133,7 @@ class CompanySettings(models.Model):
     app_hero_title = models.CharField(max_length=200, verbose_name="Main Title (Hero)", default="Anime - Realistic Generator", help_text="The large title appearing on the main page.")
     app_hero_description = models.TextField(verbose_name="Main Description (Hero)", blank=True, default="Transform your ideas into art with our powerful AI engine. Create unique characters in seconds.", help_text="The descriptive text below the main title.")
 
-    # HERO CARRUSEL (MODIFICADO: PERSONAJES)
-    HERO_MODES = [
-        ('random', 'Random (Automatic)'),
-        ('manual', 'Manual (Selected)')
-    ]
-    hero_mode = models.CharField(max_length=10, choices=HERO_MODES, default='random', verbose_name="Carousel Mode")
-    
-    # CAMBIO: Ahora seleccionamos Personajes, no imágenes
-    hero_characters = models.ManyToManyField(
-        Character, 
-        blank=True, 
-        verbose_name="Carousel Characters",
-        help_text="Select up to 6 characters. The first available image of each will be shown."
-    )
+    # ELIMINADO: hero_mode, hero_characters (Ahora se usa HeroCarouselImage)
 
     description = models.TextField(verbose_name="Description (Footer)", blank=True)
     
@@ -153,6 +155,26 @@ class CompanySettings(models.Model):
 
     def __str__(self):
         return self.name
+
+class HeroCarouselImage(models.Model):
+    company_settings = models.ForeignKey(CompanySettings, related_name='hero_images', on_delete=models.CASCADE)
+    image = models.ImageField(upload_to='hero_carousel/', verbose_name="Carousel Image")
+    caption = models.CharField(max_length=100, blank=True, verbose_name="Caption (Optional)")
+    order = models.PositiveIntegerField(default=0, help_text="Order in the carousel")
+
+    class Meta:
+        ordering = ['order']
+        verbose_name = "Hero Carousel Image"
+        verbose_name_plural = "Hero Carousel Images"
+
+    def __str__(self):
+        return f"Hero Image {self.order}"
+
+    def delete(self, *args, **kwargs):
+        if self.image:
+            if os.path.isfile(self.image.path):
+                os.remove(self.image.path)
+        super().delete(*args, **kwargs)
 
 # --- NUEVO: MODELO DE HISTORIAL DE CHAT ---
 class ChatMessage(models.Model):

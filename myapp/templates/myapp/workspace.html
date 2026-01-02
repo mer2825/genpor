@@ -558,9 +558,51 @@
         }
         .resource-btn:hover { background: rgba(255,255,255,0.08); color: white; }
 
-        .dimension-input {
-            background: #0f172a; border: 1px solid var(--border-subtle); color: white;
-            padding: 8px; border-radius: 8px; width: 80px; text-align: center;
+        /* --- NUEVOS ESTILOS PARA ASPECT RATIO --- */
+        .aspect-ratio-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 10px;
+            margin-bottom: 15px;
+        }
+        .aspect-ratio-btn {
+            background-color: rgba(255, 255, 255, 0.03);
+            border: 1px solid var(--border-subtle);
+            border-radius: 8px;
+            padding: 10px;
+            cursor: pointer;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            transition: all 0.2s ease;
+            color: var(--text-muted);
+        }
+        .aspect-ratio-btn:hover {
+            background-color: rgba(255, 255, 255, 0.08);
+            border-color: #475569;
+        }
+        .aspect-ratio-btn.active {
+            background-color: rgba(59, 130, 246, 0.15);
+            border-color: var(--primary-blue);
+            color: var(--primary-blue);
+            font-weight: 600;
+        }
+        .aspect-ratio-btn .silhouette {
+            height: 24px;
+            background-color: rgba(255, 255, 255, 0.1);
+            border: 1px solid transparent; /* Añadido para transición */
+            border-radius: 2px;
+            transition: all 0.2s ease;
+        }
+        .aspect-ratio-btn.active .silhouette {
+            border-color: var(--primary-blue); /* Borde azul en activo */
+            background-color: rgba(59, 130, 246, 0.2); /* Fondo ligeramente azulado */
+        }
+        .aspect-ratio-btn span {
+            font-size: 0.8rem;
+            font-weight: 500;
         }
 
         /* Estilo para el input de semilla (más ancho) */
@@ -706,14 +748,18 @@
                 <i class="fas fa-plus"></i> New Chat / Character
             </button>
 
-            <div class="sidebar-title" style="margin-top:20px;">Dimensions</div>
-            <div style="display:flex; justify-content:space-between; margin-bottom:15px; align-items:center;">
-                <span style="font-size:0.9rem; color:var(--text-muted);">Width</span>
-                <input type="number" id="width-input" class="dimension-input" value="{{ default_width }}" step="64" min="512" max="2048">
-            </div>
-            <div style="display:flex; justify-content:space-between; margin-bottom:15px; align-items:center;">
-                <span style="font-size:0.9rem; color:var(--text-muted);">Height</span>
-                <input type="number" id="height-input" class="dimension-input" value="{{ default_height }}" step="64" min="512" max="2048">
+            <!-- NUEVA SECCIÓN DE ASPECT RATIO -->
+            <div class="sidebar-title" style="margin-top:20px;">Aspect Ratio</div>
+            <input type="hidden" id="width-input" value="{{ default_width }}">
+            <input type="hidden" id="height-input" value="{{ default_height }}">
+            <div class="aspect-ratio-grid">
+                <button class="aspect-ratio-btn" data-width="1024" data-height="1024"><div class="silhouette" style="width: 24px; height: 24px;"></div><span>1:1</span></button>
+                <button class="aspect-ratio-btn" data-width="768" data-height="1152"><div class="silhouette" style="width: 16px; height: 24px;"></div><span>2:3</span></button>
+                <button class="aspect-ratio-btn" data-width="1152" data-height="768"><div class="silhouette" style="width: 24px; height: 16px;"></div><span>3:2</span></button>
+                <button class="aspect-ratio-btn" data-width="1024" data-height="1280"><div class="silhouette" style="width: 19.2px; height: 24px;"></div><span>4:5</span></button>
+                <button class="aspect-ratio-btn" data-width="1280" data-height="1024"><div class="silhouette" style="width: 24px; height: 19.2px;"></div><span>5:4</span></button>
+                <button class="aspect-ratio-btn" data-width="720" data-height="1280"><div class="silhouette" style="width: 13.5px; height: 24px;"></div><span>9:16</span></button>
+                <button class="aspect-ratio-btn" data-width="1280" data-height="720"><div class="silhouette" style="width: 24px; height: 13.5px;"></div><span>16:9</span></button>
             </div>
 
             <!-- NUEVO: Input de Semilla -->
@@ -751,9 +797,9 @@
         <main class="main-content">
             {% if selected_character %}
                 <div class="character-header">
-                    <!-- CAMBIO: Usamos catalog_images en lugar de public_images -->
-                    {% if selected_character.catalog_images.all %}
-                        <img src="{{ selected_character.catalog_images.all.0.image.url }}" class="char-avatar">
+                    <!-- CAMBIO: Usamos catalog_images_set -->
+                    {% if selected_character.catalog_images_set.all %}
+                        <img src="{{ selected_character.catalog_images_set.all.0.image.url }}" class="char-avatar">
                     {% else %}
                         <img src="https://via.placeholder.com/100x100" class="char-avatar">
                     {% endif %}
@@ -844,9 +890,9 @@
             <!-- LISTA DE CHATS RECIENTES -->
             {% for chat in recent_chats %}
                 <a href="?character_id={{ chat.id }}&load_history=true" class="history-item {% if selected_character.id == chat.id %}active{% endif %}">
-                    <!-- CAMBIO: Usamos catalog_images -->
-                    {% if chat.catalog_images.all %}
-                        <img src="{{ chat.catalog_images.all.0.image.url }}">
+                    <!-- CAMBIO: Usamos catalog_images_set -->
+                    {% if chat.catalog_images_set.all %}
+                        <img src="{{ chat.catalog_images_set.all.0.image.url }}">
                     {% else %}
                         <div style="width:24px; height:24px; border-radius:50%; background:#334155;"></div>
                     {% endif %}
@@ -886,9 +932,9 @@
                 <div id="char-list">
                     {% for char in all_characters %}
                     <a href="?character_id={{ char.id }}" class="char-list-item">
-                        <!-- CAMBIO: Usamos catalog_images -->
-                        {% if char.catalog_images.all %}
-                            <img src="{{ char.catalog_images.all.0.image.url }}" style="width:40px; height:40px; border-radius:50%; object-fit:cover;">
+                        <!-- CAMBIO: Usamos catalog_images_set -->
+                        {% if char.catalog_images_set.all %}
+                            <img src="{{ char.catalog_images_set.all.0.image.url }}" style="width:40px; height:40px; border-radius:50%; object-fit:cover;">
                         {% else %}
                             <div style="width:40px; height:40px; border-radius:50%; background:#334155;"></div>
                         {% endif %}
@@ -908,9 +954,9 @@
             </div>
             <div class="modal-body">
                 <div class="modal-grid" style="display:grid; grid-template-columns:1fr 1fr; gap:10px;">
-                    <!-- CAMBIO: Usamos catalog_images -->
-                    {% if selected_character and selected_character.catalog_images.all %}
-                        {% for img in selected_character.catalog_images.all %}
+                    <!-- CAMBIO: Usamos catalog_images_set -->
+                    {% if selected_character and selected_character.catalog_images_set.all %}
+                        {% for img in selected_character.catalog_images_set.all %}
                             <img src="{{ img.image.url }}" style="width:100%; border-radius:8px;" onclick="window.open(this.src)">
                         {% endfor %}
                     {% endif %}
@@ -1029,6 +1075,43 @@
             document.getElementById('modal-gallery').style.display = 'block';
             loadUserGallery();
         };
+
+        // --- ASPECT RATIO LOGIC ---
+        const ratioContainer = document.querySelector('.aspect-ratio-grid');
+        const widthInput = document.getElementById('width-input');
+        const heightInput = document.getElementById('height-input');
+
+        // Set default active button on load
+        document.addEventListener('DOMContentLoaded', () => {
+            const buttons = ratioContainer.querySelectorAll('.aspect-ratio-btn');
+            let defaultFound = false;
+            buttons.forEach(btn => {
+                if (btn.dataset.width === widthInput.value && btn.dataset.height === heightInput.value) {
+                    btn.classList.add('active');
+                    defaultFound = true;
+                }
+            });
+            // If no match found (e.g., custom config), activate the first one (1:1)
+            if (!defaultFound && buttons.length > 0) {
+                const firstButton = buttons[0];
+                firstButton.classList.add('active');
+                widthInput.value = firstButton.dataset.width;
+                heightInput.value = firstButton.dataset.height;
+            }
+        });
+
+        ratioContainer.addEventListener('click', (e) => {
+            const clickedButton = e.target.closest('.aspect-ratio-btn');
+            if (!clickedButton) return;
+
+            // Update UI
+            ratioContainer.querySelectorAll('.aspect-ratio-btn').forEach(btn => btn.classList.remove('active'));
+            clickedButton.classList.add('active');
+
+            // Update hidden inputs
+            widthInput.value = clickedButton.dataset.width;
+            heightInput.value = clickedButton.dataset.height;
+        });
 
         // --- GENERATION LOGIC ---
         function sendPrompt() {

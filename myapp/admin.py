@@ -9,7 +9,7 @@ from django.contrib.auth.admin import UserAdmin
 from django.contrib.auth.models import User
 from django.db.models import Q
 from django.forms import ModelForm, ValidationError, CheckboxSelectMultiple
-from .models import Workflow, Character, CharacterImage, ConnectionConfig, CompanySettings
+from .models import Workflow, Character, CharacterImage, CharacterCatalogImage, ConnectionConfig, CompanySettings, HeroCarouselImage
 from .services import generate_image_from_character, get_active_comfyui_address, get_comfyui_object_info, analyze_workflow
 import json
 from asgiref.sync import async_to_sync, sync_to_async
@@ -57,26 +57,24 @@ class AdminUserAdmin(UserAdmin):
 
 # --- FIN PERSONALIZACIÓN DE USUARIOS ---
 
-# Formulario personalizado para validar el límite de personajes
-class CompanySettingsForm(ModelForm):
-    class Meta:
-        model = CompanySettings
-        fields = '__all__'
+# --- INLINE PARA IMÁGENES DEL CARRUSEL HERO ---
+class HeroCarouselImageInline(admin.TabularInline):
+    model = HeroCarouselImage
+    extra = 1
+    fields = ('image_preview', 'image', 'caption', 'order')
+    readonly_fields = ('image_preview',)
+    verbose_name = "Imagen del Carrusel Principal"
+    verbose_name_plural = "Imágenes del Carrusel Principal"
 
-    def clean_hero_characters(self):
-        chars = self.cleaned_data['hero_characters']
-        if len(chars) > 6:
-            raise ValidationError("No puedes seleccionar más de 6 personajes para el carrusel.")
-        return chars
+    def image_preview(self, obj):
+        if obj.image:
+            return format_html('<img src="{}" style="height: 100px; width: auto; border-radius: 5px;" />', obj.image.url)
+        return "(Sin imagen)"
+    image_preview.short_description = "Vista Previa"
 
 @admin.register(CompanySettings)
 class CompanySettingsAdmin(admin.ModelAdmin):
-    form = CompanySettingsForm
-    list_display = ('name', 'hero_mode', 'email')
-    filter_horizontal = ('hero_characters',) # Mejor interfaz para ManyToMany
-
-    # Campos de solo lectura (incluida la vista previa)
-    readonly_fields = ('hero_carousel_preview',)
+    inlines = [HeroCarouselImageInline]
 
     # Organizar campos en secciones
     fieldsets = (
@@ -84,8 +82,8 @@ class CompanySettingsAdmin(admin.ModelAdmin):
             'fields': ('name', 'logo', 'offer_bar_text', 'description')
         }),
         ('Página Principal (Hero)', {
-            'fields': ('app_hero_title', 'app_hero_description', 'hero_mode', 'hero_characters', 'hero_carousel_preview'),
-            'description': 'Configura el texto y los personajes del carrusel principal. Usa "Guardar y continuar" para actualizar la vista previa.'
+            'fields': ('app_hero_title', 'app_hero_description'),
+            'description': 'Sube las imágenes para el carrusel principal en la sección de abajo.'
         }),
         ('Contacto y Redes', {
             'fields': ('phone', 'email', 'facebook', 'discord')
@@ -96,43 +94,6 @@ class CompanySettingsAdmin(admin.ModelAdmin):
         if self.model.objects.exists(): return False
         return super().has_add_permission(request)
     def has_delete_permission(self, request, obj=None): return False
-
-    # --- FUNCIÓN DE VISTA PREVIA ---
-    def hero_carousel_preview(self, obj):
-        if not obj or not obj.pk:
-            return "Guarda la configuración primero para ver la previsualización."
-        
-        # Obtener personajes seleccionados
-        chars = obj.hero_characters.all()
-        if not chars:
-            return "No hay personajes seleccionados."
-
-        html = '<div style="display: flex; gap: 15px; flex-wrap: wrap; margin-top: 10px;">'
-        
-        for char in chars:
-            # Buscar la primera imagen pública (misma lógica que en la vista)
-            img = char.images.filter(Q(user__isnull=True) | Q(user__is_staff=True)).first()
-            
-            if img:
-                html += f'''
-                    <div style="text-align: center; background: #1e293b; padding: 10px; border-radius: 8px; border: 1px solid #334155;">
-                        <img src="{img.image.url}" style="height: 120px; width: 120px; object-fit: cover; border-radius: 5px; margin-bottom: 5px;">
-                        <div style="font-weight: bold; color: #fff; font-size: 12px;">{char.name}</div>
-                    </div>
-                '''
-            else:
-                html += f'''
-                    <div style="text-align: center; background: #1e293b; padding: 10px; border-radius: 8px; border: 1px solid #334155; width: 120px; display: flex; flex-direction: column; justify-content: center;">
-                        <div style="font-size: 24px; color: #64748b;">?</div>
-                        <div style="font-weight: bold; color: #fff; font-size: 12px;">{char.name}</div>
-                        <div style="font-size: 10px; color: #94a3b8;">Sin imagen</div>
-                    </div>
-                '''
-        
-        html += '</div>'
-        return mark_safe(html)
-    
-    hero_carousel_preview.short_description = "Vista Previa (Imágenes Reales)"
 
 @admin.register(ConnectionConfig)
 class ConnectionConfigAdmin(admin.ModelAdmin):
@@ -191,7 +152,6 @@ class WorkflowAdmin(admin.ModelAdmin):
                 if 'width' in saved_config: workflow_params['width'] = saved_config['width']
                 if 'height' in saved_config: workflow_params['height'] = saved_config['height']
                 if 'seed' in saved_config: workflow_params['seed'] = saved_config['seed']
-                # ELIMINADO: steps, cfg, sampler_name, scheduler
                 
                 if 'lora_names' in saved_config and 'lora_strengths' in saved_config:
                     workflow_params['loras'] = []
@@ -208,7 +168,6 @@ class WorkflowAdmin(admin.ModelAdmin):
                 'height': request.POST.get('height'),
                 'seed': request.POST.get('seed'),
                 'seed_behavior': request.POST.get('seed_behavior', 'random'),
-                # ELIMINADO: steps, cfg, sampler_name, scheduler
                 'lora_names': request.POST.getlist('lora_name'),
                 'lora_strengths': request.POST.getlist('lora_strength'),
                 'prompt': request.POST.get('prompt'), 
@@ -242,64 +201,29 @@ class CharacterImageAdmin(admin.ModelAdmin):
         return "(Sin imagen)"
     image_preview.short_description = 'Miniatura'
     def has_add_permission(self, request): return False
-    # Habilitamos el borrado
     def has_delete_permission(self, request, obj=None): return True
 
-# --- WIDGET PERSONALIZADO PARA IMÁGENES ---
-class ImageSelectWidget(CheckboxSelectMultiple):
-    def create_option(self, name, value, label, selected, index, subindex=None, attrs=None):
-        option = super().create_option(name, value, label, selected, index, subindex, attrs)
-        if value:
-            try:
-                image_obj = CharacterImage.objects.get(pk=value.value)
-                if image_obj.image:
-                    # Añadir HTML de la imagen a la etiqueta
-                    img_html = format_html(
-                        '<div style="display:inline-block; margin:5px; text-align:center; vertical-align:top;">'
-                        '<img src="{}" style="height:100px; width:auto; display:block; border-radius:5px; border:1px solid #ccc;">'
-                        '</div>',
-                        image_obj.image.url
-                    )
-                    option['label'] = mark_safe(f"{img_html}<br>{option['label']}")
-            except CharacterImage.DoesNotExist:
-                pass
-        return option
+class CharacterCatalogImageInline(admin.TabularInline):
+    model = CharacterCatalogImage
+    extra = 1
+    fields = ('image_preview', 'image', 'order')
+    readonly_fields = ('image_preview',)
+    verbose_name = "Imagen del Catálogo"
+    verbose_name_plural = "Imágenes del Catálogo (Subir Nuevas)"
 
-# --- FORMULARIO PERSONALIZADO PARA PERSONAJES ---
-class CharacterForm(ModelForm):
-    class Meta:
-        model = Character
-        fields = '__all__'
-        widgets = {
-            'catalog_images': ImageSelectWidget(), # Usar el widget personalizado
-        }
-
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        # Filtrar las imágenes del catálogo para mostrar SOLO las de este personaje
-        # y SOLO las que son públicas o de staff
-        if self.instance and self.instance.pk:
-            self.fields['catalog_images'].queryset = CharacterImage.objects.filter(
-                character=self.instance
-            ).filter(
-                Q(user__isnull=True) | Q(user__is_staff=True)
-            )
-        else:
-            # Si es un personaje nuevo, no hay imágenes aún
-            self.fields['catalog_images'].queryset = CharacterImage.objects.none()
+    def image_preview(self, obj):
+        if obj.image:
+            return format_html('<img src="{}" style="height: 100px; width: auto; border-radius: 5px;" />', obj.image.url)
+        return "(Sin imagen)"
+    image_preview.short_description = "Vista Previa"
 
 @admin.register(Character)
 class CharacterAdmin(admin.ModelAdmin):
-    form = CharacterForm # Usar el formulario personalizado
     list_display = ('name', 'base_workflow', 'character_actions')
-    # filter_horizontal = ('catalog_images',) # QUITAMOS filter_horizontal para usar el widget personalizado
+    inlines = [CharacterCatalogImageInline]
 
     fieldsets = (
         (None, {'fields': ('name', 'description', 'base_workflow')}),
-        ('Imágenes del Catálogo', {
-            'fields': ('catalog_images',),
-            'description': 'Selecciona las imágenes para mostrar en la tarjeta del personaje.'
-        }),
         ('Prompts por Defecto (Sándwich)', {
             'fields': ('prompt_prefix', 'positive_prompt', 'negative_prompt'),
             'description': 'Estructura: [Prefijo] + (Usuario:1.2) + [Sufijo]'
@@ -356,7 +280,6 @@ class CharacterAdmin(admin.ModelAdmin):
                 if 'width' in saved_config: workflow_params['width'] = saved_config['width']
                 if 'height' in saved_config: workflow_params['height'] = saved_config['height']
                 if 'seed' in saved_config: workflow_params['seed'] = saved_config['seed']
-                # ELIMINADO: steps, cfg, sampler_name, scheduler
                 
                 if 'lora_names' in saved_config and 'lora_strengths' in saved_config:
                     workflow_params['loras'] = []
@@ -373,7 +296,6 @@ class CharacterAdmin(admin.ModelAdmin):
                 'height': request.POST.get('height'),
                 'seed': request.POST.get('seed'),
                 'seed_behavior': request.POST.get('seed_behavior', 'random'),
-                # ELIMINADO: steps, cfg, sampler_name, scheduler
                 'lora_names': request.POST.getlist('lora_name'),
                 'lora_strengths': request.POST.getlist('lora_strength'),
                 'prompt': request.POST.get('prompt'), 
@@ -406,20 +328,16 @@ class CharacterAdmin(admin.ModelAdmin):
                 self.message_user(request, msg, level='error')
             else:
                 try:
-                    # USAMOS EL SERVICIO CENTRALIZADO
-                    # Ahora devuelve una lista de tuplas (bytes, clasificacion)
                     images_data_list, prompt_id = async_to_sync(generate_image_from_character)(character, prompt)
                     
                     if images_data_list:
                         count = 0
                         for i, (img_bytes, classification) in enumerate(images_data_list):
-                            # AHORA GUARDAMOS EL USUARIO (request.user)
                             new_image = CharacterImage(
                                 character=character, 
                                 description=prompt,
-                                user=request.user # <-- AQUÍ ESTÁ EL CAMBIO IMPORTANTE
+                                user=request.user
                             )
-                            # Agregamos la clasificación al nombre del archivo
                             image_filename = f"generated_{character.name}_{prompt_id}_{classification}_{i}.png"
                             new_image.image.save(image_filename, ContentFile(img_bytes), save=True)
                             count += 1
@@ -435,8 +353,6 @@ class CharacterAdmin(admin.ModelAdmin):
                     if is_ajax: return JsonResponse({'status': 'error', 'message': msg})
                     self.message_user(request, msg, level='error')
             
-            # Si fue POST pero no AJAX (ej. form submit tradicional), redirigimos
             return redirect('admin:myapp_character_change', character_id)
 
-        # Si es GET, redirigimos a la edición
         return redirect('admin:myapp_character_change', character_id)
