@@ -263,12 +263,10 @@ def update_workflow(prompt_workflow, new_values, lora_names=None, lora_strengths
         # ELIMINADO: DW_SamplerSelector y DW_SchedulerSelector
         elif class_type == "EmptyLatentImage" and "width" in new_values: inputs["width"], inputs["height"] = int(new_values["width"]), int(new_values["height"])
 
-        if node_id == steps_source_id and "steps" in new_values: inputs["value"] = int(new_values["steps"])
-        elif node_id == cfg_source_id and "cfg" in new_values: inputs["value"] = float(new_values["cfg"])
-        elif node_id == seed_source_id and "seed" in new_values: inputs["seed"] = int(new_values["seed"])
+        # ELIMINADO: steps y cfg
+        if node_id == seed_source_id and "seed" in new_values: inputs["seed"] = int(new_values["seed"])
         elif class_type == "DW_seed" and "seed" in new_values: inputs["seed"] = int(new_values["seed"])
-        elif class_type == "DW_IntValue" and details.get("_meta", {}).get("title") == "STEPS" and "steps" in new_values: inputs["value"] = int(new_values["steps"])
-        elif class_type == "DW_FloatValue" and details.get("_meta", {}).get("title") == "CFG" and "cfg" in new_values: inputs["value"] = float(new_values["cfg"])
+        # ELIMINADO: DW_IntValue (STEPS) y DW_FloatValue (CFG)
         
         # --- NUEVO: Soporte para DW_IntValue de WIDTH y HEIGHT ---
         elif class_type == "DW_IntValue" and details.get("_meta", {}).get("title") == "WIDTH" and "width" in new_values: inputs["value"] = int(new_values["width"])
@@ -284,9 +282,7 @@ def update_workflow(prompt_workflow, new_values, lora_names=None, lora_strengths
         if "Sampler" in class_type or "sampler" in class_type.lower():
              if node_id not in [steps_source_id, cfg_source_id, seed_source_id]:
                  if "seed" in new_values and "seed" in inputs and not isinstance(inputs["seed"], list): inputs["seed"] = int(new_values["seed"])
-                 if "steps" in new_values and "steps" in inputs and not isinstance(inputs["steps"], list): inputs["steps"] = int(new_values["steps"])
-                 if "cfg" in new_values and "cfg" in inputs and not isinstance(inputs["cfg"], list): inputs["cfg"] = float(new_values["cfg"])
-                 # ELIMINADO: sampler_name y scheduler
+                 # ELIMINADO: steps, cfg, sampler_name, scheduler
             
     return prompt_workflow
 
@@ -399,19 +395,23 @@ async def generate_image_from_character(character, user_prompt, width=None, heig
     # 2. Preparar Configuración (Aquí se respeta lo que definió el Admin)
     character_config = json.loads(character.character_config)
     
-    # --- ESTRATEGIA SÁNDWICH DE PROMPTS ---
-    # 1. Prefijo (Calidad/Estilo)
-    # 2. Usuario (Contenido, con peso 1.2 - REDUCIDO PARA EVITAR DEFORMIDAD)
-    # 3. Sufijo (Identidad del Personaje)
+    # --- ESTRATEGIA SÁNDWICH DE PROMPTS (CORREGIDA) ---
+    # Orden: [Identidad (Sufijo)] + [Usuario] + [Calidad (Prefijo)]
     
-    prefix = character.prompt_prefix if character.prompt_prefix else ""
-    suffix = character.positive_prompt if character.positive_prompt else "" # positive_prompt ahora es el sufijo
+    prefix = character.prompt_prefix if character.prompt_prefix else "" # Calidad/Estilo
+    suffix = character.positive_prompt if character.positive_prompt else "" # Identidad del Personaje
     
     # Construcción limpia con comas
     parts = []
-    if prefix: parts.append(prefix)
-    parts.append(f"({user_prompt}:1.2)") # BAJADO DE 1.5 A 1.2
+    
+    # 1. Identidad (Sufijo en el modelo, pero va primero en el prompt final)
     if suffix: parts.append(suffix)
+    
+    # 2. Usuario (Sin paréntesis forzados ni peso 1.2)
+    if user_prompt: parts.append(user_prompt)
+    
+    # 3. Calidad (Prefijo en el modelo, pero va al final)
+    if prefix: parts.append(prefix)
     
     full_positive_prompt = ", ".join(parts)
         

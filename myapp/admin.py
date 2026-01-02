@@ -191,9 +191,7 @@ class WorkflowAdmin(admin.ModelAdmin):
                 if 'width' in saved_config: workflow_params['width'] = saved_config['width']
                 if 'height' in saved_config: workflow_params['height'] = saved_config['height']
                 if 'seed' in saved_config: workflow_params['seed'] = saved_config['seed']
-                if 'steps' in saved_config: workflow_params['steps'] = saved_config['steps']
-                if 'cfg' in saved_config: workflow_params['cfg'] = saved_config['cfg']
-                # ELIMINADO: sampler_name y scheduler
+                # ELIMINADO: steps, cfg, sampler_name, scheduler
                 
                 if 'lora_names' in saved_config and 'lora_strengths' in saved_config:
                     workflow_params['loras'] = []
@@ -210,9 +208,7 @@ class WorkflowAdmin(admin.ModelAdmin):
                 'height': request.POST.get('height'),
                 'seed': request.POST.get('seed'),
                 'seed_behavior': request.POST.get('seed_behavior', 'random'),
-                'steps': request.POST.get('steps'),
-                'cfg': request.POST.get('cfg'),
-                # ELIMINADO: sampler_name y scheduler
+                # ELIMINADO: steps, cfg, sampler_name, scheduler
                 'lora_names': request.POST.getlist('lora_name'),
                 'lora_strengths': request.POST.getlist('lora_strength'),
                 'prompt': request.POST.get('prompt'), 
@@ -360,9 +356,7 @@ class CharacterAdmin(admin.ModelAdmin):
                 if 'width' in saved_config: workflow_params['width'] = saved_config['width']
                 if 'height' in saved_config: workflow_params['height'] = saved_config['height']
                 if 'seed' in saved_config: workflow_params['seed'] = saved_config['seed']
-                if 'steps' in saved_config: workflow_params['steps'] = saved_config['steps']
-                if 'cfg' in saved_config: workflow_params['cfg'] = saved_config['cfg']
-                # ELIMINADO: sampler_name y scheduler
+                # ELIMINADO: steps, cfg, sampler_name, scheduler
                 
                 if 'lora_names' in saved_config and 'lora_strengths' in saved_config:
                     workflow_params['loras'] = []
@@ -379,9 +373,7 @@ class CharacterAdmin(admin.ModelAdmin):
                 'height': request.POST.get('height'),
                 'seed': request.POST.get('seed'),
                 'seed_behavior': request.POST.get('seed_behavior', 'random'),
-                'steps': request.POST.get('steps'),
-                'cfg': request.POST.get('cfg'),
-                # ELIMINADO: sampler_name y scheduler
+                # ELIMINADO: steps, cfg, sampler_name, scheduler
                 'lora_names': request.POST.getlist('lora_name'),
                 'lora_strengths': request.POST.getlist('lora_strength'),
                 'prompt': request.POST.get('prompt'), 
