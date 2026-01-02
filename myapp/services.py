@@ -395,8 +395,8 @@ async def generate_image_from_character(character, user_prompt, width=None, heig
     # 2. Preparar Configuración (Aquí se respeta lo que definió el Admin)
     character_config = json.loads(character.character_config)
     
-    # --- ESTRATEGIA SÁNDWICH DE PROMPTS (CORREGIDA) ---
-    # Orden: [Identidad (Sufijo)] + [Usuario] + [Calidad (Prefijo)]
+    # --- ESTRATEGIA SÁNDWICH DE PROMPTS ---
+    # Orden: [Prefijo (Calidad)] + [Usuario] + [Sufijo (Identidad)]
     
     prefix = character.prompt_prefix if character.prompt_prefix else "" # Calidad/Estilo
     suffix = character.positive_prompt if character.positive_prompt else "" # Identidad del Personaje
@@ -404,14 +404,14 @@ async def generate_image_from_character(character, user_prompt, width=None, heig
     # Construcción limpia con comas
     parts = []
     
-    # 1. Identidad (Sufijo en el modelo, pero va primero en el prompt final)
-    if suffix: parts.append(suffix)
+    # 1. Calidad (Prefijo)
+    if prefix: parts.append(prefix)
     
     # 2. Usuario (Sin paréntesis forzados ni peso 1.2)
     if user_prompt: parts.append(user_prompt)
     
-    # 3. Calidad (Prefijo en el modelo, pero va al final)
-    if prefix: parts.append(prefix)
+    # 3. Identidad (Sufijo)
+    if suffix: parts.append(suffix)
     
     full_positive_prompt = ", ".join(parts)
         
