@@ -220,38 +220,36 @@ TWO_FACTOR_PATCH_ADMIN = True # Para integrar con el admin
 # 🛡️ CONFIGURACIÓN DE SEGURIDAD (HARDENING)
 # ==========================================
 
-# Content Security Policy (CSP) - VERSIÓN PERMISIVA PARA TAILWIND CDN
-CONTENT_SECURITY_POLICY = {
-    'default-src': ["'self'"],
-    'style-src': [
-        "'self'", 
-        "'unsafe-inline'", 
-        "https://cdn.tailwindcss.com", 
-        "https://cdnjs.cloudflare.com",
-        "https://fonts.googleapis.com"
-    ],
-    'script-src': [
-        "'self'", 
-        "'unsafe-inline'", # NECESARIO para scripts en el HTML
-        "'unsafe-eval'",   # NECESARIO para Tailwind CDN
-        "https://cdn.tailwindcss.com",
-        "https://cdnjs.cloudflare.com"
-    ],
-    'font-src': [
-        "'self'", 
-        "https://cdnjs.cloudflare.com",
-        "https://fonts.gstatic.com"
-    ],
-    'img-src': [
-        "'self'", 
-        "data:", 
-        "https://*.googleusercontent.com", 
-        "https://images.unsplash.com", 
-        "https://www.svgrepo.com", 
-        "https://www.transparenttextures.com"
-    ],
-    'connect-src': ["'self'"],
-}
+# Content Security Policy (CSP) - VERSIÓN ROBUSTA (VARIABLES INDIVIDUALES)
+CSP_DEFAULT_SRC = ("'self'",)
+CSP_STYLE_SRC = (
+    "'self'", 
+    "'unsafe-inline'", 
+    "https://cdn.tailwindcss.com", 
+    "https://cdnjs.cloudflare.com",
+    "https://fonts.googleapis.com"
+)
+CSP_SCRIPT_SRC = (
+    "'self'", 
+    "'unsafe-inline'", 
+    "'unsafe-eval'", 
+    "https://cdn.tailwindcss.com",
+    "https://cdnjs.cloudflare.com"
+)
+CSP_FONT_SRC = (
+    "'self'", 
+    "https://cdnjs.cloudflare.com",
+    "https://fonts.gstatic.com"
+)
+CSP_IMG_SRC = (
+    "'self'", 
+    "data:", 
+    "https://*.googleusercontent.com", 
+    "https://images.unsplash.com", 
+    "https://www.svgrepo.com", 
+    "https://www.transparenttextures.com"
+)
+CSP_CONNECT_SRC = ("'self'",)
 
 if not DEBUG:
     # 1. Forzar HTTPS
