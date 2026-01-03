@@ -220,13 +220,33 @@ TWO_FACTOR_PATCH_ADMIN = True # Para integrar con el admin
 # 🛡️ CONFIGURACIÓN DE SEGURIDAD (HARDENING)
 # ==========================================
 
-# Content Security Policy (CSP) - NUEVO FORMATO
+# Content Security Policy (CSP) - APLICADO SIEMPRE
 CONTENT_SECURITY_POLICY = {
     'default-src': ["'self'"],
-    'style-src': ["'self'", "'unsafe-inline'", "https://cdn.tailwindcss.com", "https://cdnjs.cloudflare.com"],
-    'script-src': ["'self'", "https://cdn.tailwindcss.com"],
-    'font-src': ["'self'", "https://cdnjs.cloudflare.com"],
-    'img-src': ["'self'", "data:", "https://*.googleusercontent.com", "https://images.unsplash.com", "https://www.svgrepo.com", "https://www.transparenttextures.com"],
+    'style-src': [
+        "'self'", 
+        "'unsafe-inline'", # Necesario para algunos estilos inline
+        "https://cdn.tailwindcss.com", 
+        "https://cdnjs.cloudflare.com",
+        "https://fonts.googleapis.com"
+    ],
+    'script-src': [
+        "'self'", 
+        "https://cdn.tailwindcss.com",
+    ],
+    'font-src': [
+        "'self'", 
+        "https://cdnjs.cloudflare.com",
+        "https://fonts.gstatic.com"
+    ],
+    'img-src': [
+        "'self'", 
+        "data:", 
+        "https://*.googleusercontent.com", 
+        "https://images.unsplash.com", 
+        "https://www.svgrepo.com", 
+        "https://www.transparenttextures.com"
+    ],
     'connect-src': ["'self'"],
 }
 
