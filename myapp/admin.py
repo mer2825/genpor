@@ -152,6 +152,7 @@ class WorkflowAdmin(admin.ModelAdmin):
                 if 'width' in saved_config: workflow_params['width'] = saved_config['width']
                 if 'height' in saved_config: workflow_params['height'] = saved_config['height']
                 if 'seed' in saved_config: workflow_params['seed'] = saved_config['seed']
+                if 'upscale_by' in saved_config: workflow_params['upscale_by'] = saved_config['upscale_by'] # NUEVO
                 
                 if 'lora_names' in saved_config and 'lora_strengths' in saved_config:
                     workflow_params['loras'] = []
@@ -168,6 +169,7 @@ class WorkflowAdmin(admin.ModelAdmin):
                 'height': request.POST.get('height'),
                 'seed': request.POST.get('seed'),
                 'seed_behavior': request.POST.get('seed_behavior', 'random'),
+                'upscale_by': request.POST.get('upscale_by'), # NUEVO
                 'lora_names': request.POST.getlist('lora_name'),
                 'lora_strengths': request.POST.getlist('lora_strength'),
                 'prompt': request.POST.get('prompt'), 
@@ -225,7 +227,7 @@ class CharacterAdmin(admin.ModelAdmin):
     fieldsets = (
         (None, {'fields': ('name', 'description', 'base_workflow')}),
         ('Prompts por Defecto (Sándwich)', {
-            'fields': ('prompt_prefix', 'positive_prompt', 'negative_prompt'),
+            'fields': ('prompt_prefix', 'prompt_suffix', 'negative_prompt'),
             'description': 'Estructura: [Prefijo] + (Usuario:1.2) + [Sufijo]'
         }),
         ('Configuración Avanzada', {'classes': ('collapse',), 'fields': ('character_config',)}),
@@ -280,6 +282,7 @@ class CharacterAdmin(admin.ModelAdmin):
                 if 'width' in saved_config: workflow_params['width'] = saved_config['width']
                 if 'height' in saved_config: workflow_params['height'] = saved_config['height']
                 if 'seed' in saved_config: workflow_params['seed'] = saved_config['seed']
+                if 'upscale_by' in saved_config: workflow_params['upscale_by'] = saved_config['upscale_by'] # NUEVO
                 
                 if 'lora_names' in saved_config and 'lora_strengths' in saved_config:
                     workflow_params['loras'] = []
@@ -296,6 +299,7 @@ class CharacterAdmin(admin.ModelAdmin):
                 'height': request.POST.get('height'),
                 'seed': request.POST.get('seed'),
                 'seed_behavior': request.POST.get('seed_behavior', 'random'),
+                'upscale_by': request.POST.get('upscale_by'), # NUEVO
                 'lora_names': request.POST.getlist('lora_name'),
                 'lora_strengths': request.POST.getlist('lora_strength'),
                 'prompt': request.POST.get('prompt'), 

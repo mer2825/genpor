@@ -18,10 +18,18 @@ from django.contrib import admin
 from django.urls import path, include
 from django.conf import settings
 from django.conf.urls.static import static
+from two_factor.urls import urlpatterns as tf_urls # Importar URLs de 2FA
 
 urlpatterns = [
-    path('admin/', admin.site.urls),
-    path('accounts/', include('allauth.urls')),  # Rutas de autenticación de allauth
+    # CAMBIO DE SEGURIDAD: URL de admin personalizada
+    path('gestion-segura/', admin.site.urls),
+    
+    # Rutas de autenticación de allauth (deben ir PRIMERO)
+    path('accounts/', include('allauth.urls')),
+    
+    # Rutas de 2FA (Ahora bajo 'security/' para evitar conflictos)
+    path('', include(tf_urls)),
+    
     path('', include('myapp.urls')),
 ]
 

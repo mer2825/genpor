@@ -5,79 +5,124 @@
 {% block title %}{% trans "Registrarse" %}{% endblock %}
 
 {% block content %}
-<div class="min-h-[80vh] flex items-center justify-center">
-    <div class="max-w-md w-full bg-white rounded-lg shadow-lg p-8">
-        <div class="text-center mb-8">
-            <h1 class="text-3xl font-bold text-gray-900">{% trans "Crear Cuenta" %}</h1>
-            <p class="text-gray-600 mt-2">{% trans "Únete a nosotros hoy mismo" %}</p>
-        </div>
+<!-- Contenedor Full Screen - MODO OSCURO -->
+<div class="fixed inset-0 z-50 bg-black flex overflow-hidden font-sans">
 
-        <form class="space-y-6" method="POST" action="{% url 'account_signup' %}">
-            {% csrf_token %}
+    <!-- LADO IZQUIERDO: Imagen Carrusel + Branding -->
+    <div class="hidden lg:flex lg:w-1/2 relative bg-gray-900 items-end justify-start overflow-hidden">
+        <!-- Imagen de fondo: Usa la del carrusel si existe -->
+        {% if hero_bg %}
+            <div class="absolute inset-0 bg-cover bg-center transition-transform duration-10000 hover:scale-110"
+                 style="background-image: url('{{ hero_bg.image.url }}');"></div>
+        {% else %}
+            <div class="absolute inset-0 bg-cover bg-center"
+                 style="background-image: url('https://images.unsplash.com/photo-1620641788421-7a1c342ea42e?q=80&w=2574&auto=format&fit=crop');"></div>
+        {% endif %}
 
-            {% if form.errors %}
-                <div class="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded relative mb-4" role="alert">
-                    <strong class="font-bold">Por favor corrige los siguientes errores:</strong>
-                    <ul class="mt-2 list-disc list-inside text-sm">
-                        {% for field in form %}
-                            {% for error in field.errors %}
-                                <li>{{ error }}</li>
-                            {% endfor %}
-                        {% endfor %}
-                        {% for error in form.non_field_errors %}
-                            <li>{{ error }}</li>
-                        {% endfor %}
-                    </ul>
-                </div>
+        <!-- Degradado Negro desde abajo -->
+        <div class="absolute inset-0 bg-gradient-to-t from-black via-black/50 to-transparent opacity-90"></div>
+
+        <!-- Contenido Texto (Abajo a la izquierda) -->
+        <div class="relative z-10 p-12 w-full">
+            {% if company_settings.logo %}
+                <img src="{{ company_settings.logo.url }}" alt="Logo" class="h-16 mb-6 object-contain">
             {% endif %}
 
-            {% for field in form %}
-                <div>
-                    <label for="{{ field.id_for_label }}" class="block text-sm font-medium text-gray-700">
-                        {{ field.label }}
-                    </label>
-                    <div class="mt-1 relative rounded-md shadow-sm">
+            <h2 class="text-5xl font-extrabold text-white mb-4 tracking-tight">
+                Únete a <br/> {{ company_settings.name|default:"la Comunidad" }}
+            </h2>
+
+            <div class="h-1 w-20 bg-gradient-to-r from-orange-500 to-red-600 mb-6"></div>
+
+            <p class="text-gray-300 text-lg font-light leading-relaxed max-w-lg">
+                Crea, comparte y explora. La plataforma definitiva para artistas digitales.
+            </p>
+        </div>
+    </div>
+
+    <!-- LADO DERECHO: Formulario -->
+    <div class="w-full lg:w-1/2 flex flex-col justify-center items-center bg-[#0a0a0a] px-8 sm:px-12 lg:px-24 relative border-l border-gray-900 overflow-y-auto">
+
+        <!-- Botón Volver -->
+        <a href="/" class="absolute top-8 right-8 text-gray-500 hover:text-orange-500 transition-colors flex items-center gap-2 text-sm font-medium z-10">
+            <span>Volver</span>
+            <i class="fas fa-times"></i>
+        </a>
+
+        <div class="w-full max-w-md space-y-8 py-12">
+            <!-- Encabezado Formulario -->
+            <div class="text-center lg:text-left">
+                <h2 class="text-3xl font-bold text-white tracking-tight mb-2">Crear Cuenta</h2>
+                <p class="text-sm text-gray-400">
+                    ¿Ya tienes cuenta?
+                    <a href="{{ login_url }}" class="font-medium text-orange-500 hover:text-orange-400 transition-colors">Inicia sesión</a>.
+                </p>
+            </div>
+
+            <!-- Botón Google -->
+            <div>
+                {% get_providers as socialaccount_providers %}
+                {% if socialaccount_providers %}
+                    {% for provider in socialaccount_providers %}
+                        {% if provider.id == "google" %}
+                        <form action="{% provider_login_url provider.id process='login' scope=scope auth_params=auth_params %}" method="post">
+                            {% csrf_token %}
+                            <button type="submit" class="w-full flex items-center justify-center gap-3 px-6 py-3.5 border border-gray-800 rounded-lg shadow-sm text-sm font-semibold text-gray-200 bg-gray-900 hover:bg-gray-800 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-orange-500 transition-all duration-200">
+                                <img src="https://www.svgrepo.com/show/475656/google-color.svg" class="h-5 w-5" alt="Google">
+                                <span>Registrarse con Google</span>
+                            </button>
+                        </form>
+                        {% endif %}
+                    {% endfor %}
+
+                    <div class="relative mt-8">
+                        <div class="absolute inset-0 flex items-center">
+                            <div class="w-full border-t border-gray-800"></div>
+                        </div>
+                        <div class="relative flex justify-center text-sm">
+                            <span class="px-4 bg-[#0a0a0a] text-gray-500 font-medium">o regístrate con tu correo</span>
+                        </div>
+                    </div>
+                {% endif %}
+            </div>
+
+            <!-- Formulario Email -->
+            <form class="mt-8 space-y-5" method="POST" action="{% url 'account_signup' %}">
+                {% csrf_token %}
+
+                {% if form.errors %}
+                    <div class="rounded-lg bg-red-900/20 p-4 border-l-4 border-red-600 mb-4">
+                        <p class="text-sm text-red-400">Por favor corrige los errores abajo.</p>
+                    </div>
+                {% endif %}
+
+                {% for field in form %}
+                    <div>
+                        <label for="{{ field.id_for_label }}" class="block text-sm font-medium text-gray-400 mb-1">
+                            {{ field.label }}
+                        </label>
                         <input type="{{ field.field.widget.input_type }}"
                                name="{{ field.name }}"
                                id="{{ field.id_for_label }}"
                                {% if field.field.required %}required{% endif %}
-                               class="focus:ring-indigo-500 focus:border-indigo-500 block w-full sm:text-sm border-gray-300 rounded-md py-2 px-3 border"
+                               class="block w-full px-4 py-3 border border-gray-800 rounded-lg bg-gray-900 text-white placeholder-gray-600 focus:outline-none focus:border-orange-500 focus:ring-1 focus:ring-orange-500 sm:text-sm transition-colors"
                                placeholder="{{ field.label }}">
+                        {% if field.help_text %}
+                            <p class="mt-1 text-xs text-gray-600">{{ field.help_text }}</p>
+                        {% endif %}
                     </div>
-                    {% if field.help_text %}
-                        <p class="mt-1 text-xs text-gray-500">{{ field.help_text }}</p>
-                    {% endif %}
+                {% endfor %}
+
+                <div class="pt-2">
+                    <button type="submit" class="w-full flex justify-center py-3.5 px-4 border border-transparent rounded-lg shadow-sm text-sm font-bold text-white bg-gradient-to-r from-orange-600 to-red-600 hover:from-orange-700 hover:to-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-orange-500 transition-all duration-200 transform hover:scale-[1.02]">
+                        Crear Cuenta
+                    </button>
                 </div>
-            {% endfor %}
 
-            <div>
-                <button type="submit" class="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition duration-150 ease-in-out">
-                    {% trans "Registrarse" %}
-                </button>
-            </div>
-
-            {% if redirect_field_value %}
-                <input type="hidden" name="{{ redirect_field_name }}" value="{{ redirect_field_value }}" />
-            {% endif %}
-        </form>
-
-        <div class="mt-6">
-            <div class="relative">
-                <div class="absolute inset-0 flex items-center">
-                    <div class="w-full border-t border-gray-300"></div>
-                </div>
-                <div class="relative flex justify-center text-sm">
-                    <span class="px-2 bg-white text-gray-500">
-                        ¿Ya tienes una cuenta?
-                    </span>
-                </div>
-            </div>
-
-            <div class="mt-6 text-center">
-                <a href="{{ login_url }}" class="font-medium text-indigo-600 hover:text-indigo-500">
-                    Inicia sesión aquí
-                </a>
-            </div>
+                <p class="text-xs text-center text-gray-500 mt-4">
+                    Al registrarte, aceptas nuestros <a href="#" class="text-orange-500 hover:underline">Términos de Servicio</a>.
+                </p>
+            </form>
         </div>
     </div>
 </div>

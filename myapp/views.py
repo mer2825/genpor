@@ -15,6 +15,9 @@ from django.contrib.auth.models import User
 from .services import generate_image_from_character, get_active_comfyui_address, get_comfyui_object_info, analyze_workflow, update_workflow, queue_prompt, get_history, get_image, get_protocols, analyze_workflow_outputs
 from PIL import Image as PILImage
 import io
+import httpx
+import websockets
+from django.core.cache import cache # IMPORTANTE: Para Rate Limiting Real
 
 # --- VISTA SEGURA PARA SERVIR ARCHIVOS ---
 def serve_private_media(request, path):
@@ -25,17 +28,37 @@ def serve_private_media(request, path):
     2. El usuario solicitante es staff.
     3. El dueño de la imagen es staff (imagen pública/oficial).
     """
-    file_path = os.path.join(settings.MEDIA_ROOT, path)
+    # --- CORRECCIÓN DE SEGURIDAD (Path Traversal) ---
+    # Normalizar la ruta para eliminar '..' y redundancias
+    normalized_path = os.path.normpath(path)
     
-    if not os.path.abspath(file_path).startswith(os.path.abspath(settings.MEDIA_ROOT)):
+    # Verificar que no intente salir del directorio raíz
+    if '..' in normalized_path or normalized_path.startswith(('/', '\\')):
         raise Http404("Invalid file path.")
 
+    file_path = os.path.join(settings.MEDIA_ROOT, normalized_path)
+    
+    # Doble verificación: asegurar que la ruta final sigue estando dentro de MEDIA_ROOT
+    if not os.path.abspath(file_path).startswith(os.path.abspath(settings.MEDIA_ROOT)):
+        raise Http404("Access denied: Path traversal attempt.")
+    # ------------------------------------------------
+
     try:
-        parts = path.split('/')
-        if parts[0] == 'user_images' and len(parts) > 1:
+        # Usamos normalized_path en lugar de path crudo
+        parts = normalized_path.split(os.sep) # Usar separador del sistema
+        
+        # Manejo robusto de rutas (Windows/Linux)
+        if len(parts) > 1 and parts[0] == 'user_images':
             owner_id = int(parts[1])
         else:
-            raise Http404("Not a user file.")
+            # Si no es user_images, podría ser otra carpeta pública o protegida
+            # Por defecto, si no sigue el patrón user_images/ID/..., denegamos acceso por ahora
+            # a menos que sea staff.
+            if request.user.is_staff:
+                owner_id = request.user.id # Bypass para staff
+            else:
+                raise Http404("Not a user file.")
+
     except (ValueError, IndexError):
         raise Http404("Malformed file path.")
 
@@ -403,131 +426,98 @@ async def generate_image_view(request):
             if not user.is_authenticated:
                 return JsonResponse({'status': 'error', 'message': 'You must be logged in to generate images.'}, status=401)
             
+            # --- RATE LIMITING REAL (CACHE) ---
+            # Usamos el ID del usuario como clave, no la sesión.
+            # Esto evita que borren cookies para saltarse el límite.
+            cache_key = f"gen_limit_{user.id}"
+            
+            # Verificar si existe la clave en caché
+            if cache.get(cache_key):
+                ttl = cache.ttl(cache_key) # Tiempo restante
+                return JsonResponse({'status': 'error', 'message': f'Please wait {ttl} seconds before generating another image.'}, status=429)
+            
+            # Establecer el bloqueo por 10 segundos
+            cache.set(cache_key, True, timeout=10)
+            # ----------------------------------
+
             character_id = request.POST.get('character_id')
             user_prompt = request.POST.get('prompt')
             
-            # CAMBIO AQUÍ: Aumentado de 500 a 5000 caracteres
             if len(user_prompt) > 5000:
                 return JsonResponse({'status': 'error', 'message': 'Prompt is too long (max 5000 characters).'}, status=400)
             
-            # Obtener dimensiones del cliente (si las envía)
             width = request.POST.get('width')
             height = request.POST.get('height')
-            
-            # --- NUEVO: Obtener semilla del cliente ---
             seed = request.POST.get('seed')
             
-            # --- NUEVO: Obtener preferencias de salida ---
-            # Convertimos 'true'/'false' string a booleano
             use_normal = request.POST.get('use_normal') == 'true'
             use_upscale = request.POST.get('use_upscale') == 'true'
             use_facedetailer = request.POST.get('use_facedetailer') == 'true'
             
-            # Construir lista de tipos permitidos
             allowed_types = []
             if use_normal: allowed_types.append("Gen_Normal")
             if use_upscale: allowed_types.append("Gen_UpScaler")
             if use_facedetailer: allowed_types.append("Gen_FaceDetailer")
             
-            # Si no seleccionó nada, forzamos al menos Normal para que no falle
             if not allowed_types: allowed_types.append("Gen_Normal")
-
-            last_generation = request.session.get('last_generation_time')
-            now = timezone.now().timestamp()
-            
-            if last_generation and (now - last_generation) < 10:
-                wait_time = int(10 - (now - last_generation))
-                return JsonResponse({'status': 'error', 'message': f'Please wait {wait_time} seconds before generating another image.'}, status=429)
-            
-            request.session['last_generation_time'] = now
 
             try:
                 character = await sync_to_async(Character.objects.select_related('base_workflow').get)(id=character_id)
 
-                # --- 1. GUARDAR MENSAJE DEL USUARIO ---
                 @sync_to_async
                 def save_user_message():
-                    return ChatMessage.objects.create(
-                        user=user,
-                        character=character,
-                        message=user_prompt,
-                        is_from_user=True
-                    )
+                    return ChatMessage.objects.create(user=user, character=character, message=user_prompt, is_from_user=True)
                 user_msg = await save_user_message()
 
-                # USAMOS EL SERVICIO CENTRALIZADO
-                # Pasamos allowed_types y seed
                 images_data_list, prompt_id = await generate_image_from_character(
                     character, user_prompt, width, height, seed=seed, allowed_types=allowed_types
                 )
 
                 if images_data_list:
-                    # CAMBIO: Ahora devolvemos objetos con URL y TIPO
                     generated_results = []
-                    created_images = [] # Para asociar al mensaje de IA
+                    created_images = []
                     
                     @sync_to_async
                     def save_generated_image(img_bytes, classification, index):
                         new_image = CharacterImage(character=character, user=user, description=user_prompt)
-                        # Agregamos la clasificación al nombre del archivo
                         filename = f"user_gen_{character.name}_{prompt_id}_{classification}_{index}.png"
-                        
-                        # Guardar archivo
                         new_image.image.save(filename, ContentFile(img_bytes), save=False)
-                        
-                        # --- NUEVO: Obtener dimensiones reales ---
                         try:
                             with PILImage.open(io.BytesIO(img_bytes)) as pil_img:
                                 new_image.width, new_image.height = pil_img.size
                         except Exception:
-                            pass # Si falla, se queda en 0
-                            
+                            pass
                         new_image.save()
                         return new_image
 
                     for i, (img_bytes, classification) in enumerate(images_data_list):
                         img_obj = await save_generated_image(img_bytes, classification, i)
                         created_images.append(img_obj)
-                        
                         image_url = reverse('serve_private_media', kwargs={'path': img_obj.image.name})
-                        
-                        # Agregamos el objeto a la lista de resultados
-                        generated_results.append({
-                            'url': image_url,
-                            'type': classification,
-                            'width': img_obj.width,
-                            'height': img_obj.height
-                        })
+                        generated_results.append({'url': image_url, 'type': classification, 'width': img_obj.width, 'height': img_obj.height})
                     
-                    # --- 2. GUARDAR MENSAJE DE LA IA (CON IMÁGENES) ---
                     @sync_to_async
                     def save_ai_message(imgs):
-                        ai_msg = ChatMessage.objects.create(
-                            user=user,
-                            character=character,
-                            message="Here are your generated images.",
-                            is_from_user=False,
-                            image_count=len(imgs) # Guardamos la cantidad original
-                        )
+                        ai_msg = ChatMessage.objects.create(user=user, character=character, message="Here are your generated images.", is_from_user=False, image_count=len(imgs))
                         ai_msg.generated_images.set(imgs)
                         return ai_msg
                     
                     ai_msg = await save_ai_message(created_images)
                     
-                    # Devolvemos también los IDs de los mensajes para poder borrarlos
-                    return JsonResponse({
-                        'status': 'success', 
-                        'results': generated_results,
-                        'user_msg_id': user_msg.id,
-                        'ai_msg_id': ai_msg.id
-                    })
+                    return JsonResponse({'status': 'success', 'results': generated_results, 'user_msg_id': user_msg.id, 'ai_msg_id': ai_msg.id})
                 
                 return JsonResponse({'status': 'error', 'message': 'No valid images generated based on your filters.'}, status=500)
 
             except Character.DoesNotExist:
                 return JsonResponse({'status': 'error', 'message': 'Character not found.'}, status=404)
+            except (httpx.ConnectError, websockets.exceptions.WebSocketException):
+                # Captura errores de conexión específicos
+                return JsonResponse({'status': 'error', 'message': 'Could not connect to the generation server. Please try again later.'}, status=503)
             except Exception as e:
-                return JsonResponse({'status': 'error', 'message': str(e)}, status=500)
+                # Para cualquier otro error, loguea el error real en la consola del servidor
+                print(f"An unexpected error occurred: {e}")
+                # Y muestra un mensaje genérico al usuario
+                return JsonResponse({'status': 'error', 'message': 'An unexpected error occurred during generation.'}, status=500)
 
         elif request.method == 'GET':
             if not user.is_authenticated:

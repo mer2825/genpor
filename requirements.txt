@@ -10,3 +10,6 @@ websockets
 requests
 pyjwt
 cryptography
+django-csp
+django-two-factor-auth
+qrcode

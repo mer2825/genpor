@@ -98,6 +98,7 @@ def analyze_workflow(prompt_workflow):
     analysis = {
         "checkpoint": None, "vae": None, "loras": [], "width": None, "height": None,
         "seed": None, "steps": None, "cfg": None, "sampler_name": None, "scheduler": None,
+        "upscale_by": None, # NUEVO CAMPO
     }
     if not isinstance(prompt_workflow, dict): return analysis
     
@@ -105,6 +106,7 @@ def analyze_workflow(prompt_workflow):
     for node_id, details in prompt_workflow.items():
         if not isinstance(details, dict): continue
         class_type, inputs = details.get("class_type"), details.get("inputs", {})
+        title = details.get("_meta", {}).get("title", "").upper() # Convertir a mayúsculas para ser consistente
         
         if class_type == "CheckpointLoaderSimple": analysis["checkpoint"] = inputs.get("ckpt_name")
         elif class_type == "VAELoader": analysis["vae"] = inputs.get("vae_name")
@@ -114,8 +116,9 @@ def analyze_workflow(prompt_workflow):
                     analysis["loras"].append({"name": lora_name, "strength": inputs.get(f"lora_{i}_strength")})
         elif class_type == "DW_resolution": analysis["width"], analysis["height"] = inputs.get("WIDTH"), inputs.get("HEIGHT")
         elif class_type == "DW_seed": analysis["seed"] = inputs.get("seed")
-        elif class_type == "DW_IntValue" and details.get("_meta", {}).get("title") == "STEPS": analysis["steps"] = inputs.get("value")
-        elif class_type == "DW_FloatValue" and details.get("_meta", {}).get("title") == "CFG": analysis["cfg"] = inputs.get("value")
+        elif title == "STEPS": analysis["steps"] = inputs.get("value")
+        elif title == "CFG": analysis["cfg"] = inputs.get("value")
+        elif title == "UPSCALER BY": analysis["upscale_by"] = inputs.get("value") # NUEVA LÍNEA
         elif class_type == "DW_SamplerSelector": analysis["sampler_name"] = inputs.get("sampler_name")
         elif class_type == "DW_SchedulerSelector": analysis["scheduler"] = inputs.get("scheduler")
         elif class_type == "EmptyLatentImage":
@@ -234,6 +237,7 @@ def update_workflow(prompt_workflow, new_values, lora_names=None, lora_strengths
     for node_id, details in prompt_workflow.items():
         if not isinstance(details, dict): continue
         class_type, inputs = details.get("class_type"), details.get("inputs", {})
+        title = details.get("_meta", {}).get("title", "").upper() # Convertir a mayúsculas para ser consistente
         
         # Actualizar Prompts (Soporte para Primitives y Stylers)
         candidates = ["text", "text_g", "text_l", "prompt", "text_positive", "positive_prompt", "value"]
@@ -269,14 +273,12 @@ def update_workflow(prompt_workflow, new_values, lora_names=None, lora_strengths
         # ELIMINADO: DW_IntValue (STEPS) y DW_FloatValue (CFG)
         
         # --- NUEVO: Soporte para DW_IntValue de WIDTH y HEIGHT ---
-        elif class_type == "DW_IntValue" and details.get("_meta", {}).get("title") == "WIDTH" and "width" in new_values: inputs["value"] = int(new_values["width"])
-        elif class_type == "DW_IntValue" and details.get("_meta", {}).get("title") == "HEIGHT" and "height" in new_values: inputs["value"] = int(new_values["height"])
+        elif class_type == "DW_IntValue" and title == "WIDTH" and "width" in new_values: inputs["value"] = int(new_values["width"])
+        elif class_type == "DW_IntValue" and title == "HEIGHT" and "height" in new_values: inputs["value"] = int(new_values["height"])
         
-        # --- TURBO UPSCALER: Forzar 2.0x si existe el nodo ---
-        elif class_type == "DW_FloatValue" and details.get("_meta", {}).get("title") == "UPSCALER BY":
-            # print(f"DEBUG: Forzando UPSCALER BY en Nodo {node_id} a 2.0")
-            # inputs["value"] = 2.0
-            pass # YA NO FORZAMOS EL UPSCALER, DEJAMOS EL VALOR DEL WORKFLOW
+        # --- TURBO UPSCALER: Actualizar si existe el nodo ---
+        elif class_type == "DW_FloatValue" and title == "UPSCALER BY" and "upscale_by" in new_values:
+             inputs["value"] = float(new_values["upscale_by"])
 
         # Manejo específico para DW_KsamplerAdvanced y otros samplers
         if "Sampler" in class_type or "sampler" in class_type.lower():
@@ -395,22 +397,22 @@ async def generate_image_from_character(character, user_prompt, width=None, heig
     # 2. Preparar Configuración (Aquí se respeta lo que definió el Admin)
     character_config = json.loads(character.character_config)
     
-    # --- ESTRATEGIA SÁNDWICH DE PROMPTS ---
-    # Orden: [Prefijo (Calidad)] + [Usuario] + [Sufijo (Identidad)]
+    # --- ESTRATEGIA SÁNDWICH DE PROMPTS (CORREGIDA) ---
+    # Orden: [Prefijo (Personaje)] + [Usuario] + [Sufijo (Calidad)]
     
-    prefix = character.prompt_prefix if character.prompt_prefix else "" # Calidad/Estilo
-    suffix = character.positive_prompt if character.positive_prompt else "" # Identidad del Personaje
+    prefix = character.prompt_prefix if character.prompt_prefix else "" # Personaje
+    suffix = character.prompt_suffix if character.prompt_suffix else "" # Calidad
     
     # Construcción limpia con comas
     parts = []
     
-    # 1. Calidad (Prefijo)
+    # 1. Personaje (Prefijo)
     if prefix: parts.append(prefix)
     
     # 2. Usuario (Sin paréntesis forzados ni peso 1.2)
     if user_prompt: parts.append(user_prompt)
     
-    # 3. Identidad (Sufijo)
+    # 3. Calidad (Sufijo)
     if suffix: parts.append(suffix)
     
     full_positive_prompt = ", ".join(parts)

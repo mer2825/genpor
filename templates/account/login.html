@@ -5,100 +5,128 @@
 {% block title %}{% trans "Iniciar Sesión" %}{% endblock %}
 
 {% block content %}
-<div class="min-h-[80vh] flex items-center justify-center">
-    <div class="max-w-md w-full bg-white rounded-lg shadow-lg p-8">
-        <div class="text-center mb-8">
-            <h1 class="text-3xl font-bold text-gray-900">{% trans "Bienvenido de nuevo" %}</h1>
-            <p class="text-gray-600 mt-2">{% trans "Ingresa a tu cuenta para continuar" %}</p>
-        </div>
+<!-- Contenedor Full Screen - MODO OSCURO -->
+<div class="fixed inset-0 z-50 bg-black flex overflow-hidden font-sans">
 
-        <form class="space-y-6" method="POST" action="{% url 'account_login' %}">
-            {% csrf_token %}
+    <!-- LADO IZQUIERDO: Imagen Carrusel + Branding -->
+    <div class="hidden lg:flex lg:w-1/2 relative bg-gray-900 items-end justify-start overflow-hidden">
+        <!-- Imagen de fondo: Usa la del carrusel si existe -->
+        {% if hero_bg %}
+            <div class="absolute inset-0 bg-cover bg-center transition-transform duration-10000 hover:scale-110"
+                 style="background-image: url('{{ hero_bg.image.url }}');"></div>
+        {% else %}
+            <!-- Fallback si no hay imagen -->
+            <div class="absolute inset-0 bg-cover bg-center"
+                 style="background-image: url('https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?q=80&w=2564&auto=format&fit=crop');"></div>
+        {% endif %}
 
-            {% if form.errors %}
-                <div class="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded relative" role="alert">
-                    <strong class="font-bold">Error:</strong>
-                    <span class="block sm:inline">Por favor verifica tus credenciales.</span>
-                </div>
+        <!-- Degradado Negro desde abajo para que el texto se lea SIEMPRE -->
+        <div class="absolute inset-0 bg-gradient-to-t from-black via-black/50 to-transparent opacity-90"></div>
+
+        <!-- Contenido Texto (Abajo a la izquierda) -->
+        <div class="relative z-10 p-12 w-full">
+            {% if company_settings.logo %}
+                <img src="{{ company_settings.logo.url }}" alt="Logo" class="h-16 mb-6 object-contain">
             {% endif %}
 
+            <h2 class="text-5xl font-extrabold text-white mb-4 tracking-tight">
+                {{ company_settings.name|default:"Mi App" }}
+            </h2>
+
+            <div class="h-1 w-20 bg-gradient-to-r from-orange-500 to-red-600 mb-6"></div>
+
+            <p class="text-gray-300 text-lg font-light leading-relaxed max-w-lg">
+                {{ company_settings.app_hero_description|default:"Tu estudio de generación de arte con IA." }}
+            </p>
+        </div>
+    </div>
+
+    <!-- LADO DERECHO: Formulario -->
+    <div class="w-full lg:w-1/2 flex flex-col justify-center items-center bg-[#0a0a0a] px-8 sm:px-12 lg:px-24 relative border-l border-gray-900">
+
+        <!-- Botón Volver -->
+        <a href="/" class="absolute top-8 right-8 text-gray-500 hover:text-orange-500 transition-colors flex items-center gap-2 text-sm font-medium">
+            <span>Volver</span>
+            <i class="fas fa-times"></i>
+        </a>
+
+        <div class="w-full max-w-md space-y-8">
+            <!-- Encabezado Formulario -->
+            <div class="text-center lg:text-left">
+                <h2 class="text-3xl font-bold text-white tracking-tight mb-2">Bienvenido</h2>
+                <p class="text-sm text-gray-400">
+                    Ingresa tus credenciales para continuar o
+                    <a href="{{ signup_url }}" class="font-medium text-orange-500 hover:text-orange-400 transition-colors">crea una cuenta</a>.
+                </p>
+            </div>
+
+            <!-- Botón Google -->
             <div>
-                <label for="{{ form.login.id_for_label }}" class="block text-sm font-medium text-gray-700">
-                    Correo Electrónico
-                </label>
-                <div class="mt-1 relative rounded-md shadow-sm">
-                    <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                        <i class="fas fa-envelope text-gray-400"></i>
+                {% get_providers as socialaccount_providers %}
+                {% if socialaccount_providers %}
+                    {% for provider in socialaccount_providers %}
+                        {% if provider.id == "google" %}
+                        <form action="{% provider_login_url provider.id process='login' scope=scope auth_params=auth_params %}" method="post">
+                            {% csrf_token %}
+                            <button type="submit" class="w-full flex items-center justify-center gap-3 px-6 py-3.5 border border-gray-800 rounded-lg shadow-sm text-sm font-semibold text-gray-200 bg-gray-900 hover:bg-gray-800 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-orange-500 transition-all duration-200">
+                                <img src="https://www.svgrepo.com/show/475656/google-color.svg" class="h-5 w-5" alt="Google">
+                                <span>Continuar con Google</span>
+                            </button>
+                        </form>
+                        {% endif %}
+                    {% endfor %}
+
+                    <div class="relative mt-8">
+                        <div class="absolute inset-0 flex items-center">
+                            <div class="w-full border-t border-gray-800"></div>
+                        </div>
+                        <div class="relative flex justify-center text-sm">
+                            <span class="px-4 bg-[#0a0a0a] text-gray-500 font-medium">o usa tu correo</span>
+                        </div>
                     </div>
-                    <input type="email" name="{{ form.login.name }}" id="{{ form.login.id_for_label }}"
-                           class="focus:ring-indigo-500 focus:border-indigo-500 block w-full pl-10 sm:text-sm border-gray-300 rounded-md py-2 border"
-                           placeholder="tu@email.com" required>
-                </div>
-                {% if form.login.errors %}
-                    <p class="mt-2 text-sm text-red-600">{{ form.login.errors.0 }}</p>
                 {% endif %}
             </div>
 
-            <div>
-                <label for="{{ form.password.id_for_label }}" class="block text-sm font-medium text-gray-700">
-                    Contraseña
-                </label>
-                <div class="mt-1 relative rounded-md shadow-sm">
-                    <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                        <i class="fas fa-lock text-gray-400"></i>
-                    </div>
-                    <input type="password" name="{{ form.password.name }}" id="{{ form.password.id_for_label }}"
-                           class="focus:ring-indigo-500 focus:border-indigo-500 block w-full pl-10 sm:text-sm border-gray-300 rounded-md py-2 border"
-                           placeholder="••••••••" required>
-                </div>
-                {% if form.password.errors %}
-                    <p class="mt-2 text-sm text-red-600">{{ form.password.errors.0 }}</p>
-                {% endif %}
-            </div>
+            <!-- Formulario Email -->
+            <form class="mt-8 space-y-6" method="POST" action="{% url 'account_login' %}">
+                {% csrf_token %}
 
-            <div class="flex items-center justify-between">
+                {% if form.errors %}
+                    <div class="rounded-lg bg-red-900/20 p-4 border-l-4 border-red-600">
+                        <p class="text-sm text-red-400">Usuario o contraseña incorrectos.</p>
+                    </div>
+                {% endif %}
+
+                <div class="space-y-5">
+                    <div>
+                        <label for="{{ form.login.id_for_label }}" class="block text-sm font-medium text-gray-400 mb-1">Correo Electrónico</label>
+                        <input id="{{ form.login.id_for_label }}" name="{{ form.login.name }}" type="email" autocomplete="email" required
+                            class="block w-full px-4 py-3 border border-gray-800 rounded-lg bg-gray-900 text-white placeholder-gray-600 focus:outline-none focus:border-orange-500 focus:ring-1 focus:ring-orange-500 sm:text-sm transition-colors"
+                            placeholder="nombre@ejemplo.com">
+                    </div>
+
+                    <div>
+                        <div class="flex items-center justify-between mb-1">
+                            <label for="{{ form.password.id_for_label }}" class="block text-sm font-medium text-gray-400">Contraseña</label>
+                            <a href="{% url 'account_reset_password' %}" class="text-sm font-medium text-orange-500 hover:text-orange-400">¿Olvidaste tu contraseña?</a>
+                        </div>
+                        <input id="{{ form.password.id_for_label }}" name="{{ form.password.name }}" type="password" autocomplete="current-password" required
+                            class="block w-full px-4 py-3 border border-gray-800 rounded-lg bg-gray-900 text-white placeholder-gray-600 focus:outline-none focus:border-orange-500 focus:ring-1 focus:ring-orange-500 sm:text-sm transition-colors"
+                            placeholder="••••••••">
+                    </div>
+                </div>
+
                 <div class="flex items-center">
-                    <input id="remember" name="remember" type="checkbox" class="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded">
-                    <label for="remember" class="ml-2 block text-sm text-gray-900">
-                        Recordarme
+                    <input id="remember" name="remember" type="checkbox" class="h-4 w-4 text-orange-600 focus:ring-orange-500 border-gray-700 rounded bg-gray-900 cursor-pointer">
+                    <label for="remember" class="ml-2 block text-sm text-gray-400 cursor-pointer">
+                        Recordar mi sesión
                     </label>
                 </div>
 
-                <div class="text-sm">
-                    <a href="{% url 'account_reset_password' %}" class="font-medium text-indigo-600 hover:text-indigo-500">
-                        ¿Olvidaste tu contraseña?
-                    </a>
-                </div>
-            </div>
-
-            <div>
-                <button type="submit" class="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition duration-150 ease-in-out">
-                    {% trans "Iniciar Sesión" %}
+                <button type="submit" class="w-full flex justify-center py-3.5 px-4 border border-transparent rounded-lg shadow-sm text-sm font-bold text-white bg-gradient-to-r from-orange-600 to-red-600 hover:from-orange-700 hover:to-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-orange-500 transition-all duration-200 transform hover:scale-[1.02]">
+                    Iniciar Sesión
                 </button>
-            </div>
-
-            {% if redirect_field_value %}
-                <input type="hidden" name="{{ redirect_field_name }}" value="{{ redirect_field_value }}" />
-            {% endif %}
-        </form>
-
-        <div class="mt-6">
-            <div class="relative">
-                <div class="absolute inset-0 flex items-center">
-                    <div class="w-full border-t border-gray-300"></div>
-                </div>
-                <div class="relative flex justify-center text-sm">
-                    <span class="px-2 bg-white text-gray-500">
-                        ¿No tienes una cuenta?
-                    </span>
-                </div>
-            </div>
-
-            <div class="mt-6 text-center">
-                <a href="{{ signup_url }}" class="font-medium text-indigo-600 hover:text-indigo-500">
-                    Regístrate aquí
-                </a>
-            </div>
+            </form>
         </div>
     </div>
 </div>

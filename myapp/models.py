@@ -33,18 +33,18 @@ class Character(models.Model):
     prompt_prefix = models.TextField(
         blank=True, 
         null=True, 
-        verbose_name="Prompt Prefix (Quality)",
-        default="score_9, score_8_up, score_7_up, score_6_up, source_anime, rating_explicit, (masterpiece, best quality)",
-        help_text="PREFIX: Goes BEFORE the user prompt. Use for Quality Tags (score_9...) and style."
+        verbose_name="Prompt Prefix (Character)",
+        default="1girl, solo, beautiful woman, detailed skin",
+        help_text="PREFIX: Goes BEFORE the user prompt. Use to describe the character (hair, eyes, body)."
     )
     
-    # ANTES positive_prompt, AHORA actúa como SUFIJO
-    positive_prompt = models.TextField(
+    # RENOMBRADO: De positive_prompt a prompt_suffix
+    prompt_suffix = models.TextField(
         blank=True, 
         null=True, 
-        verbose_name="Prompt Suffix (Identity)", 
-        default="1girl, solo, beautiful woman, detailed skin",
-        help_text="SUFFIX: Goes AFTER the user prompt. Use to describe the character (hair, eyes, body)."
+        verbose_name="Prompt Suffix (Quality)", 
+        default="score_9, score_8_up, score_7_up, score_6_up, source_anime, rating_explicit, (masterpiece, best quality)",
+        help_text="SUFFIX: Goes AFTER the user prompt. Use for Quality Tags (score_9...) and style."
     )
     
     negative_prompt = models.TextField(

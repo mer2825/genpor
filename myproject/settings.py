@@ -38,19 +38,31 @@ ALLOWED_HOSTS = os.getenv('ALLOWED_HOSTS', 'localhost,127.0.0.1').split(',')
 # Application definition
 
 INSTALLED_APPS = [
+    # Mis Apps (PRIMERO para que sus templates tengan prioridad)
+    'myapp',
+
     'django.contrib.admin',
     'django.contrib.auth',
     'django.contrib.contenttypes',
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
-    'myapp',
+    'django.contrib.sites',
     
     # Django Allauth
     'allauth',
     'allauth.account',
     'allauth.socialaccount',
     'allauth.socialaccount.providers.google',
+    
+    # CSP
+    'csp',
+    
+    # 2FA (Two-Factor Authentication)
+    'django_otp',
+    'django_otp.plugins.otp_static',
+    'django_otp.plugins.otp_totp',
+    'two_factor',
 ]
 
 MIDDLEWARE = [
@@ -64,8 +76,14 @@ MIDDLEWARE = [
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
     
+    # 2FA Middleware (después de AuthenticationMiddleware)
+    'django_otp.middleware.OTPMiddleware',
+    
     # Django Allauth Middleware
     "allauth.account.middleware.AccountMiddleware",
+    
+    # CSP Middleware
+    'csp.middleware.CSPMiddleware',
 ]
 
 ROOT_URLCONF = 'myproject.urls'
@@ -80,6 +98,8 @@ TEMPLATES = [
                 'django.template.context_processors.request',
                 'django.contrib.auth.context_processors.auth',
                 'django.contrib.messages.context_processors.messages',
+                # Nuestro procesador de contexto personalizado (Logo, Fondo, etc.)
+                'myapp.context_processors.company_data',
             ],
         },
     },
@@ -161,15 +181,76 @@ SITE_ID = 1
 
 # Configuración para permitir login con email y contraseña
 ACCOUNT_LOGIN_METHODS = {'email'}
-ACCOUNT_EMAIL_VERIFICATION = 'optional'  # Puedes cambiar a 'mandatory' si quieres forzar verificación
-LOGIN_REDIRECT_URL = '/'  # Redirigir al home después del login
+ACCOUNT_EMAIL_VERIFICATION = 'none' # No requerir verificación de email para simplificar el flujo
+LOGIN_REDIRECT_URL = '/workspace/'  # Redirigir al workspace después del login
 LOGOUT_REDIRECT_URL = '/'
 
 # Configuración corregida para evitar conflictos y warnings
 ACCOUNT_EMAIL_REQUIRED = True
 ACCOUNT_USERNAME_REQUIRED = False
-# Eliminamos ACCOUNT_SIGNUP_FIELDS explícito para que use los defaults basados en las otras settings
-# Esto suele ser más seguro para evitar conflictos como el de 'password1'
+ACCOUNT_SESSION_REMEMBER = True # Recordar sesión por defecto
 
-# Email Backend for Development (Prints emails to console instead of sending)
-EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
+# Configuración de Proveedores Sociales (Google)
+SOCIALACCOUNT_PROVIDERS = {
+    'google': {
+        'SCOPE': [
+            'profile',
+            'email',
+        ],
+        'AUTH_PARAMS': {
+            'access_type': 'online',
+        },
+        'OAUTH_PKCE_ENABLED': True,
+    }
+}
+
+# Configuración de Email (Gmail SMTP)
+EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
+EMAIL_HOST = 'smtp.gmail.com'
+EMAIL_PORT = 587
+EMAIL_USE_TLS = True
+EMAIL_HOST_USER = os.getenv('EMAIL_HOST_USER')
+EMAIL_HOST_PASSWORD = os.getenv('EMAIL_HOST_PASSWORD')
+DEFAULT_FROM_EMAIL = os.getenv('EMAIL_HOST_USER')
+
+# --- 2FA Settings ---
+LOGIN_URL = 'two_factor:login'
+LOGIN_REDIRECT_URL = '/workspace/'
+TWO_FACTOR_PATCH_ADMIN = True # Para integrar con el admin
+
+# ==========================================
+# 🛡️ CONFIGURACIÓN DE SEGURIDAD (HARDENING)
+# ==========================================
+
+if not DEBUG:
+    # 1. Forzar HTTPS
+    SECURE_SSL_REDIRECT = True
+    
+    # 2. Cookies Seguras
+    SESSION_COOKIE_SECURE = True
+    CSRF_COOKIE_SECURE = True
+    
+    # 3. HSTS
+    SECURE_HSTS_SECONDS = 31536000
+    SECURE_HSTS_INCLUDE_SUBDOMAINS = True
+    SECURE_HSTS_PRELOAD = True
+    
+    # 4. Protección contra "Sniffing"
+    SECURE_CONTENT_TYPE_NOSNIFF = True
+    
+    # 5. Protección XSS
+    SECURE_BROWSER_XSS_FILTER = True
+    
+    # 6. Proxy SSL
+    SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
+
+    # 7. Clickjacking
+    X_FRAME_OPTIONS = 'DENY'
+
+    # 8. Content Security Policy (CSP)
+    CSP_DEFAULT_SRC = ("'self'",)
+    CSP_STYLE_SRC = ("'self'", "'unsafe-inline'", "https://cdn.tailwindcss.com", "https://cdnjs.cloudflare.com")
+    CSP_SCRIPT_SRC = ("'self'", "https://cdn.tailwindcss.com")
+    CSP_FONT_SRC = ("'self'", "https://cdnjs.cloudflare.com")
+    CSP_IMG_SRC = ("'self'", "data:", "https://*.googleusercontent.com", "https://images.unsplash.com", "https://www.svgrepo.com", "https://www.transparenttextures.com")
+    CSP_CONNECT_SRC = ("'self'",)
