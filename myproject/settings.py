@@ -38,9 +38,6 @@ ALLOWED_HOSTS = os.getenv('ALLOWED_HOSTS', 'localhost,127.0.0.1').split(',')
 # Application definition
 
 INSTALLED_APPS = [
-    # Mis Apps (PRIMERO para que sus templates tengan prioridad)
-    'myapp',
-
     'django.contrib.admin',
     'django.contrib.auth',
     'django.contrib.contenttypes',
@@ -48,6 +45,7 @@ INSTALLED_APPS = [
     'django.contrib.messages',
     'django.contrib.staticfiles',
     'django.contrib.sites',
+    'myapp',
     
     # Django Allauth
     'allauth',
@@ -215,12 +213,22 @@ DEFAULT_FROM_EMAIL = os.getenv('EMAIL_HOST_USER')
 
 # --- 2FA Settings ---
 LOGIN_URL = 'two_factor:login'
-LOGIN_REDIRECT_URL = '/workspace/'
+# LOGIN_REDIRECT_URL = '/workspace/' # Esta línea ya está definida arriba, la dejamos ahí
 TWO_FACTOR_PATCH_ADMIN = True # Para integrar con el admin
 
 # ==========================================
 # 🛡️ CONFIGURACIÓN DE SEGURIDAD (HARDENING)
 # ==========================================
+
+# Content Security Policy (CSP) - NUEVO FORMATO
+CONTENT_SECURITY_POLICY = {
+    'default-src': ["'self'"],
+    'style-src': ["'self'", "'unsafe-inline'", "https://cdn.tailwindcss.com", "https://cdnjs.cloudflare.com"],
+    'script-src': ["'self'", "https://cdn.tailwindcss.com"],
+    'font-src': ["'self'", "https://cdnjs.cloudflare.com"],
+    'img-src': ["'self'", "data:", "https://*.googleusercontent.com", "https://images.unsplash.com", "https://www.svgrepo.com", "https://www.transparenttextures.com"],
+    'connect-src': ["'self'"],
+}
 
 if not DEBUG:
     # 1. Forzar HTTPS
@@ -246,11 +254,3 @@ if not DEBUG:
 
     # 7. Clickjacking
     X_FRAME_OPTIONS = 'DENY'
-
-    # 8. Content Security Policy (CSP)
-    CSP_DEFAULT_SRC = ("'self'",)
-    CSP_STYLE_SRC = ("'self'", "'unsafe-inline'", "https://cdn.tailwindcss.com", "https://cdnjs.cloudflare.com")
-    CSP_SCRIPT_SRC = ("'self'", "https://cdn.tailwindcss.com")
-    CSP_FONT_SRC = ("'self'", "https://cdnjs.cloudflare.com")
-    CSP_IMG_SRC = ("'self'", "data:", "https://*.googleusercontent.com", "https://images.unsplash.com", "https://www.svgrepo.com", "https://www.transparenttextures.com")
-    CSP_CONNECT_SRC = ("'self'",)
