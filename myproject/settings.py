@@ -220,19 +220,22 @@ TWO_FACTOR_PATCH_ADMIN = True # Para integrar con el admin
 # 🛡️ CONFIGURACIÓN DE SEGURIDAD (HARDENING)
 # ==========================================
 
-# Content Security Policy (CSP) - APLICADO SIEMPRE
+# Content Security Policy (CSP) - VERSIÓN PERMISIVA PARA TAILWIND CDN
 CONTENT_SECURITY_POLICY = {
     'default-src': ["'self'"],
     'style-src': [
         "'self'", 
-        "'unsafe-inline'", # Necesario para algunos estilos inline
+        "'unsafe-inline'", 
         "https://cdn.tailwindcss.com", 
         "https://cdnjs.cloudflare.com",
         "https://fonts.googleapis.com"
     ],
     'script-src': [
         "'self'", 
+        "'unsafe-inline'", # NECESARIO para scripts en el HTML
+        "'unsafe-eval'",   # NECESARIO para Tailwind CDN
         "https://cdn.tailwindcss.com",
+        "https://cdnjs.cloudflare.com"
     ],
     'font-src': [
         "'self'", 
