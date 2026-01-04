@@ -1,0 +1,73 @@
+{% load i18n %}
+
+{% if wizard.form.forms %}
+    {{ wizard.form.management_form }}
+    {% for form in wizard.form.forms %}
+        {% for field in form %}
+            <div class="mb-4">
+                <label for="{{ field.id_for_label }}" class="block text-sm font-medium text-gray-300 mb-1">
+                    {{ field.label }}
+                </label>
+                <div class="mt-1 relative rounded-md shadow-sm form-input-container">
+                    {{ field }}
+                </div>
+                {% if field.help_text %}
+                    <p class="mt-2 text-xs text-gray-500">{{ field.help_text|safe }}</p>
+                {% endif %}
+                {% if field.errors %}
+                    <div class="mt-2 text-sm text-red-400">
+                        {{ field.errors }}
+                    </div>
+                {% endif %}
+            </div>
+        {% endfor %}
+    {% endfor %}
+{% else %}
+    {% for field in wizard.form %}
+        <div class="mb-4">
+            <label for="{{ field.id_for_label }}" class="block text-sm font-medium text-gray-300 mb-1">
+                {{ field.label }}
+            </label>
+            <div class="mt-1 relative rounded-md shadow-sm form-input-container">
+                {{ field }}
+            </div>
+            {% if field.help_text %}
+                <p class="mt-2 text-xs text-gray-500">{{ field.help_text|safe }}</p>
+            {% endif %}
+            {% if field.errors %}
+                <div class="mt-2 text-sm text-red-400">
+                    {{ field.errors }}
+                </div>
+            {% endif %}
+        </div>
+    {% endfor %}
+{% endif %}
+
+<script>
+    // Script para aplicar estilos de Tailwind a los inputs generados por Django
+    // Esto asegura que los inputs tengan el estilo oscuro correcto sin romper la funcionalidad del formulario
+    document.addEventListener("DOMContentLoaded", function() {
+        const inputs = document.querySelectorAll('.form-input-container input, .form-input-container select, .form-input-container textarea');
+        inputs.forEach(input => {
+            // Añadir clases de Tailwind
+            input.classList.add(
+                'appearance-none',
+                'block',
+                'w-full',
+                'px-3',
+                'py-2',
+                'border',
+                'border-gray-600',
+                'rounded-md',
+                'shadow-sm',
+                'placeholder-gray-500',
+                'focus:outline-none',
+                'focus:ring-indigo-500',
+                'focus:border-indigo-500',
+                'sm:text-sm',
+                'bg-gray-700',
+                'text-white'
+            );
+        });
+    });
+</script>

@@ -5,6 +5,15 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{% block title %}Mi App{% endblock %}</title>
+
+    <!-- Favicon -->
+    {% if company_settings.favicon %}
+        <link rel="icon" href="{{ company_settings.favicon.url }}">
+    {% else %}
+        <!-- Fallback si no hay favicon configurado -->
+        <link rel="icon" href="data:,">
+    {% endif %}
+
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
     <style>

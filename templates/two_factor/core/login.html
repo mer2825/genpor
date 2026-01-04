@@ -1,0 +1,57 @@
+{% extends "two_factor/_base.html" %}
+{% load i18n %}
+
+{% block title %}{% trans "Iniciar Sesión" %}{% endblock %}
+{% block subtitle %}{% trans "Acceso Seguro al Panel de Administración" %}{% endblock %}
+
+{% block content_wizard %}
+  {% if wizard.steps.current == 'auth' %}
+    <p class="text-sm text-gray-400 mb-6 text-center">{% trans "Por favor, introduce tus credenciales para continuar." %}</p>
+  {% elif wizard.steps.current == 'token' %}
+    <p class="text-sm text-gray-400 mb-6 text-center">{% trans "Introduce el token generado por tu aplicación de autenticación." %}</p>
+  {% elif wizard.steps.current == 'backup' %}
+    <p class="text-sm text-gray-400 mb-6 text-center">{% trans "Utiliza uno de tus tokens de respaldo." %}</p>
+  {% endif %}
+
+  <form action="" method="post" class="space-y-6">{% csrf_token %}
+    {% include "two_factor/_wizard_forms.html" %}
+
+    {# hidden_fields #}
+    {{ wizard.management_form }}
+
+    {# Actions #}
+    <div class="flex flex-col space-y-4 pt-4">
+        {% if wizard.steps.prev %}
+        <button name="wizard_goto_step" type="submit" value="{{ wizard.steps.prev }}"
+            class="w-full flex justify-center py-2 px-4 border border-gray-600 rounded-md shadow-sm text-sm font-medium text-gray-300 bg-gray-700 hover:bg-gray-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition-colors">
+            {% trans "Atrás" %}
+        </button>
+        {% endif %}
+
+        <button type="submit" class="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition-colors">
+            {% trans "Siguiente" %}
+        </button>
+    </div>
+
+    {% if other_devices %}
+      <div class="mt-6 pt-6 border-t border-gray-700">
+        <p class="text-center text-sm text-gray-400 mb-4">{% trans "O inicia sesión con otro método:" %}</p>
+        {% for other in other_devices %}
+        <button name="challenge_device" value="{{ other.persistent_id }}"
+                class="w-full flex justify-center py-2 px-4 border border-gray-600 rounded-md shadow-sm text-sm font-medium text-gray-300 bg-gray-800 hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 mb-2 transition-colors" type="submit">
+          {{ other }}
+        </button>
+        {% endfor %}
+      </div>
+    {% endif %}
+
+    {% if backup_tokens %}
+      <div class="mt-4 text-center">
+        <button name="wizard_goto_step" type="submit" value="backup"
+            class="text-sm font-medium text-indigo-400 hover:text-indigo-300 transition-colors">
+            {% trans "Usar token de respaldo" %}
+        </button>
+      </div>
+    {% endif %}
+  </form>
+{% endblock %}

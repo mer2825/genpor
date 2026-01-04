@@ -7,6 +7,13 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{% if company.name %}{{ company.name }}{% else %}Nayelina AI{% endif %}</title>
 
+    <!-- Favicon -->
+    {% if company.favicon %}
+        <link rel="icon" href="{{ company.favicon.url }}">
+    {% else %}
+        <link rel="icon" href="data:,">
+    {% endif %}
+
     <!-- Estilos -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link rel="stylesheet" href="{% static 'myapp/css/styles.css' %}">
@@ -107,12 +114,10 @@
 
             {% empty %}
                 <!-- Fallback si no hay imágenes configuradas -->
-                <div class="hero-slide active">
-                    <div class="hero-image-half">
-                        <img src="https://images.unsplash.com/photo-1635805737707-575885ab0820?q=80&w=1000&auto=format&fit=crop" alt="AI Art">
-                    </div>
-                    <div class="hero-image-half">
-                        <img src="https://images.unsplash.com/photo-1578632767115-351597cf2477?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80" alt="AI Art">
+                <div class="hero-slide active" style="display: flex; justify-content: center; align-items: center; background: #1e293b; color: #64748b; font-size: 1.2rem;">
+                    <div style="text-align: center;">
+                        <i class="fas fa-image" style="font-size: 3rem; margin-bottom: 15px; display: block;"></i>
+                        <span>No images available</span>
                     </div>
                 </div>
             {% endfor %}
@@ -123,14 +128,14 @@
     <section class="personajes-section">
         <!-- Botones de Filtro (Reemplazan al título "Tus Personajes") -->
         <div class="filter-buttons-container">
-            <button class="filter-btn active">ALL</button>
-            <button class="filter-btn">Realistic</button>
-            <button class="filter-btn">Anime</button>
+            <button class="filter-btn active" onclick="filterCharacters('ALL')">ALL</button>
+            <button class="filter-btn" onclick="filterCharacters('REALISTIC')">Realistic</button>
+            <button class="filter-btn" onclick="filterCharacters('ANIME')">Anime</button>
         </div>
 
         <div class="album-container">
             {% for character in characters %}
-            <a href="{% url 'workspace' %}?character_id={{ character.id }}" class="character-card" data-character-id="{{ character.id }}" style="text-decoration: none;">
+            <a href="{% url 'workspace' %}?character_id={{ character.id }}" class="character-card" data-character-id="{{ character.id }}" data-category="{{ character.category }}" style="text-decoration: none;">
                 <h2>{{ character.name }}</h2>
 
                 <!-- NUEVO: Descripción en la tarjeta -->
@@ -152,7 +157,12 @@
                             {% endfor %}
                         </div>
                     {% else %}
-                        <img src="https://via.placeholder.com/300x300.png?text=No+Images" class="carousel-image active" alt="No images">
+                        <div class="carousel-image active" style="display: flex; justify-content: center; align-items: center; background: #1e293b; color: #64748b; height: 100%;">
+                            <div style="text-align: center;">
+                                <i class="fas fa-image" style="font-size: 2rem; margin-bottom: 10px; display: block;"></i>
+                                <span style="font-size: 0.8rem;">No images</span>
+                            </div>
+                        </div>
                     {% endif %}
                 </div>
             </a>
@@ -213,6 +223,35 @@
             generateUrl: "{% url 'generate_image' %}",
             csrfToken: "{{ csrf_token }}"
         };
+
+        // --- LÓGICA DE FILTRADO ---
+        function filterCharacters(category) {
+            // 1. Actualizar estado visual de los botones
+            const buttons = document.querySelectorAll('.filter-btn');
+            buttons.forEach(btn => {
+                if (btn.textContent.toUpperCase() === category) {
+                    btn.classList.add('active');
+                } else {
+                    btn.classList.remove('active');
+                }
+            });
+
+            // 2. Filtrar tarjetas
+            const cards = document.querySelectorAll('.character-card');
+            cards.forEach(card => {
+                const cardCategory = card.getAttribute('data-category');
+
+                if (category === 'ALL') {
+                    card.style.display = 'block';
+                } else {
+                    if (cardCategory === category) {
+                        card.style.display = 'block';
+                    } else {
+                        card.style.display = 'none';
+                    }
+                }
+            });
+        }
     </script>
     <script src="{% static 'myapp/js/scripts.js' %}"></script>
 

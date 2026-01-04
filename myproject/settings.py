@@ -255,6 +255,12 @@ CONTENT_SECURITY_POLICY = {
     }
 }
 
+# --- CORRECCIÓN: Permitir que el admin cargue imágenes desde MEDIA_URL ---
+# Si no, el CSP bloquea la carga del favicon en el admin si viene de /media/
+CONTENT_SECURITY_POLICY['DIRECTIVES']['img-src'].append("'self'") # Ya está, pero aseguramos
+# En desarrollo local, a veces 'self' no cubre todo si se sirve desde otro puerto o protocolo, pero aquí debería bastar.
+# Lo importante es que MEDIA_URL sea accesible.
+
 if not DEBUG:
     # 1. Forzar HTTPS
     SECURE_SSL_REDIRECT = True

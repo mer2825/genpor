@@ -79,7 +79,7 @@ class CompanySettingsAdmin(admin.ModelAdmin):
     # Organizar campos en secciones
     fieldsets = (
         ('Identidad de la Empresa', {
-            'fields': ('name', 'logo', 'offer_bar_text', 'description')
+            'fields': ('name', 'logo', 'favicon', 'offer_bar_text', 'description')
         }),
         ('Página Principal (Hero)', {
             'fields': ('app_hero_title', 'app_hero_description'),
@@ -221,11 +221,12 @@ class CharacterCatalogImageInline(admin.TabularInline):
 
 @admin.register(Character)
 class CharacterAdmin(admin.ModelAdmin):
-    list_display = ('name', 'base_workflow', 'character_actions')
+    list_display = ('name', 'category', 'base_workflow', 'character_actions') # AÑADIDO: category
+    list_filter = ('category', 'base_workflow') # AÑADIDO: category
     inlines = [CharacterCatalogImageInline]
 
     fieldsets = (
-        (None, {'fields': ('name', 'description', 'base_workflow')}),
+        (None, {'fields': ('name', 'description', 'category', 'base_workflow')}), # AÑADIDO: category
         ('Prompts por Defecto (Sándwich)', {
             'fields': ('prompt_prefix', 'prompt_suffix', 'negative_prompt'),
             'description': 'Estructura: [Prefijo] + (Usuario:1.2) + [Sufijo]'

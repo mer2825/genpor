@@ -22,8 +22,15 @@ def character_catalog_path(instance, filename):
     return f'character_catalog/{instance.character.name}/{filename}'
 
 class Character(models.Model):
+    CATEGORY_CHOICES = [
+        ('REALISTIC', 'Realistic'),
+        ('ANIME', 'Anime'),
+        ('OTHER', 'Other'),
+    ]
+
     name = models.CharField(max_length=100, unique=True)
     description = models.TextField(blank=True, null=True, help_text="Internal character description, style notes, etc.")
+    category = models.CharField(max_length=20, choices=CATEGORY_CHOICES, default='OTHER', help_text="Category for filtering in the catalog.")
     base_workflow = models.ForeignKey(Workflow, on_delete=models.CASCADE, related_name="characters")
     character_config = models.TextField(blank=True, null=True, help_text="Specific JSON configuration for this character.")
     
@@ -119,6 +126,7 @@ class ConnectionConfig(models.Model):
 class CompanySettings(models.Model):
     name = models.CharField(max_length=200, verbose_name="Company Name", default="My Company")
     logo = models.ImageField(upload_to='company_logos/', verbose_name="Logo", blank=True, null=True)
+    favicon = models.ImageField(upload_to='company_logos/', verbose_name="Favicon", blank=True, null=True, help_text="Upload a small square image (e.g., 32x32 or 192x192 png/ico) for the browser tab.")
     
     # BARRA DE OFERTA (NUEVO)
     offer_bar_text = models.CharField(
