@@ -17,16 +17,6 @@
     <p class="text-gray-300 mb-6 text-center">
         {% trans "Para usar una app generadora (como Google Authenticator), escanea el código QR a continuación." %}
     </p>
-
-    <!-- Contenedor para el QR Code -->
-    <div class="p-4 bg-white rounded-lg flex justify-center mb-4">
-        {% if wizard.form.qr_code %}
-            {{ wizard.form.qr_code|safe }}
-        {% else %}
-            <p class="text-red-500">Error: No se pudo generar el código QR.</p>
-        {% endif %}
-    </div>
-
   {% elif wizard.steps.current == 'sms' %}
     <p class="text-gray-300 mb-6 text-center">
         {% trans "Introduce tu número de teléfono para recibir códigos por SMS." %}
@@ -42,7 +32,22 @@
   {% endif %}
 
   <form action="" method="post" class="space-y-6">{% csrf_token %}
-    {% include "two_factor/_wizard_forms.html" %}
+
+    {% if wizard.steps.current == 'generator' %}
+        <!-- Renderizado especial para el paso del generador (QR) -->
+        <div class="bg-white p-4 rounded-lg text-black flex flex-col items-center">
+            <!-- Renderizamos el campo 'token' manualmente, que es el que suele traer el QR adjunto en su widget -->
+            {{ wizard.form.token }}
+
+            <!-- Si el QR no viene en el widget, intentamos mostrarlo explícitamente si existe en el contexto -->
+            {% if QR_URL %}
+                <img src="{{ QR_URL }}" alt="QR Code" class="mt-4">
+            {% endif %}
+        </div>
+    {% else %}
+        <!-- Renderizado normal para otros pasos -->
+        {% include "two_factor/_wizard_forms.html" %}
+    {% endif %}
 
     {# hidden_fields #}
     {{ wizard.management_form }}
