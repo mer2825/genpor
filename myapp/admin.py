@@ -36,10 +36,23 @@ class AdminUser(User):
         verbose_name = 'Administrador'
         verbose_name_plural = 'Administradores'
 
+# --- ACCIONES PERSONALIZADAS PARA CLIENTES ---
+@admin.action(description='Activate selected users')
+def activate_users(modeladmin, request, queryset):
+    updated = queryset.update(is_active=True)
+    modeladmin.message_user(request, f"{updated} users were successfully activated.", level='success')
+
+@admin.action(description='Deactivate selected users')
+def deactivate_users(modeladmin, request, queryset):
+    updated = queryset.update(is_active=False)
+    modeladmin.message_user(request, f"{updated} users were successfully deactivated.", level='success')
+
 @admin.register(ClientUser)
 class ClientUserAdmin(UserAdmin):
     list_display = ('username', 'email', 'first_name', 'last_name', 'is_active', 'date_joined')
     list_filter = ('is_active', 'date_joined')
+    actions = [activate_users, deactivate_users] # AÑADIDO: Acciones personalizadas
+
     fieldsets = (
         (None, {'fields': ('username', 'password')}),
         ('Información Personal', {'fields': ('first_name', 'last_name', 'email')}),

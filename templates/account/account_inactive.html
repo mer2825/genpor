@@ -1,0 +1,68 @@
+{% load static %}
+{% load i18n %}
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% trans "Cuenta Inactiva" %}</title>
+
+    <!-- Favicon -->
+    {% if company_settings.favicon %}
+        <link rel="icon" href="{{ company_settings.favicon.url }}">
+    {% else %}
+        <link rel="icon" href="data:,">
+    {% endif %}
+
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+        }
+    </style>
+</head>
+<body class="bg-gray-100 dark:bg-gray-900 min-h-screen flex items-center justify-center px-4 sm:px-6 lg:px-8">
+
+    <div class="max-w-md w-full space-y-8 bg-white dark:bg-gray-800 p-10 rounded-xl shadow-2xl border border-gray-200 dark:border-gray-700">
+        <div class="text-center">
+            <!-- Logo de la empresa (Opcional) -->
+            {% if company_settings.logo %}
+                <img class="mx-auto h-12 w-auto mb-6" src="{{ company_settings.logo.url }}" alt="{{ company_settings.name }}">
+            {% endif %}
+
+            <div class="mx-auto flex items-center justify-center h-16 w-16 rounded-full bg-red-100 dark:bg-red-900/30 mb-6">
+                <i class="fas fa-user-slash text-red-600 dark:text-red-400 text-3xl"></i>
+            </div>
+
+            <h2 class="text-3xl font-extrabold text-gray-900 dark:text-white tracking-tight">
+                {% trans "Cuenta Inactiva" %}
+            </h2>
+
+            <div class="mt-4 space-y-2">
+                <p class="text-lg text-gray-600 dark:text-gray-300">
+                    {% trans "Esta cuenta ha sido desactivada." %}
+                </p>
+                <p class="text-sm text-gray-500 dark:text-gray-400">
+                    {% trans "Si crees que esto es un error, por favor contacta con el administrador." %}
+                </p>
+            </div>
+        </div>
+
+        <div class="mt-8 pt-6 border-t border-gray-200 dark:border-gray-700">
+            <div class="flex flex-col space-y-4">
+                <a href="{% url 'account_login' %}" class="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition-colors">
+                    {% trans "Volver al Inicio de Sesión" %}
+                </a>
+
+                {% if company_settings.email %}
+                <a href="mailto:{{ company_settings.email }}" class="w-full flex justify-center py-2 px-4 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm text-sm font-medium text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition-colors">
+                    <i class="fas fa-envelope mr-2 mt-1"></i> {% trans "Contactar Soporte" %}
+                </a>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+</body>
+</html>
