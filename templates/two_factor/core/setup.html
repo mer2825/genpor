@@ -1,5 +1,5 @@
 {% extends "two_factor/_base.html" %}
-{% load i18n two_factor_tags %}
+{% load i18n %}
 
 {% block title_content %}{% trans "Configurar 2FA" %}{% endblock %}
 {% block subtitle %}{% trans "Protege tu cuenta en pocos pasos" %}{% endblock %}
@@ -20,7 +20,11 @@
 
     <!-- Contenedor para el QR Code -->
     <div class="p-4 bg-white rounded-lg flex justify-center mb-4">
-        {% qr_code %}
+        {% if wizard.form.qr_code %}
+            {{ wizard.form.qr_code|safe }}
+        {% else %}
+            <p class="text-red-500">Error: No se pudo generar el código QR.</p>
+        {% endif %}
     </div>
 
   {% elif wizard.steps.current == 'sms' %}
