@@ -43,30 +43,22 @@
     {% endfor %}
 {% endif %}
 
+<!-- Contenido específico para el QR -->
+{% if wizard.steps.current == 'generator' and qr_code_data %}
+<div class="p-4 bg-white rounded-lg flex justify-center mb-4">
+    <img src="data:image/png;base64,{{ qr_code_data }}" alt="QR Code">
+</div>
+{% endif %}
+
 <script>
     // Script para aplicar estilos de Tailwind a los inputs generados por Django
-    // Esto asegura que los inputs tengan el estilo oscuro correcto sin romper la funcionalidad del formulario
     document.addEventListener("DOMContentLoaded", function() {
         const inputs = document.querySelectorAll('.form-input-container input, .form-input-container select, .form-input-container textarea');
         inputs.forEach(input => {
-            // Añadir clases de Tailwind
             input.classList.add(
-                'appearance-none',
-                'block',
-                'w-full',
-                'px-3',
-                'py-2',
-                'border',
-                'border-gray-600',
-                'rounded-md',
-                'shadow-sm',
-                'placeholder-gray-500',
-                'focus:outline-none',
-                'focus:ring-indigo-500',
-                'focus:border-indigo-500',
-                'sm:text-sm',
-                'bg-gray-700',
-                'text-white'
+                'appearance-none', 'block', 'w-full', 'px-3', 'py-2', 'border', 'border-gray-600',
+                'rounded-md', 'shadow-sm', 'placeholder-gray-500', 'focus:outline-none',
+                'focus:ring-indigo-500', 'focus:border-indigo-500', 'sm:text-sm', 'bg-gray-700', 'text-white'
             );
         });
     });
