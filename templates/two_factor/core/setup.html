@@ -1,5 +1,5 @@
 {% extends "two_factor/_base.html" %}
-{% load i18n %}
+{% load i18n two_factor_tags %}
 
 {% block title_content %}{% trans "Configurar 2FA" %}{% endblock %}
 {% block subtitle %}{% trans "Protege tu cuenta en pocos pasos" %}{% endblock %}
@@ -17,6 +17,12 @@
     <p class="text-gray-300 mb-6 text-center">
         {% trans "Para usar una app generadora (como Google Authenticator), escanea el código QR a continuación." %}
     </p>
+
+    <!-- Contenedor para el QR Code -->
+    <div class="p-4 bg-white rounded-lg flex justify-center mb-4">
+        {% qr_code %}
+    </div>
+
   {% elif wizard.steps.current == 'sms' %}
     <p class="text-gray-300 mb-6 text-center">
         {% trans "Introduce tu número de teléfono para recibir códigos por SMS." %}

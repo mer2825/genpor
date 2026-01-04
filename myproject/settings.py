@@ -99,6 +99,9 @@ TEMPLATES = [
                 # Nuestro procesador de contexto personalizado (Logo, Fondo, etc.)
                 'myapp.context_processors.company_data',
             ],
+            'builtins': [
+                'two_factor.templatetags.two_factor',
+            ],
         },
     },
 ]
