@@ -36,6 +36,78 @@
         ::-webkit-scrollbar-thumb:hover {
             background-color: rgba(255, 255, 255, 0.3);
         }
+
+        /* Estilos para los botones de filtro (Categorías) */
+        .filter-btn {
+            background: rgba(255,255,255,0.05);
+            border: 1px solid rgba(255,255,255,0.1);
+            color: var(--text-muted);
+            padding: 8px 16px;
+            border-radius: 24px;
+            font-size: 0.9rem;
+            cursor: pointer;
+            white-space: nowrap;
+            transition: all 0.3s ease;
+            margin-right: 8px;
+            font-weight: 500;
+        }
+        .filter-btn:hover {
+            background: rgba(255,255,255,0.1);
+            color: white;
+            border-color: rgba(255,255,255,0.3);
+            transform: translateY(-1px);
+        }
+        .filter-btn.active {
+            background: linear-gradient(135deg, #ef4444, #b91c1c); /* Rojo vibrante */
+            color: white;
+            border-color: transparent;
+            box-shadow: 0 4px 12px rgba(239, 68, 68, 0.4); /* Sombra roja */
+            font-weight: 600;
+        }
+
+        /* Estilos para los botones de etiquetas (Subcategorías) */
+        .tag-btn {
+            background: transparent;
+            border: 1px solid rgba(168, 85, 247, 0.3); /* Borde morado sutil */
+            color: #c084fc; /* Texto morado claro */
+            padding: 6px 12px;
+            border-radius: 8px;
+            font-size: 0.8rem;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            margin-right: 6px;
+            margin-bottom: 6px;
+        }
+        .tag-btn:hover {
+            border-color: #a855f7;
+            color: #e9d5ff;
+            background: rgba(168, 85, 247, 0.1);
+            transform: translateY(-1px);
+        }
+        .tag-btn.active {
+            background: rgba(168, 85, 247, 0.2); /* Fondo morado translúcido */
+            border-color: #d8b4fe; /* Borde morado brillante */
+            color: #d8b4fe; /* Texto morado brillante */
+            box-shadow: 0 0 10px rgba(168, 85, 247, 0.3); /* Resplandor morado */
+            font-weight: 600;
+        }
+
+        /* --- NUEVO: Estilo para el contador de tokens --- */
+        .token-badge {
+            background-color: rgba(255, 255, 255, 0.05);
+            color: var(--text-muted);
+            padding: 6px 12px;
+            border-radius: 20px;
+            font-size: 0.8rem;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            border: 1px solid var(--border-subtle);
+        }
+        .token-badge i {
+            color: #facc15; /* Amarillo */
+        }
     </style>
 </head>
 <body>
@@ -63,7 +135,14 @@
                     <i class="fas fa-rocket"></i> MY WORKSPACE
                 </a>
 
-                <div class="token-badge"><i class="fas fa-coins"></i> 120 Tokens</div>
+                <!-- NUEVO: Contador de Tokens -->
+                {% if user.is_authenticated and not user.is_staff %}
+                <div class="token-badge">
+                    <i class="fas fa-coins"></i>
+                    <span>{{ user.clientprofile.tokens_remaining }} / {{ user.clientprofile.token_allowance }} Tokens</span>
+                </div>
+                {% endif %}
+
                 <div class="user-info">
                     <span>{{ user.username }}</span>
                     <div class="user-avatar">{{ user.username|slice:":1"|upper }}</div>
@@ -125,17 +204,30 @@
     </section>
 
     <!-- Sección Personajes -->
-    <section class="personajes-section">
-        <!-- Botones de Filtro (Reemplazan al título "Tus Personajes") -->
-        <div class="filter-buttons-container">
-            <button class="filter-btn active" onclick="filterCharacters('ALL')">ALL</button>
-            <button class="filter-btn" onclick="filterCharacters('REALISTIC')">Realistic</button>
-            <button class="filter-btn" onclick="filterCharacters('ANIME')">Anime</button>
+    <section class="personajes-section" id="personajes-list">
+        <!-- FILTROS DE CATEGORÍA DINÁMICOS -->
+        <div class="filter-buttons-container" style="overflow-x: auto; white-space: nowrap; padding-bottom: 10px; margin-bottom: 10px;">
+            <button class="filter-btn active" onclick="filterCategory('ALL', this)">All</button>
+            {% for cat in all_categories %}
+                <button class="filter-btn" onclick="filterCategory('{{ cat.id }}', this)">{{ cat.name }}</button>
+            {% endfor %}
+        </div>
+
+        <!-- FILTROS DE SUBCATEGORÍAS (TAGS) -->
+        <div class="sub-filter-container" style="display:flex; flex-wrap:wrap; justify-content:center; margin-bottom:20px;">
+            {% for sub in all_subcategories %}
+                <button class="tag-btn" onclick="toggleSubCategory('{{ sub.id }}', this)">#{{ sub.name }}</button>
+            {% endfor %}
         </div>
 
         <div class="album-container">
             {% for character in characters %}
-            <a href="{% url 'workspace' %}?character_id={{ character.id }}" class="character-card" data-character-id="{{ character.id }}" data-category="{{ character.category }}" style="text-decoration: none;">
+            <!-- CAMBIO: Añadimos data-category-id y data-subcategory-id -->
+            <a href="{% url 'workspace' %}?character_id={{ character.id }}" class="character-card"
+               data-character-id="{{ character.id }}"
+               data-category-id="{{ character.category.id|default:'NONE' }}"
+               data-subcategory-id="{{ character.subcategory.id|default:'NONE' }}"
+               style="text-decoration: none;">
                 <h2>{{ character.name }}</h2>
 
                 <!-- NUEVO: Descripción en la tarjeta -->
@@ -224,31 +316,57 @@
             csrfToken: "{{ csrf_token }}"
         };
 
-        // --- LÓGICA DE FILTRADO ---
-        function filterCharacters(category) {
-            // 1. Actualizar estado visual de los botones
-            const buttons = document.querySelectorAll('.filter-btn');
-            buttons.forEach(btn => {
-                if (btn.textContent.toUpperCase() === category) {
-                    btn.classList.add('active');
-                } else {
-                    btn.classList.remove('active');
-                }
-            });
+        // --- LÓGICA DE FILTRADO (NUEVA) ---
+        function filterCategory(categoryId, btn) {
+            // Actualizar botones de categoría
+            document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
 
-            // 2. Filtrar tarjetas
+            // Guardar el ID activo en el contenedor
+            document.getElementById('personajes-list').dataset.activeCategory = categoryId;
+
+            applyFilters();
+        }
+
+        function toggleSubCategory(subId, btn) {
+            // Toggle clase active
+            btn.classList.toggle('active');
+
+            // Actualizar lista de subcategorías activas
+            const list = document.getElementById('personajes-list');
+            let activeSubs = list.dataset.activeSubs ? list.dataset.activeSubs.split(',') : [];
+
+            if (btn.classList.contains('active')) {
+                activeSubs.push(subId);
+            } else {
+                activeSubs = activeSubs.filter(id => id !== subId);
+            }
+
+            list.dataset.activeSubs = activeSubs.join(',');
+
+            applyFilters();
+        }
+
+        function applyFilters() {
+            const list = document.getElementById('personajes-list');
+            const activeCategoryId = list.dataset.activeCategory || 'ALL';
+            const activeSubs = list.dataset.activeSubs ? list.dataset.activeSubs.split(',').filter(Boolean) : [];
+
             const cards = document.querySelectorAll('.character-card');
             cards.forEach(card => {
-                const cardCategory = card.getAttribute('data-category');
+                const itemCategoryId = card.getAttribute('data-category-id');
+                const itemSubCategoryId = card.getAttribute('data-subcategory-id');
 
-                if (category === 'ALL') {
+                // 1. Filtro de Categoría (Obligatorio)
+                const matchesCategory = activeCategoryId === 'ALL' || itemCategoryId === activeCategoryId;
+
+                // 2. Filtro de SubCategoría (Opcional - OR)
+                const matchesSub = activeSubs.length === 0 || activeSubs.includes(itemSubCategoryId);
+
+                if (matchesCategory && matchesSub) {
                     card.style.display = 'block';
                 } else {
-                    if (cardCategory === category) {
-                        card.style.display = 'block';
-                    } else {
-                        card.style.display = 'none';
-                    }
+                    card.style.display = 'none';
                 }
             });
         }

@@ -45,9 +45,16 @@ async def get_comfyui_object_info(address):
 async def queue_prompt(client, prompt_workflow, client_id, address):
     protocol, _ = get_protocols(address)
     p = {"prompt": prompt_workflow, "client_id": client_id}
-    response = await client.post(f"{protocol}://{address}/prompt", json=p)
-    response.raise_for_status()
-    return response.json()
+    
+    try:
+        response = await client.post(f"{protocol}://{address}/prompt", json=p)
+        response.raise_for_status()
+        return response.json()
+    except httpx.HTTPStatusError as e:
+        # Capturar y mostrar el error detallado de ComfyUI
+        error_msg = f"ComfyUI Error {e.response.status_code}: {e.response.text}"
+        print(error_msg) # Imprimir en consola del servidor
+        raise Exception(error_msg) # Re-lanzar para que llegue a la vista
 
 async def get_image(client, filename, subfolder, folder_type, address):
     protocol, _ = get_protocols(address)
@@ -215,9 +222,6 @@ def update_workflow(prompt_workflow, new_values, lora_names=None, lora_strengths
             positive_nodes.remove(node_id)
             negative_nodes.add(node_id)
 
-    print(f"DEBUG: Nodos Positivos Finales: {positive_nodes}")
-    print(f"DEBUG: Nodos Negativos Finales: {negative_nodes}")
-
     # Identificar fuentes de parámetros numéricos
     steps_source_id, cfg_source_id, seed_source_id = None, None, None
     # (Re-escaneo de samplers para parámetros)
@@ -243,12 +247,10 @@ def update_workflow(prompt_workflow, new_values, lora_names=None, lora_strengths
         candidates = ["text", "text_g", "text_l", "prompt", "text_positive", "positive_prompt", "value"]
         
         if node_id in positive_nodes and "prompt" in new_values:
-            print(f"DEBUG: Actualizando Prompt Positivo en Nodo {node_id} con: {new_values['prompt'][:50]}...")
             for k in candidates:
                 if k in inputs: inputs[k] = new_values["prompt"]
 
         if node_id in negative_nodes and "negative_prompt" in new_values:
-            print(f"DEBUG: Actualizando Prompt Negativo en Nodo {node_id} con: {new_values['negative_prompt'][:50]}...")
             for k in candidates:
                 if k in inputs: inputs[k] = new_values["negative_prompt"]
 
@@ -285,6 +287,15 @@ def update_workflow(prompt_workflow, new_values, lora_names=None, lora_strengths
              if node_id not in [steps_source_id, cfg_source_id, seed_source_id]:
                  if "seed" in new_values and "seed" in inputs and not isinstance(inputs["seed"], list): inputs["seed"] = int(new_values["seed"])
                  # ELIMINADO: steps, cfg, sampler_name, scheduler
+        
+        # --- PARCHE PARA DW_KsamplerAdvanced (Error 400) ---
+        if class_type == "DW_KsamplerAdvanced":
+            if "tiled_width" not in inputs: inputs["tiled_width"] = 512
+            if "tiled_height" not in inputs: inputs["tiled_height"] = 512
+            if "tiled_overlap" not in inputs: inputs["tiled_overlap"] = 32
+            # --- NUEVO: Eliminar parámetro inválido ---
+            if "guide_size" in inputs: del inputs["guide_size"]
+            if "max_size" in inputs: del inputs["max_size"]
             
     return prompt_workflow
 
@@ -295,36 +306,38 @@ def classify_image_node(node_id, workflow):
     Rastrea el origen de un nodo de imagen para clasificarlo.
     Retorna (nombre_clasificacion, debe_guardarse)
     """
-    
-    # 1. Verificar Título del Nodo de Salida (Prioridad Máxima)
     node = workflow.get(str(node_id))
     if not node: return "Gen_Unknown", True
     
-    title = node.get("_meta", {}).get("title", "").lower()
+    title = node.get("_meta", {}).get("title", "").upper() # Convertir a mayúsculas para comparar
+    
+    # --- CLASIFICACIÓN POR TÍTULO (FLEXIBLE) ---
+    # Buscamos palabras clave en el título del nodo SaveImage
+    
+    if "FACE" in title or "DETAILER" in title:
+        return "Gen_FaceDetailer", True
+    
+    if "UPSCALE" in title:
+        return "Gen_UpScaler", True
+        
+    if "NORMAL" in title or "BASE" in title:
+        return "Gen_Normal", True
+
+    # --- Lógica anterior como fallback (si el título no dice nada claro) ---
     class_type = node.get("class_type", "").lower()
-
-    # CAMBIO: Si el título contiene "preview", lo ignoramos.
-    # if "preview" in title: return "Preview", False  <-- ELIMINADO PARA PERMITIR PREVIEWS
-
-    # CAMBIO DE ORDEN: Face/Detailer tiene prioridad sobre Upscale
-    if "face" in title or "detailer" in title: return "Gen_FaceDetailer", True
-    if "upscale" in title: return "Gen_UpScaler", True
-    if "normal" in title or "base" in title: return "Gen_Normal", True
+    title_lower = title.lower()
 
     # 2. Rastreo hacia atrás (Backtracking)
-    # Buscamos quién generó la imagen que entra a este nodo
     inputs = node.get("inputs", {})
     image_source_id = None
     
-    # Comúnmente la entrada se llama "images" o "image"
     if "images" in inputs and isinstance(inputs["images"], list):
         image_source_id = inputs["images"][0]
     elif "image" in inputs and isinstance(inputs["image"], list):
         image_source_id = inputs["image"][0]
         
-    if not image_source_id: return "Gen_Normal", True # Si no tiene entrada, asumimos normal
+    if not image_source_id: return "Gen_Normal", True
 
-    # Caminamos hacia atrás hasta encontrar un nodo "generador" relevante
     current_id = str(image_source_id)
     visited = set()
     
@@ -336,24 +349,14 @@ def classify_image_node(node_id, workflow):
         class_type = curr_node.get("class_type", "").lower()
         title = curr_node.get("_meta", {}).get("title", "").lower()
         
-        # --- REGLAS DE CLASIFICACIÓN ---
-        
-        # 1. Face Detailers / SEGS (PRIORIDAD)
         if "face" in class_type or "detailer" in class_type or "segs" in class_type:
             return "Gen_FaceDetailer", True
-
-        # 2. Upscalers
         if "upscale" in class_type or "upscale" in title:
             return "Gen_UpScaler", True
-            
-        # 3. Previews (AHORA SE ACEPTAN COMO NORMALES SI NO HAY OTRA COSA)
-        # Si llegamos a un PreviewImage y no hemos encontrado nada más, lo tratamos como Normal
         if "preview" in class_type or "preview" in title:
             return "Gen_Normal", True
             
-        # 4. Reroutes (Saltar)
         if "reroute" in class_type:
-            # Buscar su entrada y seguir
             inputs = curr_node.get("inputs", {})
             if "image" in inputs and isinstance(inputs["image"], list):
                 current_id = str(inputs["image"][0])
@@ -362,16 +365,13 @@ def classify_image_node(node_id, workflow):
                 current_id = str(inputs["images"][0])
                 continue
         
-        # 5. Decodificadores (VAEDecode) -> Seguir buscando atrás (a los latents)
         if "decode" in class_type:
             inputs = curr_node.get("inputs", {})
             if "samples" in inputs and isinstance(inputs["samples"], list):
                 current_id = str(inputs["samples"][0])
                 continue
                 
-        # 6. Samplers (El origen base)
         if "sampler" in class_type:
-            # Si llegamos al sampler y no hemos encontrado nada "especial" antes, es la base
             return "Gen_Normal", True
             
         break
@@ -381,7 +381,7 @@ def classify_image_node(node_id, workflow):
 async def generate_image_from_character(character, user_prompt, width=None, height=None, seed=None, allowed_types=None):
     """
     Genera imágenes usando la configuración del personaje y el prompt del usuario.
-    Retorna (lista_de_imagenes_bytes, prompt_id) o ([], None) si falla.
+    Retorna (lista_de_imagenes_bytes, prompt_id, workflow_final) o ([], None, None) si falla.
     """
     if not character.character_config:
         raise ValueError("El personaje no tiene configuración.")
@@ -440,7 +440,6 @@ async def generate_image_from_character(character, user_prompt, width=None, heig
         try:
             final_config['seed'] = int(seed)
             use_random_seed = False
-            print(f"DEBUG: Usando semilla manual del cliente: {final_config['seed']}")
         except ValueError:
             pass # Si no es un número válido, ignoramos y usamos random
             
@@ -448,15 +447,10 @@ async def generate_image_from_character(character, user_prompt, width=None, heig
         # Si no se forzó semilla manual, miramos la config del personaje
         if final_config.get('seed_behavior', 'random') == 'random':
             final_config['seed'] = random.randint(0, 999999999999999)
-            print(f"DEBUG: Generando semilla aleatoria: {final_config['seed']}")
         else:
             # Si es fixed, ya debería venir en el JSON, pero nos aseguramos
             if 'seed' not in final_config:
                  final_config['seed'] = random.randint(0, 999999999999999)
-            print(f"DEBUG: Usando semilla fija del config: {final_config['seed']}")
-    
-    print(f"DEBUG: Prompt Final Positivo: {final_config['prompt']}")
-    print(f"DEBUG: Prompt Final Negativo: {final_config['negative_prompt']}")
     
     lora_names = final_config.pop('lora_names', [])
     lora_strengths = final_config.pop('lora_strengths', [])
@@ -464,25 +458,12 @@ async def generate_image_from_character(character, user_prompt, width=None, heig
     # 3. Actualizar Workflow
     updated_workflow = update_workflow(prompt_workflow_base, final_config, lora_names, lora_strengths)
     
-    # --- DEBUGGING EXTREMO: IMPRIMIR JSON FINAL ---
-    print("DEBUG: JSON ENVIADO A COMFYUI:")
-    debug_nodes = {}
-    for nid, details in updated_workflow.items():
-        title = details.get("_meta", {}).get("title", "")
-        if "Positive" in title or "Negative" in title or "WIDTH" in title or "HEIGHT" in title or "UPSCALER" in title:
-            debug_nodes[nid] = details
-    print(json.dumps(debug_nodes, indent=2))
-    # ----------------------------------------------
-    
     # 4. Conectar y Generar
     client_id = str(uuid.uuid4())
     address = await get_active_comfyui_address()
     _, ws_protocol = get_protocols(address)
     uri = f"{ws_protocol}://{address}/ws?clientId={client_id}"
 
-    print(f"DEBUG: Conectando a WebSocket {uri}")
-
-    # CAMBIO: Ahora guardamos tuplas (bytes, clasificacion)
     images_data = []
 
     async with websockets.connect(uri) as websocket:
@@ -490,29 +471,28 @@ async def generate_image_from_character(character, user_prompt, width=None, heig
             queued_prompt = await queue_prompt(client, updated_workflow, client_id, address)
             prompt_id = queued_prompt['prompt_id']
             
-            print(f"DEBUG: Prompt enviado. ID: {prompt_id}")
-
             while True:
-                out = await websocket.recv()
-                if isinstance(out, str):
-                    message = json.loads(out)
-                    if message['type'] == 'executing' and message['data']['node'] is None and message['data']['prompt_id'] == prompt_id:
-                        break
+                try:
+                    out = await websocket.recv()
+                    if isinstance(out, str):
+                        message = json.loads(out)
+                        if message['type'] == 'execution_error':
+                            print(f"ERROR DE NODO COMFYUI: {message['data']}")
+                        if message['type'] == 'executing' and message['data']['node'] is None and message['data']['prompt_id'] == prompt_id:
+                            break
+                except websockets.exceptions.ConnectionClosed:
+                    break
             
             history = await get_history(client, prompt_id, address)
             history = history[prompt_id]
             
             for node_id in history['outputs']:
-                # --- CLASIFICACIÓN INTELIGENTE ---
                 classification, should_save = classify_image_node(node_id, updated_workflow)
                 
                 if not should_save:
-                    print(f"DEBUG: Saltando imagen del nodo {node_id} ({classification})")
                     continue
                 
-                # --- NUEVO: FILTRADO POR PREFERENCIA DE USUARIO ---
                 if allowed_types is not None and classification not in allowed_types:
-                    print(f"DEBUG: Usuario no solicitó {classification}. Saltando.")
                     continue
                 
                 node_output = history['outputs'][node_id]
@@ -520,7 +500,7 @@ async def generate_image_from_character(character, user_prompt, width=None, heig
                     for image in node_output['images']:
                         image_bytes = await get_image(client, image['filename'], image['subfolder'], image['type'], address)
                         if image_bytes:
-                            # Guardamos la tupla (bytes, clasificacion)
                             images_data.append((image_bytes, classification))
     
-    return images_data, prompt_id
+    return images_data, prompt_id, updated_workflow
+# Limpieza final

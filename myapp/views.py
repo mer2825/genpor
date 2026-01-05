@@ -1,6 +1,6 @@
 from django.shortcuts import render, redirect, get_object_or_404
 from django.db import models
-from .models import Workflow, Character, CharacterImage, ConnectionConfig, CompanySettings, ChatMessage
+from .models import Workflow, Character, CharacterImage, ConnectionConfig, CompanySettings, ChatMessage, CharacterCategory, CharacterSubCategory, ClientProfile
 import json
 import os
 from django.conf import settings
@@ -91,7 +91,8 @@ def serve_private_media(request, path):
 @sync_to_async
 def get_characters_with_images():
     # CAMBIO: Ahora usamos 'catalog_images_set' para las imágenes públicas
-    return list(Character.objects.prefetch_related('catalog_images_set').all())
+    # Y hacemos select_related de 'category' y 'subcategory' para optimizar
+    return list(Character.objects.prefetch_related('catalog_images_set').select_related('category', 'subcategory').all())
 
 # --- FUNCIÓN PARA OBTENER LA CONFIGURACIÓN DE LA EMPRESA ---
 @sync_to_async
@@ -262,6 +263,10 @@ async def workspace_view(request):
     # Obtener todos los personajes para el modal de selección
     all_characters = await get_characters_with_images()
     
+    # --- NUEVO: Obtener todas las categorías y subcategorías ---
+    all_categories = await sync_to_async(list)(CharacterCategory.objects.all())
+    all_subcategories = await sync_to_async(list)(CharacterSubCategory.objects.all())
+    
     # Verificar si hay un personaje seleccionado
     character_id = request.GET.get('character_id')
     # CAMBIO: Verificar si se solicitó cargar el historial
@@ -408,6 +413,8 @@ async def workspace_view(request):
         'company': company_settings,
         'selected_character': selected_character,
         'all_characters': all_characters,
+        'all_categories': all_categories, # Pasamos las categorías al template
+        'all_subcategories': all_subcategories, # Pasamos las subcategorías al template
         'default_width': default_width, # Pasamos al contexto
         'default_height': default_height, # Pasamos al contexto
         'default_seed': default_seed, # Pasamos la semilla al contexto
@@ -426,6 +433,22 @@ async def generate_image_view(request):
             if not user.is_authenticated:
                 return JsonResponse({'status': 'error', 'message': 'You must be logged in to generate images.'}, status=401)
             
+            # --- VALIDACIÓN DE TOKENS (NUEVO) ---
+            # Solo si no es staff (los admins tienen tokens infinitos)
+            if not user.is_staff:
+                try:
+                    profile = await sync_to_async(lambda: user.clientprofile)()
+                    await profile.check_and_reset_tokens()
+                    
+                    # CAMBIO: Usar el método asíncrono
+                    tokens_left = await profile.get_tokens_remaining_async()
+                    if tokens_left <= 0:
+                        return JsonResponse({'status': 'error', 'message': 'You have run out of tokens. Please contact support or wait for your next reset.'}, status=403)
+                except ClientProfile.DoesNotExist:
+                    # Si no tiene perfil, creamos uno por defecto (fallback)
+                    await sync_to_async(ClientProfile.objects.create)(user=user)
+            # ------------------------------------
+
             # --- RATE LIMITING REAL (CACHE) ---
             # Usamos el ID del usuario como clave, no la sesión.
             # Esto evita que borren cookies para saltarse el límite.
@@ -469,17 +492,50 @@ async def generate_image_view(request):
                     return ChatMessage.objects.create(user=user, character=character, message=user_prompt, is_from_user=True)
                 user_msg = await save_user_message()
 
-                images_data_list, prompt_id = await generate_image_from_character(
+                # --- CAMBIO: generate_image_from_character ahora devuelve el workflow usado ---
+                # Necesitamos actualizar services.py para que devuelva (images_data, prompt_id, final_workflow)
+                # Por ahora, asumiremos que services.py NO ha cambiado su firma y obtendremos el workflow aquí.
+                # Pero espera, generate_image_from_character YA calcula el workflow final internamente.
+                # Lo ideal es que nos lo devuelva.
+                
+                # Para no romper services.py ahora mismo, reconstruiremos el workflow aquí (menos eficiente pero seguro)
+                # O mejor, modificamos services.py para que lo devuelva. Es lo correcto.
+                
+                # Vamos a modificar services.py primero para que devuelva el workflow.
+                # (Ver paso siguiente, por ahora dejo el código preparado para recibir 3 valores)
+                
+                images_data_list, prompt_id, final_workflow_json = await generate_image_from_character(
                     character, user_prompt, width, height, seed=seed, allowed_types=allowed_types
                 )
 
                 if images_data_list:
+                    # --- DESCONTAR TOKEN (NUEVO) ---
+                    if not user.is_staff:
+                        @sync_to_async
+                        def deduct_token(u):
+                            p = u.clientprofile
+                            p.tokens_used += 1
+                            p.save()
+                        await deduct_token(user)
+                    # -------------------------------
+
                     generated_results = []
                     created_images = []
                     
                     @sync_to_async
-                    def save_generated_image(img_bytes, classification, index):
-                        new_image = CharacterImage(character=character, user=user, description=user_prompt)
+                    def save_generated_image(img_bytes, classification, index, workflow_json):
+                        # CAMBIO: Guardamos el tipo de generación Y el workflow
+                        new_image = CharacterImage(
+                            character=character, 
+                            user=user, 
+                            description=user_prompt,
+                            generation_type=classification # Guardamos el tipo aquí
+                        )
+                        
+                        # Guardar el archivo de workflow
+                        workflow_filename = f"workflow_{character.name}_{prompt_id}_{classification}_{index}.json"
+                        new_image.generation_workflow.save(workflow_filename, ContentFile(json.dumps(workflow_json, indent=2).encode('utf-8')), save=False)
+                        
                         filename = f"user_gen_{character.name}_{prompt_id}_{classification}_{index}.png"
                         new_image.image.save(filename, ContentFile(img_bytes), save=False)
                         try:
@@ -491,7 +547,7 @@ async def generate_image_view(request):
                         return new_image
 
                     for i, (img_bytes, classification) in enumerate(images_data_list):
-                        img_obj = await save_generated_image(img_bytes, classification, i)
+                        img_obj = await save_generated_image(img_bytes, classification, i, final_workflow_json)
                         created_images.append(img_obj)
                         image_url = reverse('serve_private_media', kwargs={'path': img_obj.image.name})
                         generated_results.append({'url': image_url, 'type': classification, 'width': img_obj.width, 'height': img_obj.height})
@@ -537,6 +593,10 @@ async def generate_image_view(request):
         characters = await get_characters_with_images()
         company_settings = await get_company_settings()
         
+        # --- CORRECCIÓN: Añadir la carga de categorías y subcategorías ---
+        all_categories = await sync_to_async(list)(CharacterCategory.objects.all())
+        all_subcategories = await sync_to_async(list)(CharacterSubCategory.objects.all())
+
         # --- LÓGICA DEL CARRUSEL HERO (NUEVA) ---
         hero_items = []
         if company_settings:
@@ -552,7 +612,9 @@ async def generate_image_view(request):
         context = {
             'characters': characters,
             'company': company_settings,
-            'hero_items': hero_items
+            'hero_items': hero_items,
+            'all_categories': all_categories, # Pasamos las categorías al template
+            'all_subcategories': all_subcategories, # Pasamos las subcategorías al template
         }
         return await sync_to_async(render)(request, 'myapp/generate.html', context)
     

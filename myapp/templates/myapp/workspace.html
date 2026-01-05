@@ -704,6 +704,66 @@
             cursor: pointer;
             font-size: 1.2rem;
         }
+
+        /* Estilos para los botones de filtro (Categorías) */
+        .filter-btn {
+            background: rgba(255,255,255,0.05);
+            border: 1px solid var(--border-subtle);
+            color: var(--text-muted);
+            padding: 6px 12px;
+            border-radius: 20px;
+            font-size: 0.8rem;
+            cursor: pointer;
+            white-space: nowrap;
+            transition: all 0.2s;
+        }
+        .filter-btn:hover {
+            background: rgba(255,255,255,0.1);
+            color: white;
+        }
+        .filter-btn.active {
+            background: var(--primary-blue);
+            color: white;
+            border-color: var(--primary-blue);
+        }
+
+        /* Estilos para los botones de etiquetas (Tags) */
+        .tag-btn {
+            background: transparent;
+            border: 1px solid rgba(255,255,255,0.15);
+            color: #94a3b8;
+            padding: 4px 10px;
+            border-radius: 6px;
+            font-size: 0.75rem;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .tag-btn:hover {
+            border-color: rgba(255,255,255,0.3);
+            color: white;
+        }
+        .tag-btn.active {
+            background: rgba(16, 185, 129, 0.15); /* Verde suave */
+            border-color: #10b981;
+            color: #10b981;
+        }
+
+        /* --- NUEVO: Estilo para el contador de tokens --- */
+        .token-badge {
+            background-color: rgba(255, 255, 255, 0.05);
+            color: var(--text-muted);
+            padding: 6px 12px;
+            border-radius: 20px;
+            font-size: 0.8rem;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            border: 1px solid var(--border-subtle);
+        }
+        .token-badge i {
+            color: #facc15; /* Amarillo */
+        }
     </style>
 </head>
 <body>
@@ -738,6 +798,14 @@
                 <a href="{% url 'generate_image' %}" class="desktop-nav-btn">
                     <i class="fas fa-home"></i> Home
                 </a>
+
+                <!-- NUEVO: Contador de Tokens -->
+                {% if user.is_authenticated and not user.is_staff %}
+                <div class="token-badge">
+                    <i class="fas fa-coins"></i>
+                    <span>{{ user.clientprofile.tokens_remaining }} / {{ user.clientprofile.token_allowance }} Tokens</span>
+                </div>
+                {% endif %}
 
                 <div class="user-avatar" style="width:32px; height:32px; background:var(--primary-gradient); border-radius:50%; display:flex; align-items:center; justify-content:center; font-weight:bold; color:white;">
                     {{ user.username|slice:":1"|upper }}
@@ -936,9 +1004,29 @@
             </div>
             <div class="modal-body">
                 <input type="text" id="char-search" placeholder="Search..." style="width:100%; padding:10px; background:#0f172a; border:1px solid var(--border-subtle); color:white; border-radius:8px; margin-bottom:15px;" onkeyup="filterCharacters()">
+
+                <!-- FILTROS DE CATEGORÍA DINÁMICOS -->
+                <div style="display:flex; gap:10px; margin-bottom:10px; overflow-x:auto; padding-bottom:5px;">
+                    <button class="filter-btn active" onclick="filterCategory('ALL', this)">All</button>
+                    {% for cat in all_categories %}
+                        <button class="filter-btn" onclick="filterCategory('{{ cat.id }}', this)">{{ cat.name }}</button>
+                    {% endfor %}
+                </div>
+
+                <!-- FILTROS DE SUBCATEGORÍAS (TAGS) -->
+                <div style="display:flex; gap:8px; margin-bottom:15px; flex-wrap:wrap;">
+                    {% for sub in all_subcategories %}
+                        <button class="tag-btn" onclick="toggleSubCategory('{{ sub.id }}', this)">#{{ sub.name }}</button>
+                    {% endfor %}
+                </div>
+
                 <div id="char-list">
                     {% for char in all_characters %}
-                    <a href="?character_id={{ char.id }}" class="char-list-item">
+                    <!-- CAMBIO: Añadimos data-subcategory-id -->
+                    <a href="?character_id={{ char.id }}" class="char-list-item"
+                       data-category-id="{{ char.category.id|default:'NONE' }}"
+                       data-subcategory-id="{{ char.subcategory.id|default:'NONE' }}">
+
                         <!-- CAMBIO: Usamos catalog_images_set -->
                         {% if char.catalog_images_set.all %}
                             <img src="{{ char.catalog_images_set.all.0.image.url }}" style="width:40px; height:40px; border-radius:50%; object-fit:cover;">
@@ -1003,6 +1091,51 @@
             </div>
         </div>
     </div>
+
+    <style>
+        /* Estilos para los botones de filtro (Categorías) */
+        .filter-btn {
+            background: rgba(255,255,255,0.05);
+            border: 1px solid var(--border-subtle);
+            color: var(--text-muted);
+            padding: 6px 12px;
+            border-radius: 20px;
+            font-size: 0.8rem;
+            cursor: pointer;
+            white-space: nowrap;
+            transition: all 0.2s;
+        }
+        .filter-btn:hover {
+            background: rgba(255,255,255,0.1);
+            color: white;
+        }
+        .filter-btn.active {
+            background: var(--primary-blue);
+            color: white;
+            border-color: var(--primary-blue);
+        }
+
+        /* Estilos para los botones de etiquetas (Tags) */
+        .tag-btn {
+            background: transparent;
+            border: 1px solid rgba(255,255,255,0.15);
+            color: #94a3b8;
+            padding: 4px 10px;
+            border-radius: 6px;
+            font-size: 0.75rem;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .tag-btn:hover {
+            border-color: rgba(255,255,255,0.3);
+            color: white;
+        }
+        .tag-btn.active {
+            background: rgba(16, 185, 129, 0.15); /* Verde suave */
+            border-color: #10b981;
+            color: #10b981;
+        }
+    </style>
 
     <script>
         const generateUrl = "{% url 'generate_image' %}";
@@ -1328,11 +1461,65 @@
         }
 
         function filterCharacters() {
-            const val = document.getElementById('char-search').value.toLowerCase();
+            const searchVal = document.getElementById('char-search').value.toLowerCase();
+            // Esta función se llama al escribir en el buscador
+            applyFilters();
+        }
+
+        function filterCategory(categoryId, btn) {
+            // Actualizar botones de categoría
+            document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+
+            // Guardar el ID activo
+            document.getElementById('char-list').dataset.activeCategory = categoryId;
+
+            applyFilters();
+        }
+
+        function toggleSubCategory(subId, btn) {
+            // Toggle clase active
+            btn.classList.toggle('active');
+
+            // Actualizar lista de subcategorías activas
+            const list = document.getElementById('char-list');
+            let activeSubs = list.dataset.activeSubs ? list.dataset.activeSubs.split(',') : [];
+
+            if (btn.classList.contains('active')) {
+                activeSubs.push(subId);
+            } else {
+                activeSubs = activeSubs.filter(id => id !== subId);
+            }
+
+            list.dataset.activeSubs = activeSubs.join(',');
+
+            applyFilters();
+        }
+
+        function applyFilters() {
+            const searchVal = document.getElementById('char-search').value.toLowerCase();
+            const list = document.getElementById('char-list');
+            const activeCategoryId = list.dataset.activeCategory || 'ALL';
+            const activeSubs = list.dataset.activeSubs ? list.dataset.activeSubs.split(',').filter(Boolean) : [];
+
             const items = document.getElementsByClassName('char-list-item');
             Array.from(items).forEach(item => {
-                const txt = item.textContent.toLowerCase();
-                item.style.display = txt.includes(val) ? 'flex' : 'none';
+                const name = item.textContent.toLowerCase();
+                const itemCategoryId = item.getAttribute('data-category-id');
+                const itemSubCategoryId = item.getAttribute('data-subcategory-id');
+
+                // 1. Filtro de Texto
+                const matchesSearch = name.includes(searchVal);
+
+                // 2. Filtro de Categoría (Obligatorio)
+                const matchesCategory = activeCategoryId === 'ALL' || itemCategoryId === activeCategoryId;
+
+                // 3. Filtro de SubCategoría (Opcional - Debe coincidir con ALGUNA de las seleccionadas)
+                // Si no hay subcategorías activas, pasa siempre. Si hay, debe coincidir con una.
+                // NOTA: Como un personaje solo tiene UNA subcategoría, la lógica cambia a "OR" (coincide con alguna de las seleccionadas)
+                const matchesSub = activeSubs.length === 0 || activeSubs.includes(itemSubCategoryId);
+
+                item.style.display = (matchesSearch && matchesCategory && matchesSub) ? 'flex' : 'none';
             });
         }
     </script>

@@ -9,7 +9,7 @@ from django.contrib.auth.admin import UserAdmin
 from django.contrib.auth.models import User
 from django.db.models import Q
 from django.forms import ModelForm, ValidationError, CheckboxSelectMultiple
-from .models import Workflow, Character, CharacterImage, CharacterCatalogImage, ConnectionConfig, CompanySettings, HeroCarouselImage
+from .models import Workflow, Character, CharacterImage, CharacterCatalogImage, ConnectionConfig, CompanySettings, HeroCarouselImage, CharacterCategory, CharacterSubCategory, ClientProfile, TokenSettings
 from .services import generate_image_from_character, get_active_comfyui_address, get_comfyui_object_info, analyze_workflow
 import json
 from asgiref.sync import async_to_sync, sync_to_async
@@ -47,11 +47,25 @@ def deactivate_users(modeladmin, request, queryset):
     updated = queryset.update(is_active=False)
     modeladmin.message_user(request, f"{updated} users were successfully deactivated.", level='success')
 
+# --- INLINE PARA PERFIL DE CLIENTE (SOLO LECTURA DE TOKENS) ---
+class ClientProfileInline(admin.StackedInline):
+    model = ClientProfile
+    can_delete = False
+    verbose_name_plural = 'Token Usage'
+    fk_name = 'user'
+    readonly_fields = ('tokens_used', 'last_reset_date', 'tokens_remaining_display')
+    fields = ('tokens_used', 'last_reset_date', 'tokens_remaining_display')
+
+    def tokens_remaining_display(self, obj):
+        return obj.tokens_remaining
+    tokens_remaining_display.short_description = "Tokens Remaining (Based on Global Settings)"
+
 @admin.register(ClientUser)
 class ClientUserAdmin(UserAdmin):
-    list_display = ('username', 'email', 'first_name', 'last_name', 'is_active', 'date_joined')
+    list_display = ('username', 'email', 'first_name', 'last_name', 'is_active', 'date_joined', 'get_tokens_remaining')
     list_filter = ('is_active', 'date_joined')
-    actions = [activate_users, deactivate_users] # AÑADIDO: Acciones personalizadas
+    actions = [activate_users, deactivate_users] 
+    inlines = [ClientProfileInline] 
 
     fieldsets = (
         (None, {'fields': ('username', 'password')}),
@@ -59,8 +73,16 @@ class ClientUserAdmin(UserAdmin):
         ('Fechas Importantes', {'fields': ('last_login', 'date_joined')}),
         ('Estado', {'fields': ('is_active',)}),
     )
+    
     def get_queryset(self, request):
         return super().get_queryset(request).filter(is_staff=False)
+
+    def get_tokens_remaining(self, obj):
+        try:
+            return obj.clientprofile.tokens_remaining
+        except ClientProfile.DoesNotExist:
+            return "N/A"
+    get_tokens_remaining.short_description = 'Tokens Remaining'
 
 @admin.register(AdminUser)
 class AdminUserAdmin(UserAdmin):
@@ -69,6 +91,20 @@ class AdminUserAdmin(UserAdmin):
         return super().get_queryset(request).filter(is_staff=True)
 
 # --- FIN PERSONALIZACIÓN DE USUARIOS ---
+
+# --- REGISTRO DE CONFIGURACIÓN GLOBAL DE TOKENS ---
+@admin.register(TokenSettings)
+class TokenSettingsAdmin(admin.ModelAdmin):
+    list_display = ('default_token_allowance', 'reset_interval')
+    
+    def has_add_permission(self, request):
+        # Solo permitir crear si no existe ninguno
+        if self.model.objects.exists():
+            return False
+        return super().has_add_permission(request)
+
+    def has_delete_permission(self, request, obj=None):
+        return False
 
 # --- INLINE PARA IMÁGENES DEL CARRUSEL HERO ---
 class HeroCarouselImageInline(admin.TabularInline):
@@ -204,10 +240,10 @@ class WorkflowAdmin(admin.ModelAdmin):
 
 @admin.register(CharacterImage)
 class CharacterImageAdmin(admin.ModelAdmin):
-    list_display = ('image_preview', 'character', 'user', 'description')
-    list_filter = ('character', 'user')
+    list_display = ('image_preview', 'character', 'user', 'generation_type_badge', 'download_workflow_link')
+    list_filter = ('character', 'user', 'generation_type')
     search_fields = ('description', 'user__username', 'character__name')
-    readonly_fields = ('image_preview', 'character', 'user', 'description', 'image')
+    readonly_fields = ('image_preview', 'character', 'user', 'description', 'image', 'generation_type', 'width', 'height', 'download_workflow_link')
 
     def image_preview(self, obj):
         if obj.image:
@@ -215,6 +251,31 @@ class CharacterImageAdmin(admin.ModelAdmin):
             return format_html('<img src="{}" width="100" height="auto" />', url)
         return "(Sin imagen)"
     image_preview.short_description = 'Miniatura'
+
+    def generation_type_badge(self, obj):
+        colors = {
+            'Gen_Normal': '#3b82f6',      # Azul
+            'Gen_UpScaler': '#10b981',    # Verde
+            'Gen_FaceDetailer': '#f43f5e' # Rojo/Rosa
+        }
+        color = colors.get(obj.generation_type, '#6b7280') # Gris por defecto
+        label = obj.get_generation_type_display()
+        
+        return format_html(
+            '<span style="background-color: {}; color: white; padding: 4px 8px; border-radius: 4px; font-weight: bold; font-size: 0.8rem;">{}</span>',
+            color,
+            label
+        )
+    generation_type_badge.short_description = 'Tipo'
+    generation_type_badge.admin_order_field = 'generation_type'
+
+    # --- NUEVO: Enlace de descarga del workflow ---
+    def download_workflow_link(self, obj):
+        if obj.generation_workflow:
+            return format_html('<a href="{}" download>Descargar JSON</a>', obj.generation_workflow.url)
+        return "No disponible"
+    download_workflow_link.short_description = 'Workflow'
+
     def has_add_permission(self, request): return False
     def has_delete_permission(self, request, obj=None): return True
 
@@ -232,14 +293,26 @@ class CharacterCatalogImageInline(admin.TabularInline):
         return "(Sin imagen)"
     image_preview.short_description = "Vista Previa"
 
+# --- NUEVO: REGISTRO DE CATEGORÍAS Y SUBCATEGORÍAS ---
+@admin.register(CharacterCategory)
+class CharacterCategoryAdmin(admin.ModelAdmin):
+    list_display = ('name',)
+    search_fields = ('name',)
+
+@admin.register(CharacterSubCategory)
+class CharacterSubCategoryAdmin(admin.ModelAdmin):
+    list_display = ('name',)
+    search_fields = ('name',)
+
 @admin.register(Character)
 class CharacterAdmin(admin.ModelAdmin):
-    list_display = ('name', 'category', 'base_workflow', 'character_actions') # AÑADIDO: category
-    list_filter = ('category', 'base_workflow') # AÑADIDO: category
+    list_display = ('name', 'category', 'subcategory', 'base_workflow', 'character_actions') # AÑADIDO: subcategory
+    list_filter = ('category', 'subcategory', 'base_workflow') # AÑADIDO: subcategory
     inlines = [CharacterCatalogImageInline]
+    # ELIMINADO: filter_horizontal = ('tags',) (Ya no es ManyToMany)
 
     fieldsets = (
-        (None, {'fields': ('name', 'description', 'category', 'base_workflow')}), # AÑADIDO: category
+        (None, {'fields': ('name', 'description', 'category', 'subcategory', 'base_workflow')}), # AÑADIDO: subcategory
         ('Prompts por Defecto (Sándwich)', {
             'fields': ('prompt_prefix', 'prompt_suffix', 'negative_prompt'),
             'description': 'Estructura: [Prefijo] + (Usuario:1.2) + [Sufijo]'
