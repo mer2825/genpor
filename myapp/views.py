@@ -1,6 +1,6 @@
 from django.shortcuts import render, redirect, get_object_or_404
 from django.db import models
-from .models import Workflow, Character, CharacterImage, ConnectionConfig, CompanySettings, ChatMessage, CharacterCategory, CharacterSubCategory, ClientProfile
+from .models import Workflow, Character, CharacterImage, ConnectionConfig, CompanySettings, ChatMessage, CharacterCategory, CharacterSubCategory, ClientProfile, Coupon
 import json
 import os
 from django.conf import settings
@@ -19,58 +19,58 @@ import httpx
 import websockets
 from django.core.cache import cache # IMPORTANTE: Para Rate Limiting Real
 
-# --- VISTA SEGURA PARA SERVIR ARCHIVOS ---
+# --- SECURE MEDIA SERVING VIEW ---
 def serve_private_media(request, path):
     """
-    Sirve archivos de la carpeta 'user_images'.
-    Permite acceso si:
-    1. El usuario solicitante es el dueño.
-    2. El usuario solicitante es staff.
-    3. El dueño de la imagen es staff (imagen pública/oficial).
+    Serves files from the 'user_images' folder.
+    Allows access if:
+    1. The requesting user is the owner.
+    2. The requesting user is staff.
+    3. The image owner is staff (public/official image).
     """
-    # --- CORRECCIÓN DE SEGURIDAD (Path Traversal) ---
-    # Normalizar la ruta para eliminar '..' y redundancias
+    # --- SECURITY FIX (Path Traversal) ---
+    # Normalize the path to remove '..' and redundancies
     normalized_path = os.path.normpath(path)
     
-    # Verificar que no intente salir del directorio raíz
+    # Verify it doesn't try to exit the root directory
     if '..' in normalized_path or normalized_path.startswith(('/', '\\')):
         raise Http404("Invalid file path.")
 
     file_path = os.path.join(settings.MEDIA_ROOT, normalized_path)
     
-    # Doble verificación: asegurar que la ruta final sigue estando dentro de MEDIA_ROOT
+    # Double check: ensure the final path is still within MEDIA_ROOT
     if not os.path.abspath(file_path).startswith(os.path.abspath(settings.MEDIA_ROOT)):
         raise Http404("Access denied: Path traversal attempt.")
     # ------------------------------------------------
 
     try:
-        # Usamos normalized_path en lugar de path crudo
-        parts = normalized_path.split(os.sep) # Usar separador del sistema
+        # Use normalized_path instead of raw path
+        parts = normalized_path.split(os.sep) # Use system separator
         
-        # Manejo robusto de rutas (Windows/Linux)
+        # Robust path handling (Windows/Linux)
         if len(parts) > 1 and parts[0] == 'user_images':
             owner_id = int(parts[1])
         else:
-            # Si no es user_images, podría ser otra carpeta pública o protegida
-            # Por defecto, si no sigue el patrón user_images/ID/..., denegamos acceso por ahora
-            # a menos que sea staff.
+            # If not user_images, it could be another public or protected folder
+            # By default, if it doesn't follow the user_images/ID/... pattern, deny access for now
+            # unless it's staff.
             if request.user.is_staff:
-                owner_id = request.user.id # Bypass para staff
+                owner_id = request.user.id # Bypass for staff
             else:
                 raise Http404("Not a user file.")
 
     except (ValueError, IndexError):
         raise Http404("Malformed file path.")
 
-    # Verificar permisos
+    # Check permissions
     has_access = False
     
-    # 1. Si el usuario está autenticado y es dueño o staff
+    # 1. If the user is authenticated and is the owner or staff
     if request.user.is_authenticated:
         if request.user.id == owner_id or request.user.is_staff:
             has_access = True
     
-    # 2. Si no tiene acceso aún, verificar si el dueño de la imagen es staff (hacerla pública)
+    # 2. If no access yet, check if the image owner is staff (making it public)
     if not has_access:
         try:
             owner = User.objects.get(pk=owner_id)
@@ -87,20 +87,21 @@ def serve_private_media(request, path):
     else:
         raise Http404("Access denied.")
 
-# --- NUEVA FUNCIÓN SEGURA PARA OBTENER PERSONAJES ---
+# --- NEW SECURE FUNCTION TO GET CHARACTERS ---
 @sync_to_async
 def get_characters_with_images():
-    # CAMBIO: Ahora usamos 'catalog_images_set' para las imágenes públicas
-    # Y hacemos select_related de 'category' y 'subcategory' para optimizar
-    return list(Character.objects.prefetch_related('catalog_images_set').select_related('category', 'subcategory').all())
+    # CHANGE: Now using 'catalog_images_set' for public images
+    # And select_related 'category' and 'subcategory' for optimization
+    # --- NEW: Filter by is_active=True ---
+    return list(Character.objects.filter(is_active=True).prefetch_related('catalog_images_set').select_related('category', 'subcategory').all())
 
-# --- FUNCIÓN PARA OBTENER LA CONFIGURACIÓN DE LA EMPRESA ---
+# --- FUNCTION TO GET COMPANY SETTINGS ---
 @sync_to_async
 def get_company_settings():
-    # Prefetch para obtener las imágenes del carrusel hero
+    # Prefetch to get hero carousel images
     return CompanySettings.objects.prefetch_related('hero_images').first()
 
-# --- FUNCIÓN AUXILIAR PARA OBTENER EL USUARIO DE FORMA SEGURA ---
+# --- HELPER FUNCTION TO GET USER SAFELY ---
 @sync_to_async
 def get_user_from_request(request):
     user = request.user
@@ -108,7 +109,7 @@ def get_user_from_request(request):
         pass 
     return user
 
-# --- VISTA DE GALERÍA ---
+# --- GALLERY VIEW ---
 async def gallery_view(request):
     user = await get_user_from_request(request)
     if not user.is_authenticated:
@@ -116,12 +117,12 @@ async def gallery_view(request):
     
     company_settings = await get_company_settings()
     
-    # Obtener todas las imágenes generadas por el usuario
+    # Get all images generated by the user
     user_images = await sync_to_async(list)(
         CharacterImage.objects.filter(user=user).select_related('character').order_by('-id')
     )
     
-    # Agrupar por personaje
+    # Group by character
     gallery_data = {}
     for img in user_images:
         char_id = img.character.id
@@ -144,7 +145,7 @@ async def gallery_view(request):
     }
     return await sync_to_async(render)(request, 'myapp/gallery.html', context)
 
-# --- VISTA PARA ELIMINAR IMÁGENES ---
+# --- VIEW TO DELETE IMAGES ---
 async def delete_images_view(request):
     user = await get_user_from_request(request)
     if not user.is_authenticated:
@@ -174,7 +175,7 @@ async def delete_images_view(request):
     
     return JsonResponse({'status': 'error', 'message': 'Method not allowed'}, status=405)
 
-# --- VISTA PARA ELIMINAR MENSAJE INDIVIDUAL ---
+# --- VIEW TO DELETE INDIVIDUAL MESSAGE ---
 async def delete_message_view(request):
     user = await get_user_from_request(request)
     if not user.is_authenticated:
@@ -191,12 +192,12 @@ async def delete_message_view(request):
                     msg = ChatMessage.objects.get(id=msg_id, user=user_obj)
                     
                     if del_imgs:
-                        # Borrar imágenes asociadas
+                        # Delete associated images
                         images = msg.generated_images.all()
                         for img in images:
                             if img.image:
-                                img.image.delete(save=False) # Borrar archivo
-                            img.delete() # Borrar registro
+                                img.image.delete(save=False) # Delete file
+                            img.delete() # Delete record
                     
                     msg.delete()
                     return True
@@ -215,7 +216,7 @@ async def delete_message_view(request):
             
     return JsonResponse({'status': 'error', 'message': 'Method not allowed'}, status=405)
 
-# --- VISTA PARA ELIMINAR HISTORIAL COMPLETO ---
+# --- VIEW TO CLEAR ENTIRE CHAT HISTORY ---
 async def clear_chat_history_view(request):
     user = await get_user_from_request(request)
     if not user.is_authenticated:
@@ -228,11 +229,11 @@ async def clear_chat_history_view(request):
             
             @sync_to_async
             def perform_clear_chat(char_id, user_obj, del_imgs):
-                # Obtener todos los mensajes de este chat
+                # Get all messages for this chat
                 msgs = ChatMessage.objects.filter(user=user_obj, character_id=char_id)
                 
                 if del_imgs:
-                    # Recolectar todas las imágenes de estos mensajes
+                    # Collect all images from these messages
                     for msg in msgs:
                         images = msg.generated_images.all()
                         for img in images:
@@ -240,7 +241,7 @@ async def clear_chat_history_view(request):
                                 img.image.delete(save=False)
                             img.delete()
                 
-                # Borrar los mensajes
+                # Delete the messages
                 count, _ = msgs.delete()
                 return count
 
@@ -252,7 +253,7 @@ async def clear_chat_history_view(request):
             
     return JsonResponse({'status': 'error', 'message': 'Method not allowed'}, status=405)
 
-# --- VISTA DEL WORKSPACE (ACTUALIZADA) ---
+# --- WORKSPACE VIEW (UPDATED) ---
 async def workspace_view(request):
     user = await get_user_from_request(request)
     if not user.is_authenticated:
@@ -260,53 +261,54 @@ async def workspace_view(request):
     
     company_settings = await get_company_settings()
     
-    # Obtener todos los personajes para el modal de selección
+    # Get all characters for the selection modal
     all_characters = await get_characters_with_images()
     
-    # --- NUEVO: Obtener todas las categorías y subcategorías ---
+    # --- NEW: Get all categories and subcategories ---
     all_categories = await sync_to_async(list)(CharacterCategory.objects.all())
     all_subcategories = await sync_to_async(list)(CharacterSubCategory.objects.all())
     
-    # Verificar si hay un personaje seleccionado
+    # Check if a character is selected
     character_id = request.GET.get('character_id')
-    # CAMBIO: Verificar si se solicitó cargar el historial
+    # CHANGE: Check if history loading was requested
     should_load_history = request.GET.get('load_history') == 'true'
     
     selected_character = None
-    chat_history = [] # Lista para el historial del chat central
-    recent_chats = [] # Lista para la sidebar izquierda
+    chat_history = [] # List for the central chat
+    recent_chats = [] # List for the left sidebar
     
-    # Valores por defecto si no hay personaje
+    # Default values if no character
     default_width = 1024
     default_height = 1024
-    default_seed = -1 # -1 significa aleatorio
+    default_seed = -1 # -1 means random
     
-    # Capacidades del workflow (para mostrar/ocultar checkboxes)
+    # Workflow capabilities (to show/hide checkboxes)
     workflow_capabilities = {
         'can_upscale': False,
         'can_facedetail': False
     }
 
-    # --- NUEVO: Obtener lista de chats recientes CON IMÁGENES ---
+    # --- NEW: Get list of recent chats WITH IMAGES ---
     @sync_to_async
     def get_recent_chats_list():
-        # 1. Obtener IDs de personajes con los que se ha hablado, ordenados por fecha
+        # 1. Get character IDs spoken to, ordered by date
         recent_ids = list(ChatMessage.objects.filter(user=user)
                           .values_list('character_id', flat=True)
                           .order_by('-timestamp'))
         
-        # 2. Eliminar duplicados manteniendo el orden
+        # 2. Remove duplicates while maintaining order
         seen = set()
         unique_ids = [x for x in recent_ids if not (x in seen or seen.add(x))]
         
         if not unique_ids:
             return []
 
-        # 3. Obtener los objetos Character completos (con imágenes de catálogo)
-        chars_qs = Character.objects.filter(id__in=unique_ids).prefetch_related('catalog_images_set')
+        # 3. Get the full Character objects (with catalog images)
+        # --- NEW: Filter by is_active=True ---
+        chars_qs = Character.objects.filter(id__in=unique_ids, is_active=True).prefetch_related('catalog_images_set')
         chars_dict = {c.id: c for c in chars_qs}
         
-        # 4. Reconstruir la lista en el orden correcto
+        # 4. Rebuild the list in the correct order
         ordered_chars = []
         for cid in unique_ids:
             if cid in chars_dict:
@@ -318,28 +320,28 @@ async def workspace_view(request):
 
     if character_id:
         try:
-            # Buscar en la lista ya cargada para evitar otra consulta
+            # Search in the already loaded list to avoid another query
             selected_character = next((c for c in all_characters if str(c.id) == str(character_id)), None)
 
-            # --- NUEVO: Extraer dimensiones y semilla por defecto del JSON del personaje ---
+            # --- NEW: Extract default dimensions and seed from character's JSON ---
             if selected_character and selected_character.character_config:
                 try:
                     config = json.loads(selected_character.character_config)
                     if 'width' in config: default_width = int(config['width'])
                     if 'height' in config: default_height = int(config['height'])
                     
-                    # Lógica de semilla:
-                    # Si seed_behavior es 'fixed', usamos la semilla guardada.
-                    # Si es 'random', mostramos -1 (o vacío) para indicar aleatorio.
+                    # Seed logic:
+                    # If seed_behavior is 'fixed', use the saved seed.
+                    # If 'random', show -1 (or empty) to indicate random.
                     if config.get('seed_behavior') == 'fixed' and 'seed' in config:
                         default_seed = int(config['seed'])
                     else:
                         default_seed = -1
                         
                 except (json.JSONDecodeError, ValueError):
-                    pass # Si falla, se queda en defaults
+                    pass # If it fails, stick to defaults
             
-            # --- NUEVO: Analizar Workflow para determinar capacidades ---
+            # --- NEW: Analyze Workflow to determine capabilities ---
             if selected_character:
                 @sync_to_async
                 def get_workflow_json():
@@ -348,13 +350,12 @@ async def workspace_view(request):
                 
                 try:
                     wf_json = await get_workflow_json()
-                    # Si tiene configuración específica, la usamos para sobreescribir (aunque la estructura de nodos es la del base)
-                    # Pero analyze_workflow_outputs necesita la estructura de nodos, así que usamos el base.
+                    # analyze_workflow_outputs needs the node structure, so we use the base.
                     workflow_capabilities = analyze_workflow_outputs(wf_json)
                 except Exception as e:
                     print(f"Error analyzing workflow: {e}")
 
-            # --- CAMBIO: Cargar Historial SOLO SI SE SOLICITA ---
+            # --- CHANGE: Load History ONLY IF REQUESTED ---
             if selected_character and should_load_history:
                 chat_qs = await sync_to_async(list)(
                     ChatMessage.objects.filter(
@@ -363,24 +364,24 @@ async def workspace_view(request):
                     ).prefetch_related('generated_images').order_by('timestamp')
                 )
                 
-                # Formatear para el template
+                # Format for the template
                 for msg in chat_qs:
                     item = {
-                        'id': msg.id, # Necesario para borrar
+                        'id': msg.id, # Needed for deletion
                         'is_user': msg.is_from_user,
                         'text': msg.message,
                         'images': []
                     }
                     if not msg.is_from_user:
-                        # Obtener imágenes asociadas
+                        # Get associated images
                         imgs = await sync_to_async(list)(msg.generated_images.all())
                         
-                        # --- LÓGICA DE PLACEHOLDERS ---
-                        # Si hay menos imágenes de las que debería haber, rellenamos con placeholders
+                        # --- PLACEHOLDER LOGIC ---
+                        # If there are fewer images than there should be, fill with placeholders
                         real_images_count = len(imgs)
                         expected_count = msg.image_count
                         
-                        # Primero agregamos las imágenes reales
+                        # First, add the real images
                         for img in imgs:
                             img_type = "NORMAL"
                             if "UpScaler" in img.image.name: img_type = "UPSCALER"
@@ -389,12 +390,12 @@ async def workspace_view(request):
                             item['images'].append({
                                 'url': img.image.url,
                                 'type': img_type,
-                                'width': img.width, # Pasamos dimensiones
+                                'width': img.width, # Pass dimensions
                                 'height': img.height,
                                 'is_deleted': False
                             })
                         
-                        # Luego rellenamos con placeholders si faltan
+                        # Then fill with placeholders if any are missing
                         if expected_count > real_images_count:
                             missing_count = expected_count - real_images_count
                             for _ in range(missing_count):
@@ -413,14 +414,14 @@ async def workspace_view(request):
         'company': company_settings,
         'selected_character': selected_character,
         'all_characters': all_characters,
-        'all_categories': all_categories, # Pasamos las categorías al template
-        'all_subcategories': all_subcategories, # Pasamos las subcategorías al template
-        'default_width': default_width, # Pasamos al contexto
-        'default_height': default_height, # Pasamos al contexto
-        'default_seed': default_seed, # Pasamos la semilla al contexto
-        'chat_history': chat_history, # Pasamos el historial del chat
-        'recent_chats': recent_chats, # Pasamos la lista de chats recientes
-        'workflow_capabilities': workflow_capabilities # Pasamos las capacidades
+        'all_categories': all_categories, # Pass categories to template
+        'all_subcategories': all_subcategories, # Pass subcategories to template
+        'default_width': default_width, # Pass to context
+        'default_height': default_height, # Pass to context
+        'default_seed': default_seed, # Pass seed to context
+        'chat_history': chat_history, # Pass chat history
+        'recent_chats': recent_chats, # Pass recent chats list
+        'workflow_capabilities': workflow_capabilities # Pass capabilities
     }
     return await sync_to_async(render)(request, 'myapp/workspace.html', context)
 
@@ -433,33 +434,33 @@ async def generate_image_view(request):
             if not user.is_authenticated:
                 return JsonResponse({'status': 'error', 'message': 'You must be logged in to generate images.'}, status=401)
             
-            # --- VALIDACIÓN DE TOKENS (NUEVO) ---
-            # Solo si no es staff (los admins tienen tokens infinitos)
+            # --- TOKEN VALIDATION (NEW) ---
+            # Only if not staff (admins have infinite tokens)
             if not user.is_staff:
                 try:
                     profile = await sync_to_async(lambda: user.clientprofile)()
                     await profile.check_and_reset_tokens()
                     
-                    # CAMBIO: Usar el método asíncrono
+                    # CHANGE: Use async method
                     tokens_left = await profile.get_tokens_remaining_async()
                     if tokens_left <= 0:
                         return JsonResponse({'status': 'error', 'message': 'You have run out of tokens. Please contact support or wait for your next reset.'}, status=403)
                 except ClientProfile.DoesNotExist:
-                    # Si no tiene perfil, creamos uno por defecto (fallback)
+                    # If no profile, create a default one (fallback)
                     await sync_to_async(ClientProfile.objects.create)(user=user)
             # ------------------------------------
 
-            # --- RATE LIMITING REAL (CACHE) ---
-            # Usamos el ID del usuario como clave, no la sesión.
-            # Esto evita que borren cookies para saltarse el límite.
+            # --- REAL RATE LIMITING (CACHE) ---
+            # Use user ID as key, not session.
+            # This prevents clearing cookies to bypass the limit.
             cache_key = f"gen_limit_{user.id}"
             
-            # Verificar si existe la clave en caché
+            # Check if key exists in cache
             if cache.get(cache_key):
-                ttl = cache.ttl(cache_key) # Tiempo restante
+                ttl = cache.ttl(cache_key) # Remaining time
                 return JsonResponse({'status': 'error', 'message': f'Please wait {ttl} seconds before generating another image.'}, status=429)
             
-            # Establecer el bloqueo por 10 segundos
+            # Set the lock for 10 seconds
             cache.set(cache_key, True, timeout=10)
             # ----------------------------------
 
@@ -491,25 +492,13 @@ async def generate_image_view(request):
                 def save_user_message():
                     return ChatMessage.objects.create(user=user, character=character, message=user_prompt, is_from_user=True)
                 user_msg = await save_user_message()
-
-                # --- CAMBIO: generate_image_from_character ahora devuelve el workflow usado ---
-                # Necesitamos actualizar services.py para que devuelva (images_data, prompt_id, final_workflow)
-                # Por ahora, asumiremos que services.py NO ha cambiado su firma y obtendremos el workflow aquí.
-                # Pero espera, generate_image_from_character YA calcula el workflow final internamente.
-                # Lo ideal es que nos lo devuelva.
-                
-                # Para no romper services.py ahora mismo, reconstruiremos el workflow aquí (menos eficiente pero seguro)
-                # O mejor, modificamos services.py para que lo devuelva. Es lo correcto.
-                
-                # Vamos a modificar services.py primero para que devuelva el workflow.
-                # (Ver paso siguiente, por ahora dejo el código preparado para recibir 3 valores)
                 
                 images_data_list, prompt_id, final_workflow_json = await generate_image_from_character(
                     character, user_prompt, width, height, seed=seed, allowed_types=allowed_types
                 )
 
                 if images_data_list:
-                    # --- DESCONTAR TOKEN (NUEVO) ---
+                    # --- DEDUCT TOKEN (NEW) ---
                     if not user.is_staff:
                         @sync_to_async
                         def deduct_token(u):
@@ -524,15 +513,15 @@ async def generate_image_view(request):
                     
                     @sync_to_async
                     def save_generated_image(img_bytes, classification, index, workflow_json):
-                        # CAMBIO: Guardamos el tipo de generación Y el workflow
+                        # CHANGE: Save generation type AND workflow
                         new_image = CharacterImage(
                             character=character, 
                             user=user, 
                             description=user_prompt,
-                            generation_type=classification # Guardamos el tipo aquí
+                            generation_type=classification # Save type here
                         )
                         
-                        # Guardar el archivo de workflow
+                        # Save workflow file
                         workflow_filename = f"workflow_{character.name}_{prompt_id}_{classification}_{index}.json"
                         new_image.generation_workflow.save(workflow_filename, ContentFile(json.dumps(workflow_json, indent=2).encode('utf-8')), save=False)
                         
@@ -567,12 +556,12 @@ async def generate_image_view(request):
             except Character.DoesNotExist:
                 return JsonResponse({'status': 'error', 'message': 'Character not found.'}, status=404)
             except (httpx.ConnectError, websockets.exceptions.WebSocketException):
-                # Captura errores de conexión específicos
+                # Capture specific connection errors
                 return JsonResponse({'status': 'error', 'message': 'Could not connect to the generation server. Please try again later.'}, status=503)
             except Exception as e:
-                # Para cualquier otro error, loguea el error real en la consola del servidor
+                # For any other error, log the real error on the server console
                 print(f"An unexpected error occurred: {e}")
-                # Y muestra un mensaje genérico al usuario
+                # And show a generic message to the user
                 return JsonResponse({'status': 'error', 'message': 'An unexpected error occurred during generation.'}, status=500)
 
         elif request.method == 'GET':
@@ -593,29 +582,75 @@ async def generate_image_view(request):
         characters = await get_characters_with_images()
         company_settings = await get_company_settings()
         
-        # --- CORRECCIÓN: Añadir la carga de categorías y subcategorías ---
+        # --- FIX: Add loading of categories and subcategories ---
         all_categories = await sync_to_async(list)(CharacterCategory.objects.all())
         all_subcategories = await sync_to_async(list)(CharacterSubCategory.objects.all())
 
-        # --- LÓGICA DEL CARRUSEL HERO (NUEVA) ---
+        # --- HERO CAROUSEL LOGIC (NEW) ---
         hero_items = []
         if company_settings:
-            # Obtener imágenes del carrusel directamente del modelo HeroCarouselImage
+            # Get carousel images directly from the HeroCarouselImage model
             hero_images = await sync_to_async(list)(company_settings.hero_images.all())
             
             for img in hero_images:
                 hero_items.append({
                     'image_url': img.image.url,
-                    'name': img.caption or "" # Usar caption o vacío
+                    'name': img.caption or "" # Use caption or empty
                 })
         
         context = {
             'characters': characters,
             'company': company_settings,
             'hero_items': hero_items,
-            'all_categories': all_categories, # Pasamos las categorías al template
-            'all_subcategories': all_subcategories, # Pasamos las subcategorías al template
+            'all_categories': all_categories, # Pass categories to template
+            'all_subcategories': all_subcategories, # Pass subcategories to template
         }
         return await sync_to_async(render)(request, 'myapp/generate.html', context)
     
     return redirect('generate_image')
+
+async def redeem_coupon_view(request):
+    user = await get_user_from_request(request)
+    if not user.is_authenticated:
+        return JsonResponse({'status': 'error', 'message': 'Unauthorized'}, status=401)
+    
+    if request.method == 'POST':
+        code = request.POST.get('code')
+        if not code:
+            return JsonResponse({'status': 'error', 'message': 'Code is required'})
+        
+        try:
+            @sync_to_async
+            def process_redemption(user_obj, coupon_code):
+                try:
+                    coupon = Coupon.objects.get(code=coupon_code, is_redeemed=False)
+                    
+                    # Update coupon
+                    coupon.is_redeemed = True
+                    coupon.redeemed_by = user_obj
+                    coupon.redeemed_at = timezone.now()
+                    coupon.save()
+                    
+                    # Update user profile
+                    profile, created = ClientProfile.objects.get_or_create(user=user_obj)
+                    
+                    # ADD TOKENS TO BONUS
+                    profile.bonus_tokens += coupon.tokens
+                    profile.save()
+                    
+                    return {"success": True, "tokens": coupon.tokens}
+                    
+                except Coupon.DoesNotExist:
+                    return {"success": False, "message": "Invalid or already redeemed code."}
+
+            result = await process_redemption(user, code)
+            
+            if result["success"]:
+                return JsonResponse({'status': 'success', 'message': f'Successfully redeemed {result["tokens"]} tokens!'})
+            else:
+                return JsonResponse({'status': 'error', 'message': result["message"]})
+
+        except Exception as e:
+            return JsonResponse({'status': 'error', 'message': str(e)}, status=500)
+            
+    return JsonResponse({'status': 'error', 'message': 'Method not allowed'}, status=405)

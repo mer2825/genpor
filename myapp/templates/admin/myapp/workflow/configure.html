@@ -2,20 +2,20 @@
 {% load static %}
 
 {% block title %}
-{% if character %}Configurar Personaje: {{ character.name }}{% else %}Configurar Workflow: {{ workflow.name }}{% endif %}
+{% if character %}Configure Character: {{ character.name }}{% else %}Configure Workflow: {{ workflow.name }}{% endif %}
 {% endblock %}
 
 {% block content %}
 <div id="content-main">
     <h1>
-        {% if character %}Configurar Personaje: {{ character.name }}{% else %}Configurar Workflow: {{ workflow.name }}{% endif %}
+        {% if character %}Configure Character: {{ character.name }}{% else %}Configure Workflow: {{ workflow.name }}{% endif %}
     </h1>
-    <p>Ajusta los parámetros que se usarán por defecto para generar imágenes con este {% if character %}personaje{% else %}workflow{% endif %}. Los cambios se guardarán en la base de datos.</p>
+    <p>Adjust the default parameters used to generate images with this {% if character %}character{% else %}workflow{% endif %}. Changes will be saved to the database.</p>
 
     <form method="post">
         {% csrf_token %}
         <fieldset class="module aligned">
-            <h2>Parámetros de Generación</h2>
+            <h2>Generation Parameters</h2>
             
             <!-- Checkpoint -->
             <div class="form-row">
@@ -31,32 +31,41 @@
             <div class="form-row">
                 <label for="vae">VAE:</label>
                 <select name="vae">
-                    <option value="None" {% if not workflow_params.vae or workflow_params.vae == "None" %}selected{% endif %}>None (Usar del Modelo)</option>
+                    <option value="None" {% if not workflow_params.vae or workflow_params.vae == "None" %}selected{% endif %}>None (Use Model's)</option>
                     {% for vae in comfyui_info.vaes %}
                         <option value="{{ vae }}" {% if vae == workflow_params.vae %}selected{% endif %}>{{ vae }}</option>
                     {% endfor %}
                 </select>
             </div>
 
-            <!-- Resolución -->
+            <!-- Resolution -->
             <div class="form-row">
-                <label>Resolución:</label>
-                <input type="number" name="width" value="{{ workflow_params.width }}" placeholder="Ancho">
+                <label>Resolution:</label>
+                <input type="number" name="width" value="{{ workflow_params.width }}" placeholder="Width"
+                       {% if readonly_params %}readonly disabled style="background: #f5f5f5; color: #666; border: 1px solid #ccc;"{% endif %}>
                 x
-                <input type="number" name="height" value="{{ workflow_params.height }}" placeholder="Alto">
+                <input type="number" name="height" value="{{ workflow_params.height }}" placeholder="Height"
+                       {% if readonly_params %}readonly disabled style="background: #f5f5f5; color: #666; border: 1px solid #ccc;"{% endif %}>
+                {% if readonly_params %}
+                <p class="help" style="display:inline; margin-left:10px;">Value inherited from Base Workflow.</p>
+                {% endif %}
             </div>
 
             <!-- Seed -->
             <div class="form-row">
                 <label for="seed">Seed:</label>
-                <input type="number" name="seed" value="{{ workflow_params.seed }}">
-                <select name="seed_behavior" style="margin-left: 10px;">
-                    <option value="random" {% if saved_config.seed_behavior != 'fixed' %}selected{% endif %}>Aleatoria</option>
-                    <option value="fixed" {% if saved_config.seed_behavior == 'fixed' %}selected{% endif %}>Fija</option>
+                <input type="number" name="seed" value="{{ workflow_params.seed }}"
+                       {% if readonly_params %}readonly disabled style="background: #f5f5f5; color: #666; border: 1px solid #ccc;"{% endif %}>
+                <select name="seed_behavior" style="margin-left: 10px;" {% if readonly_params %}disabled{% endif %}>
+                    <option value="random" {% if saved_config.seed_behavior != 'fixed' %}selected{% endif %}>Random</option>
+                    <option value="fixed" {% if saved_config.seed_behavior == 'fixed' %}selected{% endif %}>Fixed</option>
                 </select>
+                {% if readonly_params %}
+                <p class="help" style="display:inline; margin-left:10px;">Value inherited from Base Workflow.</p>
+                {% endif %}
             </div>
 
-            <!-- Parámetros Fijos (SOLO VISIBLE EN WORKFLOWS Y NO EDITABLE) -->
+            <!-- Fixed Parameters (ONLY VISIBLE IN WORKFLOWS AND NOT EDITABLE) -->
             {% if not character %}
             <div class="form-row">
                 <label>Sampler (Original):</label>
@@ -76,11 +85,18 @@
             </div>
             {% endif %}
 
-            <!-- Upscaler By (EDITABLE) -->
+            <!-- Upscaler By -->
             <div class="form-row">
                 <label for="upscale_by">Upscaler By:</label>
-                <input type="number" step="0.1" name="upscale_by" value="{{ workflow_params.upscale_by }}" placeholder="Ej: 1.5">
-                <p class="help" style="display:inline; margin-left:10px;">Factor de escalado (ej: 1.5x, 2.0x).</p>
+                <input type="number" step="0.1" name="upscale_by" value="{{ workflow_params.upscale_by }}" placeholder="Ex: 1.5"
+                       {% if readonly_params %}readonly disabled style="background: #f5f5f5; color: #666; border: 1px solid #ccc;"{% endif %}>
+                <p class="help" style="display:inline; margin-left:10px;">
+                    {% if readonly_params %}
+                        Value inherited from Base Workflow (not editable here).
+                    {% else %}
+                        Scaling factor (ex: 1.5x, 2.0x).
+                    {% endif %}
+                </p>
             </div>
 
         </fieldset>
@@ -97,18 +113,18 @@
                             <option value="{{ lora_opt }}" {% if lora_opt == lora.name %}selected{% endif %}>{{ lora_opt }}</option>
                         {% endfor %}
                     </select>
-                    <input type="number" name="lora_strength" step="0.01" value="{{ lora.strength }}" placeholder="Fuerza">
-                    <button type="button" class="button remove-lora-btn">Quitar</button>
+                    <input type="number" name="lora_strength" step="0.01" value="{{ lora.strength }}" placeholder="Strength">
+                    <button type="button" class="button remove-lora-btn">Remove</button>
                 </div>
                 {% endfor %}
             </div>
             <div class="form-row">
-                <button type="button" id="add-lora-btn" class="button">Añadir LoRA</button>
+                <button type="button" id="add-lora-btn" class="button">Add LoRA</button>
             </div>
         </fieldset>
 
         <div class="submit-row">
-            <input type="submit" value="Guardar Configuración" class="default">
+            <input type="submit" value="Save Configuration" class="default">
         </div>
     </form>
 
@@ -126,8 +142,8 @@
                         <option value="{{ lora_opt }}">{{ lora_opt }}</option>
                     {% endfor %}
                 </select>
-                <input type="number" name="lora_strength" step="0.01" value="1.0" placeholder="Fuerza">
-                <button type="button" class="button remove-lora-btn">Quitar</button>
+                <input type="number" name="lora_strength" step="0.01" value="1.0" placeholder="Strength">
+                <button type="button" class="button remove-lora-btn">Remove</button>
             `;
             container.appendChild(newItem);
         });

@@ -441,6 +441,27 @@
             padding: 8px;
         }
 
+        /* --- ESTILOS DEL BOTÓN DE CUPÓN --- */
+        .header-coupon-btn {
+            cursor: pointer;
+            background: transparent;
+            border: 1px solid var(--border-subtle);
+            padding: 8px 16px;
+            border-radius: 8px;
+            font-size: 0.85rem;
+            font-weight: 600;
+            color: var(--text-muted);
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            transition: all 0.2s;
+        }
+        .header-coupon-btn:hover {
+            background-color: rgba(255, 255, 255, 0.05);
+            color: white;
+            border-color: var(--border-subtle);
+        }
+
         /* --- RESPONSIVE --- */
         @media (max-width: 1024px) {
             .layout-grid {
@@ -462,6 +483,14 @@
             .logo-container h1 { display: none; }
             .logo-container .logo-wrapper { width: 32px; height: 32px; }
             .desktop-nav-btn { display: none !important; }
+
+            /* AJUSTE BOTÓN CUPÓN MÓVIL */
+            .header-coupon-btn {
+                padding: 8px; /* Cuadrado para el icono */
+            }
+            .header-coupon-btn span {
+                display: none; /* Ocultar texto en móvil */
+            }
 
             /* Sidebar Izquierda (Off-canvas) */
             .sidebar {
@@ -760,9 +789,94 @@
             align-items: center;
             gap: 6px;
             border: 1px solid var(--border-subtle);
+            /* cursor: pointer; ELIMINADO */
         }
         .token-badge i {
             color: #facc15; /* Amarillo */
+        }
+
+        /* --- NUEVO: ESTILOS MODAL CUPÓN --- */
+        #modal-coupon .modal-content {
+            background: linear-gradient(145deg, #2d221a, #1a1a1a);
+            border: 1px solid #d97706; /* Naranja oscuro */
+            box-shadow: 0 8px 30px rgba(245, 158, 11, 0.2);
+        }
+        #modal-coupon .modal-header h3 {
+            color: #f59e0b; /* Naranja claro */
+            text-shadow: 0 0 10px rgba(245, 158, 11, 0.5);
+        }
+        #modal-coupon #coupon-code {
+            background: #1c1917;
+            border-color: #78350f; /* Naranja muy oscuro */
+            text-align: center;
+            font-size: 1.1rem;
+            letter-spacing: 2px;
+        }
+        #modal-coupon #coupon-code:focus {
+            border-color: #f59e0b;
+            box-shadow: 0 0 15px rgba(245, 158, 11, 0.3);
+        }
+        #modal-coupon .modal-btn {
+            background-color: #d97706;
+            color: white;
+            font-weight: bold;
+            transition: transform 0.2s;
+        }
+        #modal-coupon .modal-btn:hover {
+            transform: scale(1.05);
+        }
+
+        /* --- NUEVO: ANIMACIÓN ESTRELLAS DENTRO DEL MODAL --- */
+        .success-animation-container {
+            text-align: center;
+            display: none; /* Oculto por defecto */
+            position: relative;
+            padding: 20px;
+            min-height: 150px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .success-icon {
+            font-size: 4rem;
+            color: #10b981; /* Verde éxito */
+            margin-bottom: 15px;
+            animation: scaleUp 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            z-index: 2;
+        }
+
+        .success-text {
+            font-size: 1.2rem;
+            color: #f59e0b;
+            font-weight: bold;
+            z-index: 2;
+            animation: fadeIn 0.5s ease-out;
+        }
+
+        .mini-star {
+            position: absolute;
+            color: #fbbf24; /* Dorado */
+            font-size: 1rem;
+            opacity: 0;
+            z-index: 1;
+        }
+
+        @keyframes scaleUp {
+            from { transform: scale(0); opacity: 0; }
+            to { transform: scale(1); opacity: 1; }
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        @keyframes sparkle {
+            0% { transform: scale(0) rotate(0deg); opacity: 0; }
+            50% { opacity: 1; }
+            100% { transform: scale(1.5) translate(var(--tx), var(--ty)) rotate(180deg); opacity: 0; }
         }
     </style>
 </head>
@@ -799,11 +913,16 @@
                     <i class="fas fa-home"></i> Home
                 </a>
 
-                <!-- NUEVO: Contador de Tokens -->
+                <!-- NUEVO: Botón de Cupones (Visible en Móvil como Icono) -->
+                <button onclick="document.getElementById('modal-coupon').style.display='block'" class="header-coupon-btn">
+                    <i class="fas fa-ticket-alt" style="color: #fbbf24;"></i> <span>Coupons</span>
+                </button>
+
+                <!-- NUEVO: Contador de Tokens (Solo informativo) -->
                 {% if user.is_authenticated and not user.is_staff %}
                 <div class="token-badge">
                     <i class="fas fa-coins"></i>
-                    <span>{{ user.clientprofile.tokens_remaining }} / {{ user.clientprofile.token_allowance }} Tokens</span>
+                    <span>{{ user.clientprofile.tokens_remaining }} Tokens</span>
                 </div>
                 {% endif %}
 
@@ -1092,6 +1211,35 @@
         </div>
     </div>
 
+    <!-- MODAL DE CANJE DE CUPÓN -->
+    <div id="modal-coupon" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 style="margin:0; color:white;">Redeem Coupon</h3>
+                <span onclick="document.getElementById('modal-coupon').style.display='none'" style="cursor:pointer; color:white;">&times;</span>
+            </div>
+            <div class="modal-body">
+                <!-- Contenedor del Formulario -->
+                <div id="coupon-input-container">
+                    <p style="color:var(--text-muted); margin-bottom:15px;">Enter your coupon code to receive extra tokens.</p>
+                    <input type="text" id="coupon-code" placeholder="Enter code here..." style="width:100%; padding:10px; background:#0f172a; border:1px solid var(--border-subtle); color:white; border-radius:8px; margin-bottom:15px; box-sizing:border-box;">
+                    <div id="coupon-message" style="margin-top:10px; font-size:0.9rem;"></div>
+                </div>
+
+                <!-- Contenedor de Éxito (Oculto por defecto) -->
+                <div id="coupon-success-container" class="success-animation-container" style="display:none;">
+                    <i class="fas fa-check-circle success-icon"></i>
+                    <div id="success-text" class="success-text"></div>
+                    <!-- Las estrellas se generarán aquí -->
+                </div>
+            </div>
+            <div class="modal-footer" id="coupon-footer">
+                <button class="modal-btn modal-btn-secondary" onclick="document.getElementById('modal-coupon').style.display='none'">Cancel</button>
+                <button class="modal-btn" style="background-color:var(--primary-blue); color:white;" onclick="redeemCoupon()">Redeem</button>
+            </div>
+        </div>
+    </div>
+
     <style>
         /* Estilos para los botones de filtro (Categorías) */
         .filter-btn {
@@ -1141,6 +1289,7 @@
         const generateUrl = "{% url 'generate_image' %}";
         const deleteMsgUrl = "{% url 'delete_message' %}";
         const clearChatUrl = "{% url 'clear_chat' %}";
+        const redeemCouponUrl = "{% url 'redeem_coupon' %}";
         const csrfToken = "{{ csrf_token }}";
         const characterId = "{{ selected_character.id|default:'' }}";
 
@@ -1520,6 +1669,69 @@
                 const matchesSub = activeSubs.length === 0 || activeSubs.includes(itemSubCategoryId);
 
                 item.style.display = (matchesSearch && matchesCategory && matchesSub) ? 'flex' : 'none';
+            });
+        }
+
+        // --- COUPON REDEMPTION LOGIC ---
+        function redeemCoupon() {
+            const code = document.getElementById('coupon-code').value.trim();
+            const messageDiv = document.getElementById('coupon-message');
+
+            if (!code) {
+                messageDiv.style.color = '#ef4444';
+                messageDiv.textContent = 'Please enter a code.';
+                return;
+            }
+
+            const formData = new FormData();
+            formData.append('code', code);
+
+            fetch(redeemCouponUrl, {
+                method: 'POST',
+                headers: { 'X-CSRFToken': csrfToken, 'X-Requested-With': 'XMLHttpRequest' },
+                body: new URLSearchParams(formData)
+            })
+            .then(res => res.json())
+            .then(data => {
+                if (data.status === 'success') {
+                    // Ocultar input y botones
+                    document.getElementById('coupon-input-container').style.display = 'none';
+                    document.getElementById('coupon-footer').style.display = 'none';
+
+                    // Mostrar contenedor de éxito
+                    const successContainer = document.getElementById('coupon-success-container');
+                    successContainer.style.display = 'flex';
+                    document.getElementById('success-text').textContent = data.message;
+
+                    // Generar estrellitas dentro del contenedor
+                    for(let i=0; i<20; i++) {
+                        const star = document.createElement('i');
+                        star.className = 'fas fa-star mini-star';
+
+                        // Posición aleatoria alrededor del centro
+                        const angle = Math.random() * Math.PI * 2;
+                        const distance = 30 + Math.random() * 100;
+                        const tx = Math.cos(angle) * distance;
+                        const ty = Math.sin(angle) * distance;
+
+                        star.style.setProperty('--tx', `${tx}px`);
+                        star.style.setProperty('--ty', `${ty}px`);
+                        star.style.left = '50%';
+                        star.style.top = '50%';
+                        star.style.animation = `sparkle 0.8s ease-out forwards ${Math.random() * 0.5}s`;
+
+                        successContainer.appendChild(star);
+                    }
+
+                    setTimeout(() => window.location.reload(), 2500);
+                } else {
+                    messageDiv.style.color = '#ef4444';
+                    messageDiv.textContent = data.message;
+                }
+            })
+            .catch(() => {
+                messageDiv.style.color = '#ef4444';
+                messageDiv.textContent = 'Connection error.';
             });
         }
     </script>

@@ -4,9 +4,11 @@ from django.contrib.auth.models import User
 import os
 from django.utils import timezone
 from datetime import timedelta
-from django.db.models.signals import post_save
+from django.db.models.signals import post_save, post_delete
 from django.dispatch import receiver
 from asgiref.sync import sync_to_async
+import secrets
+import string
 
 class Workflow(models.Model):
     name = models.CharField(max_length=100)
@@ -15,6 +17,17 @@ class Workflow(models.Model):
 
     def __str__(self):
         return self.name
+
+# --- SIGNAL TO DELETE FILE WHEN WORKFLOW IS DELETED ---
+@receiver(post_delete, sender=Workflow)
+def delete_workflow_file(sender, instance, **kwargs):
+    """Deletes the JSON file from disk when the Workflow is deleted."""
+    if instance.json_file:
+        if os.path.isfile(instance.json_file.path):
+            try:
+                os.remove(instance.json_file.path)
+            except Exception as e:
+                print(f"Error deleting file: {e}")
 
 def character_image_path(instance, filename):
     if instance.user:
@@ -25,7 +38,7 @@ def character_catalog_path(instance, filename):
     return f'character_catalog/{instance.character.name}/{filename}'
 
 def character_workflow_path(instance, filename):
-    # Guardar los workflows generados en una carpeta específica
+    # Save generated workflows in a specific folder
     if instance.user:
         return f'user_workflows/{instance.user.id}/{instance.character.name}/{filename}'
     return f'character_workflows/{instance.character.name}/{filename}'
@@ -53,9 +66,13 @@ class Character(models.Model):
     subcategory = models.ForeignKey(CharacterSubCategory, on_delete=models.SET_NULL, null=True, blank=True, related_name="characters", help_text="Optional: A specific sub-classification (e.g., Cyberpunk, Fantasy). Only one allowed.")
     base_workflow = models.ForeignKey(Workflow, on_delete=models.CASCADE, related_name="characters")
     character_config = models.TextField(blank=True, null=True, help_text="Specific JSON configuration for this character.")
-    prompt_prefix = models.TextField(blank=True, null=True, verbose_name="Prompt Prefix (Character)", default="1girl, solo, beautiful woman, detailed skin", help_text="PREFIX: Goes BEFORE the user prompt. Use to describe the character (hair, eyes, body).")
-    prompt_suffix = models.TextField(blank=True, null=True, verbose_name="Prompt Suffix (Quality)", default="score_9, score_8_up, score_7_up, score_6_up, source_anime, rating_explicit, (masterpiece, best quality)", help_text="SUFFIX: Goes AFTER the user prompt. Use for Quality Tags (score_9...) and style.")
-    negative_prompt = models.TextField(blank=True, null=True, verbose_name="Negative Prompt", default="score_6, score_5, score_4, source_cartoon, 3d, illustration, (worst quality, low quality:1.2), deformed, bad anatomy", help_text="NEGATIVE: Things you DO NOT want in the image.")
+    
+    # --- NEW FIELD ---
+    is_active = models.BooleanField(default=True, verbose_name="Active", help_text="If unchecked, this character will be hidden from the workspace.")
+
+    prompt_prefix = models.TextField(blank=True, null=True, verbose_name="Prompt Prefix (Character)", default="", help_text="PREFIX: Goes BEFORE the user prompt. Use to describe the character (hair, eyes, body).")
+    prompt_suffix = models.TextField(blank=True, null=True, verbose_name="Prompt Suffix (Quality)", default="masterpiece, best quality, newest, absurdres, highres, anime coloring,", help_text="SUFFIX: Goes AFTER the user prompt. Use for Quality Tags (score_9...) and style.")
+    negative_prompt = models.TextField(blank=True, null=True, verbose_name="Negative Prompt", default="bad anatomy, bad hands, multiple views, abstract, signature, furry, anthro, 2koma, 4koma, comic, (text, watermark), logo, artist signature, patreon logo, patreon username, twitter username, blurred, unfocused, foggy, poorly drawn hands, poorly drawn fingers, bad quality, worst quality, worst detail,", help_text="NEGATIVE: Things you DO NOT want in the image.")
     def __str__(self):
         return self.name
 
@@ -69,10 +86,16 @@ class CharacterCatalogImage(models.Model):
         verbose_name_plural = "Catalog Images"
     def __str__(self):
         return f"Catalog Image for {self.character.name}"
-    def delete(self, *args, **kwargs):
-        if self.image and os.path.isfile(self.image.path):
-            os.remove(self.image.path)
-        super().delete(*args, **kwargs)
+
+@receiver(post_delete, sender=CharacterCatalogImage)
+def delete_character_catalog_image_file(sender, instance, **kwargs):
+    """Deletes image file from disk when a CharacterCatalogImage is deleted."""
+    if instance.image:
+        if os.path.isfile(instance.image.path):
+            try:
+                os.remove(instance.image.path)
+            except Exception as e:
+                print(f"Error deleting catalog image file: {e}")
 
 class CharacterImage(models.Model):
     TYPE_CHOICES = [('Gen_Normal', 'Normal'), ('Gen_UpScaler', 'Upscaler'), ('Gen_FaceDetailer', 'Face Detailer')]
@@ -80,7 +103,7 @@ class CharacterImage(models.Model):
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='generated_images', null=True, blank=True)
     image = models.ImageField(upload_to=character_image_path)
     
-    # --- NUEVO: Campo para guardar el workflow JSON ---
+    # --- NEW: Field to save the JSON workflow ---
     generation_workflow = models.FileField(upload_to=character_workflow_path, blank=True, null=True, verbose_name="Generation Workflow (JSON)")
     
     description = models.TextField(blank=True)
@@ -92,16 +115,27 @@ class CharacterImage(models.Model):
         if self.user:
             return f"Image by {self.user.username} for {self.character.name}"
         return f"{self.character.name} - {os.path.basename(self.image.name)}"
-    
-    def delete(self, *args, **kwargs):
-        if self.image and os.path.isfile(self.image.path):
-            os.remove(self.image.path)
-        # Borrar también el workflow si existe
-        if self.generation_workflow and os.path.isfile(self.generation_workflow.path):
-            os.remove(self.generation_workflow.path)
-        super().delete(*args, **kwargs)
 
-# --- NUEVO: PANEL DE CONFIGURACIÓN GLOBAL DE TOKENS ---
+@receiver(post_delete, sender=CharacterImage)
+def delete_character_image_files(sender, instance, **kwargs):
+    """Deletes image and workflow files from disk when a CharacterImage is deleted."""
+    # Delete the main image file
+    if instance.image:
+        if os.path.isfile(instance.image.path):
+            try:
+                os.remove(instance.image.path)
+            except Exception as e:
+                print(f"Error deleting image file: {e}")
+    
+    # Delete the associated workflow file
+    if instance.generation_workflow:
+        if os.path.isfile(instance.generation_workflow.path):
+            try:
+                os.remove(instance.generation_workflow.path)
+            except Exception as e:
+                print(f"Error deleting workflow file: {e}")
+
+# --- NEW: GLOBAL TOKEN SETTINGS PANEL ---
 class TokenSettings(models.Model):
     INTERVAL_CHOICES = [('DAILY', 'Daily'), ('WEEKLY', 'Weekly'), ('MONTHLY', 'Monthly'), ('NEVER', 'Never')]
     
@@ -112,23 +146,24 @@ class TokenSettings(models.Model):
         return "Global Token Settings"
 
     def save(self, *args, **kwargs):
-        # Asegurar que solo haya una instancia de este modelo
+        # Ensure there is only one instance of this model
         self.pk = 1
         super().save(*args, **kwargs)
 
     def delete(self, *args, **kwargs):
-        # Prevenir la eliminación
+        # Prevent deletion
         pass
 
     @classmethod
     def load(cls):
-        # Cargar la única instancia, o crearla si no existe
+        # Load the only instance, or create it if it doesn't exist
         obj, created = cls.objects.get_or_create(pk=1)
         return obj
 
 class ClientProfile(models.Model):
     user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='clientprofile')
     tokens_used = models.PositiveIntegerField(default=0)
+    bonus_tokens = models.PositiveIntegerField(default=0, help_text="Extra tokens granted via coupons or admin.")
     last_reset_date = models.DateTimeField(default=timezone.now)
 
     def __str__(self):
@@ -137,13 +172,14 @@ class ClientProfile(models.Model):
     @property
     def tokens_remaining(self):
         settings = TokenSettings.load()
-        return settings.default_token_allowance - self.tokens_used
+        # Formula: (Base + Bonus) - Used
+        return (settings.default_token_allowance + self.bonus_tokens) - self.tokens_used
 
-    # --- NUEVO MÉTODO ASÍNCRONO ---
+    # --- NEW ASYNC METHOD ---
     @sync_to_async
     def get_tokens_remaining_async(self):
         settings = TokenSettings.load()
-        return settings.default_token_allowance - self.tokens_used
+        return (settings.default_token_allowance + self.bonus_tokens) - self.tokens_used
 
     @sync_to_async
     def check_and_reset_tokens(self):
@@ -166,6 +202,7 @@ class ClientProfile(models.Model):
         
         if should_reset:
             self.tokens_used = 0
+            # Optional: Do bonus tokens expire? Assuming NO for now.
             self.last_reset_date = now
             self.save()
 
@@ -205,10 +242,31 @@ class CompanySettings(models.Model):
         verbose_name = "Company Settings"
         verbose_name_plural = "Company Settings"
     def save(self, *args, **kwargs):
+        # --- OLD FILE CLEANUP LOGIC ---
+        try:
+            # Get old instance from DB
+            old_instance = CompanySettings.objects.get(pk=self.pk)
+            
+            # Check if logo changed and old file exists
+            if old_instance.logo and old_instance.logo != self.logo:
+                if os.path.isfile(old_instance.logo.path):
+                    os.remove(old_instance.logo.path)
+            
+            # Check if favicon changed and old file exists
+            if old_instance.favicon and old_instance.favicon != self.favicon:
+                if os.path.isfile(old_instance.favicon.path):
+                    os.remove(old_instance.favicon.path)
+        except CompanySettings.DoesNotExist:
+            # New instance, nothing to delete
+            pass
+
+        # Original logic to ensure only one instance
         if not self.pk and CompanySettings.objects.exists():
             existing = CompanySettings.objects.first()
             self.pk = existing.pk
+        
         super().save(*args, **kwargs)
+        
     def __str__(self):
         return self.name
 
@@ -231,13 +289,27 @@ class HeroCarouselImage(models.Model):
 class ChatMessage(models.Model):
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='chat_history')
     character = models.ForeignKey(Character, on_delete=models.CASCADE, related_name='chat_messages')
-    message = models.TextField(blank=True, null=True) # El texto del prompt o mensaje del sistema
-    is_from_user = models.BooleanField(default=True) # True = Usuario, False = IA
+    message = models.TextField(blank=True, null=True) # Prompt text or system message
+    is_from_user = models.BooleanField(default=True) # True = User, False = AI
     generated_images = models.ManyToManyField(CharacterImage, blank=True, related_name='chat_messages')
     image_count = models.IntegerField(default=0, help_text="Number of images originally generated in this message.")
     timestamp = models.DateTimeField(auto_now_add=True)
     class Meta:
-        ordering = ['timestamp'] # Orden cronológico
+        ordering = ['timestamp'] # Chronological order
     def __str__(self):
         sender = self.user.username if self.is_from_user else f"AI ({self.character.name})"
         return f"{sender}: {self.message[:30]}..."
+
+def generate_coupon_code():
+    return ''.join(secrets.choice(string.ascii_uppercase + string.digits) for _ in range(12))
+
+class Coupon(models.Model):
+    code = models.CharField(max_length=20, unique=True, default=generate_coupon_code, editable=False)
+    tokens = models.PositiveIntegerField(verbose_name="Tokens to Grant")
+    is_redeemed = models.BooleanField(default=False)
+    redeemed_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='redeemed_coupons')
+    created_at = models.DateTimeField(auto_now_add=True)
+    redeemed_at = models.DateTimeField(null=True, blank=True)
+
+    def __str__(self):
+        return f"{self.code} - {self.tokens} Tokens"

@@ -12,4 +12,7 @@ urlpatterns = [
     # Rutas para gestión de chat
     path('delete-message/', views.delete_message_view, name='delete_message'),
     path('clear-chat/', views.clear_chat_history_view, name='clear_chat'),
+    
+    # Ruta para canjear cupones
+    path('redeem-coupon/', views.redeem_coupon_view, name='redeem_coupon'),
 ]
