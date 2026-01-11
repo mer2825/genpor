@@ -1,0 +1,99 @@
+{% extends "base.html" %}
+{% load i18n %}
+
+{% block title %}{% trans "Account Connections" %}{% endblock %}
+
+{% block content %}
+<div class="min-h-screen flex items-center justify-center bg-[#0a0a0a] py-12 px-4 sm:px-6 lg:px-8">
+    <div class="max-w-2xl w-full space-y-8 bg-gray-900 p-10 rounded-xl border border-gray-800 shadow-2xl">
+
+        <!-- Header -->
+        <div class="text-center border-b border-gray-800 pb-6">
+            <h2 class="text-3xl font-extrabold text-white">
+                {% trans "Account Connections" %}
+            </h2>
+            <p class="mt-2 text-sm text-gray-400">
+                {% trans "Manage your linked third-party accounts." %}
+            </p>
+        </div>
+
+        <!-- Messages -->
+        {% if messages %}
+        <div class="space-y-2">
+            {% for message in messages %}
+            <div class="p-4 rounded-md {% if message.tags == 'error' %}bg-red-900/20 text-red-400 border border-red-800{% else %}bg-green-900/20 text-green-400 border border-green-800{% endif %}">
+                {{ message }}
+            </div>
+            {% endfor %}
+        </div>
+        {% endif %}
+
+        <!-- Connected Accounts List -->
+        {% if form.accounts %}
+        <div class="space-y-4">
+            <h3 class="text-lg font-medium text-white">{% trans "Connected Accounts" %}</h3>
+
+            <form method="post" action="{% url 'socialaccount_connections' %}">
+                {% csrf_token %}
+
+                <div class="space-y-3">
+                    {% for base_account in form.accounts %}
+                    {% with base_account.get_provider_account as account %}
+                    <div class="flex items-center justify-between p-4 bg-black/30 rounded-lg border border-gray-800 hover:border-gray-700 transition-colors">
+                        <div class="flex items-center space-x-4">
+                            <!-- Radio Button -->
+                            <input id="id_account_{{ base_account.id }}" type="radio" name="account" value="{{ base_account.id }}" class="h-4 w-4 text-orange-600 border-gray-600 bg-gray-800 focus:ring-orange-500">
+
+                            <!-- Provider Icon & Info -->
+                            <div class="flex flex-col">
+                                <span class="text-sm font-medium text-white flex items-center gap-2">
+                                    <i class="fab fa-{{ base_account.provider }} text-lg"></i>
+                                    {{ base_account.provider|title }}
+                                </span>
+                                <span class="text-xs text-gray-400">{{ account.to_str }}</span>
+                            </div>
+                        </div>
+
+                        <!-- Status Badge -->
+                        <span class="px-2 py-1 text-xs font-semibold text-green-400 bg-green-900/20 rounded-full border border-green-900/30">
+                            Connected
+                        </span>
+                    </div>
+                    {% endwith %}
+                    {% endfor %}
+                </div>
+
+                <!-- Remove Button -->
+                <div class="mt-6">
+                    <button type="submit" class="w-full sm:w-auto flex justify-center items-center px-4 py-2 border border-red-800 text-sm font-medium rounded-md text-red-400 bg-red-900/10 hover:bg-red-900/30 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 transition-all">
+                        <i class="fas fa-trash-alt mr-2"></i>
+                        {% trans "Remove Selected" %}
+                    </button>
+                </div>
+            </form>
+        </div>
+        {% else %}
+        <div class="text-center py-8 bg-black/20 rounded-lg border border-gray-800 border-dashed">
+            <p class="text-gray-500">{% trans "You currently have no third-party accounts connected." %}</p>
+        </div>
+        {% endif %}
+
+        <!-- Add New Account Section -->
+        <div class="pt-6 border-t border-gray-800">
+            <h3 class="text-lg font-medium text-white mb-4">{% trans "Add a Third-Party Account" %}</h3>
+
+            <div class="grid grid-cols-1 gap-4">
+                {% include "socialaccount/snippets/provider_list.html" with process="connect" %}
+            </div>
+        </div>
+
+        <!-- Back Link -->
+        <div class="text-center pt-4">
+            <a href="{% url 'profile' %}" class="text-sm font-medium text-orange-500 hover:text-orange-400 transition-colors">
+                <i class="fas fa-arrow-left mr-1"></i> {% trans "Back to Profile" %}
+            </a>
+        </div>
+
+    </div>
+</div>
+{% endblock %}

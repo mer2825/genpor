@@ -7,8 +7,8 @@ from django.urls import reverse
 from django.core.files.base import ContentFile
 from django.contrib.auth.admin import UserAdmin
 from django.contrib.auth.models import User
-from django.db.models import Q
-from django.forms import ModelForm, ValidationError, CheckboxSelectMultiple
+from django.db.models import Q, CharField
+from django.forms import ModelForm, ValidationError, CheckboxSelectMultiple, TextInput
 from .models import Workflow, Character, CharacterImage, CharacterCatalogImage, ConnectionConfig, CompanySettings, HeroCarouselImage, CharacterCategory, CharacterSubCategory, ClientProfile, TokenSettings, Coupon
 from .services import generate_image_from_character, get_active_comfyui_address, get_comfyui_object_info, analyze_workflow
 import json
@@ -121,18 +121,36 @@ class HeroCarouselImageInline(admin.TabularInline):
         return "(No image)"
     image_preview.short_description = "Preview"
 
+# --- FORMULARIO PERSONALIZADO PARA COMPANY SETTINGS ---
+class CompanySettingsForm(ModelForm):
+    class Meta:
+        model = CompanySettings
+        fields = '__all__'
+        widgets = {
+            'primary_color_start': TextInput(attrs={'type': 'color', 'style': 'width: 100px; height: 40px; cursor: pointer;'}),
+            'primary_color_mid': TextInput(attrs={'type': 'color', 'style': 'width: 100px; height: 40px; cursor: pointer;'}),
+            'primary_color_end': TextInput(attrs={'type': 'color', 'style': 'width: 100px; height: 40px; cursor: pointer;'}),
+            'accent_glow_color': TextInput(attrs={'type': 'color', 'style': 'width: 100px; height: 40px; cursor: pointer;'}),
+            'offer_bar_color': TextInput(attrs={'type': 'color', 'style': 'width: 100px; height: 40px; cursor: pointer;'}), # NUEVO WIDGET
+        }
+
 @admin.register(CompanySettings)
 class CompanySettingsAdmin(admin.ModelAdmin):
+    form = CompanySettingsForm # Usar el formulario personalizado
     inlines = [HeroCarouselImageInline]
 
     # Organize fields into sections
     fieldsets = (
         ('Company Identity', {
-            'fields': ('name', 'logo', 'favicon', 'offer_bar_text', 'description')
+            'fields': ('name', 'logo', 'favicon', 'offer_bar_text', 'offer_bar_color', 'description') # AÑADIDO: offer_bar_color
         }),
         ('Main Page (Hero)', {
-            'fields': ('app_hero_title', 'app_hero_description'),
+            'fields': ('app_hero_title', 'app_hero_subtitle', 'app_hero_description'),
             'description': 'Upload images for the main carousel in the section below.'
+        }),
+        ('Color Theme (Branding)', {
+            'fields': ('primary_color_start', 'primary_color_mid', 'primary_color_end', 'accent_glow_color'),
+            'description': 'Customize the main gradient and glow colors of the site.'
         }),
         ('Contact & Social', {
             'fields': ('phone', 'email', 'facebook', 'discord')

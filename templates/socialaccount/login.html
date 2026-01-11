@@ -1,0 +1,119 @@
+{% extends "base.html" %}
+{% load i18n %}
+
+{% block title %}{% trans "Sign In" %}{% endblock %}
+
+{% block navbar %}{% endblock %}
+{% block footer %}{% endblock %}
+
+{% block content %}
+<!-- Contenedor Full Screen - MODO OSCURO -->
+<div class="fixed inset-0 z-50 bg-black flex overflow-hidden font-sans">
+
+    <!-- LADO IZQUIERDO: Imagen Carrusel + Branding (50% del ancho) -->
+    <div class="hidden lg:flex lg:w-1/2 relative bg-gray-900 items-end justify-start overflow-hidden group">
+        <!-- Slideshow de imágenes -->
+        {% if hero_images %}
+            {% for img in hero_images %}
+                <div class="hero-slide absolute inset-0 bg-cover bg-center transition-opacity duration-1000 ease-in-out {% if not forloop.first %}opacity-0{% endif %}"
+                     style="background-image: url('{{ img.image.url }}');">
+                </div>
+            {% endfor %}
+        {% else %}
+            <!-- Fallback si no hay imagen -->
+            <div class="absolute inset-0 bg-cover bg-center"
+                 style="background-image: url('https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?q=80&w=2564&auto=format&fit=crop');"></div>
+        {% endif %}
+
+        <!-- Overlay MUY sutil -->
+        <div class="absolute inset-0 bg-black/10"></div>
+
+        <!-- Contenido Texto (Abajo a la izquierda) -->
+        <div class="relative z-10 p-16 w-full max-w-4xl">
+            {% if company_settings.logo %}
+                <img src="{{ company_settings.logo.url }}" alt="Logo" class="h-24 mb-8 object-contain drop-shadow-[0_0_10px_rgba(255,255,255,0.5)]">
+            {% endif %}
+
+            <h2 class="text-7xl font-black mb-2 tracking-tighter" style="text-shadow: 0 0 20px rgba(220, 38, 38, 0.9), 0 0 40px rgba(220, 38, 38, 0.6);">
+                <span class="text-[#d946ef]">
+                    {{ company_settings.name|default:"Mi App" }}
+                </span>
+            </h2>
+
+            <!-- Subtítulo (Nuevo) -->
+            {% if company_settings.app_hero_subtitle %}
+                <h3 class="text-3xl font-bold text-white mb-6 drop-shadow-[0_2px_4px_rgba(0,0,0,0.8)]">
+                    {{ company_settings.app_hero_subtitle }}
+                </h3>
+            {% endif %}
+
+            <div class="h-2 w-32 bg-[#d946ef] mb-8 rounded-full shadow-[0_0_15px_rgba(220,38,38,0.8)]"></div>
+
+            <p class="text-white text-xl font-bold leading-relaxed max-w-2xl drop-shadow-[0_2px_4px_rgba(0,0,0,0.8)]">
+                {{ company_settings.app_hero_description|default:"Tu estudio de generación de arte con IA." }}
+            </p>
+        </div>
+    </div>
+
+    <!-- LADO DERECHO: Formulario (50% del ancho) -->
+    <div class="w-full lg:w-1/2 flex flex-col justify-center items-center bg-[#0a0a0a] px-8 sm:px-12 relative border-l border-gray-900 shadow-2xl">
+
+        <!-- Botón Volver -->
+        <a href="/" class="absolute top-8 right-8 text-gray-500 hover:text-orange-500 transition-colors flex items-center gap-2 text-sm font-medium">
+            <span>Volver</span>
+            <i class="fas fa-times"></i>
+        </a>
+
+        <div class="w-full max-w-sm space-y-8">
+            <div class="text-center">
+                <h2 class="mt-2 text-3xl font-extrabold text-white tracking-tight">
+                    {% if process == "connect" %}
+                        {% trans "Connect Google Account" %}
+                    {% else %}
+                        {% trans "Sign In with Google" %}
+                    {% endif %}
+                </h2>
+                <p class="mt-2 text-sm text-gray-400">
+                    {% if process == "connect" %}
+                        {% trans "You are about to connect a new Google account to your profile." %}
+                    {% else %}
+                        {% trans "You are about to sign in using a third party account from Google." %}
+                    {% endif %}
+                </p>
+            </div>
+
+            <div class="mt-8 space-y-6">
+                <form method="post" class="mt-8 space-y-6">
+                    {% csrf_token %}
+                    <button type="submit" class="group relative w-full flex justify-center py-3 px-4 border border-transparent text-sm font-medium rounded-md text-white bg-gradient-to-r from-orange-600 to-red-600 hover:from-orange-700 hover:to-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-orange-500 transition-all duration-200 transform hover:scale-[1.02]">
+                        <span class="absolute left-0 inset-y-0 flex items-center pl-3">
+                            <i class="fab fa-google text-white group-hover:text-gray-100"></i>
+                        </span>
+                        {% trans "Continue" %}
+                    </button>
+                </form>
+
+                <div class="text-center mt-4">
+                    <a href="{% url 'profile' %}" class="font-medium text-orange-500 hover:text-orange-400 transition-colors text-sm">
+                        {% trans "Cancel" %}
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const slides = document.querySelectorAll('.hero-slide');
+        if (slides.length > 1) {
+            let currentSlide = 0;
+            setInterval(() => {
+                slides[currentSlide].classList.add('opacity-0');
+                currentSlide = (currentSlide + 1) % slides.length;
+                slides[currentSlide].classList.remove('opacity-0');
+            }, 5000);
+        }
+    });
+</script>
+{% endblock %}

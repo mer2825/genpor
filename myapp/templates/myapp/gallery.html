@@ -17,126 +17,176 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link rel="stylesheet" href="{% static 'myapp/css/styles.css' %}">
 
+    <!-- INYECCIÓN DINÁMICA DE COLORES DESDE EL ADMIN -->
+    {% if company %}
     <style>
-        /* --- SCROLLBAR PREMIUM (Visible y Elegante) --- */
-        ::-webkit-scrollbar {
-            width: 10px;
-            height: 10px;
-        }
-        ::-webkit-scrollbar-track {
-            background: transparent;
-        }
-        ::-webkit-scrollbar-thumb {
-            background-color: rgba(255, 255, 255, 0.15);
-            border-radius: 20px;
-            border: 2px solid transparent;
-            background-clip: content-box;
-        }
-        ::-webkit-scrollbar-thumb:hover {
-            background-color: rgba(255, 255, 255, 0.3);
-        }
+        :root {
+            /* Colores Base con !important para asegurar prioridad */
+            --primary-start: {{ company.primary_color_start|default:"#a855f7" }};
+            --primary-mid: {{ company.primary_color_mid|default:"#ef4444" }};
+            --primary-end: {{ company.primary_color_end|default:"#ff9068" }};
+            --accent-glow: {{ company.accent_glow_color|default:"#ef4444" }};
 
+            /* Variables derivadas para usar en styles.css */
+            --primary-color: var(--primary-mid);
+            --primary-gradient: linear-gradient(135deg, var(--primary-start) 0%, var(--primary-mid) 50%, var(--primary-end) 100%);
+
+            /* Glows dinámicos (con opacidad) */
+            --primary-glow: color-mix(in srgb, var(--accent-glow), transparent 50%);
+
+            /* Fondo dinámico (usando los colores elegidos) */
+            --bg-gradient:
+                radial-gradient(circle at 50% -20%, color-mix(in srgb, var(--primary-start), transparent 85%) 0%, transparent 50%),
+                radial-gradient(circle at 0% 30%, color-mix(in srgb, var(--primary-mid), transparent 90%) 0%, transparent 40%),
+                radial-gradient(circle at 100% 70%, color-mix(in srgb, var(--primary-start), transparent 92%) 0%, transparent 40%),
+                linear-gradient(to bottom, #0f0505 0%, #020202 100%);
+        }
+    </style>
+    {% endif %}
+
+    <style>
+        /* Icono SVG Estrella Pequeño (Para menús) */
+        .star-icon-sm {
+            width: 18px;
+            height: 18px;
+            fill: currentColor; /* Hereda el color del texto */
+        }
+    </style>
+
+    <style>
         /* Estilos específicos para la Galería */
         .gallery-container {
             padding: 40px 5%;
             max-width: 1400px;
             margin: 0 auto;
+            flex: 1;
         }
 
         .gallery-header {
             margin-bottom: 40px;
-            border-bottom: 1px solid var(--border-subtle);
+            border-bottom: 1px solid var(--card-border);
             padding-bottom: 20px;
             display: flex;
             justify-content: space-between;
             align-items: flex-end;
+            flex-wrap: wrap;
+            gap: 20px;
         }
 
         .gallery-header h1 {
-            font-size: 2rem;
+            font-size: 2.5rem;
             color: var(--text-main);
-            margin-bottom: 10px;
+            margin: 0 0 10px 0;
+            background: linear-gradient(to right, #fff, #cbd5e1);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
         }
 
         .gallery-header p {
             color: var(--text-muted);
+            margin: 0;
+            font-size: 1rem;
         }
 
-        /* Grid de Personajes (Carpetas) */
+        /* Grid de Personajes (Carpetas) - Estilo Tarjeta Inmersiva */
         .folders-grid {
             display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+            grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
             gap: 30px;
         }
 
         .folder-card {
             background-color: var(--card-bg);
-            border: 1px solid var(--border-subtle);
-            border-radius: 16px;
+            border: 1px solid var(--card-border);
+            border-radius: 24px;
             overflow: hidden;
             cursor: pointer;
-            transition: all 0.3s ease;
+            transition: all 0.4s cubic-bezier(0.25, 0.8, 0.25, 1);
             position: relative;
+            height: 320px; /* Altura fija */
+            box-shadow: 0 10px 30px -10px rgba(0,0,0,0.5);
         }
 
         .folder-card:hover {
-            transform: translateY(-5px);
-            border-color: var(--primary-blue);
-            box-shadow: 0 10px 25px rgba(59, 130, 246, 0.15);
+            transform: translateY(-8px);
+            border-color: rgba(255, 75, 75, 0.4);
+            box-shadow: 0 20px 50px -10px rgba(255, 75, 75, 0.15);
         }
 
         .folder-preview {
-            height: 200px;
-            background-color: #0f172a;
-            position: relative;
-            overflow: hidden;
+            width: 100%;
+            height: 100%;
+            position: absolute;
+            top: 0; left: 0;
         }
 
         .folder-preview img {
             width: 100%;
             height: 100%;
             object-fit: cover;
-            transition: transform 0.5s ease;
+            transition: transform 0.6s ease;
         }
         .folder-card:hover .folder-preview img { transform: scale(1.1); }
 
-        .folder-info {
-            padding: 20px;
+        /* Overlay de Información */
+        .folder-overlay {
+            position: absolute;
+            bottom: 0; left: 0; width: 100%;
+            background: linear-gradient(to top, rgba(0,0,0,0.95) 10%, rgba(0,0,0,0.6) 60%, transparent 100%);
+            padding: 60px 20px 20px;
+            z-index: 1;
+            display: flex;
+            flex-direction: column;
+            justify-content: flex-end;
+            height: 100%;
+            box-sizing: border-box;
         }
 
         .folder-info h3 {
-            margin: 0;
-            font-size: 1.1rem;
-            color: var(--text-main);
+            margin: 0 0 5px 0;
+            font-size: 1.3rem;
+            color: white;
+            font-weight: 700;
+            text-shadow: 0 2px 10px rgba(0,0,0,0.8);
         }
 
         .folder-info span {
-            font-size: 0.85rem;
-            color: var(--text-muted);
-            display: block;
-            margin-top: 5px;
+            font-size: 0.9rem;
+            color: #cbd5e1;
+            display: flex;
+            align-items: center;
+            gap: 6px;
         }
+        .folder-info span i { color: var(--primary-color); }
 
         /* Grid de Imágenes (Detalle) */
         .images-grid {
             display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+            grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
             gap: 20px;
             margin-top: 20px;
             display: none; /* Oculto por defecto */
         }
 
         .image-item {
-            border-radius: 12px;
+            border-radius: 16px;
             overflow: hidden;
-            border: 1px solid var(--border-subtle);
+            border: 1px solid var(--card-border);
             position: relative;
-            aspect-ratio: 1 / 1.5; /* Formato retrato */
+            aspect-ratio: 2 / 3; /* Formato retrato estándar */
             cursor: pointer;
-            transition: border-color 0.2s;
+            transition: all 0.2s;
+            background: #1e293b;
         }
-        .image-item:hover { border-color: var(--primary-blue); }
-        .image-item.selected { border: 2px solid var(--primary-blue); }
+        .image-item:hover {
+            border-color: var(--primary-color);
+            transform: translateY(-4px);
+            box-shadow: 0 10px 20px -5px rgba(0,0,0,0.5);
+        }
+        .image-item.selected {
+            border: 2px solid var(--primary-color);
+            transform: scale(0.95);
+        }
 
         .image-item img {
             width: 100%;
@@ -151,10 +201,10 @@
             position: absolute;
             top: 10px;
             right: 10px;
-            width: 24px;
-            height: 24px;
-            background: rgba(0,0,0,0.5);
-            border: 2px solid white;
+            width: 28px;
+            height: 28px;
+            background: rgba(0,0,0,0.6);
+            border: 2px solid rgba(255,255,255,0.5);
             border-radius: 50%;
             z-index: 10;
             cursor: pointer;
@@ -162,10 +212,15 @@
             align-items: center;
             justify-content: center;
             opacity: 0;
-            transition: opacity 0.2s;
+            transition: all 0.2s;
+            backdrop-filter: blur(4px);
         }
         .image-item:hover .select-check, .image-item.selected .select-check { opacity: 1; }
-        .image-item.selected .select-check { background: var(--primary-blue); border-color: var(--primary-blue); }
+        .image-item.selected .select-check {
+            background: var(--primary-color);
+            border-color: var(--primary-color);
+            transform: scale(1.1);
+        }
         .select-check i { color: white; font-size: 14px; display: none; }
         .image-item.selected .select-check i { display: block; }
 
@@ -177,10 +232,10 @@
         }
 
         .tool-btn {
-            padding: 8px 16px;
-            border-radius: 8px;
-            border: 1px solid var(--border-subtle);
-            background: transparent;
+            padding: 10px 20px;
+            border-radius: 12px;
+            border: 1px solid var(--card-border);
+            background: rgba(255,255,255,0.05);
             color: var(--text-muted);
             cursor: pointer;
             font-size: 0.9rem;
@@ -188,72 +243,90 @@
             align-items: center;
             gap: 8px;
             transition: all 0.2s;
+            font-weight: 500;
         }
-        .tool-btn:hover { background: rgba(255,255,255,0.05); color: white; }
-        .btn-delete { color: #ef4444; border-color: rgba(239, 68, 68, 0.3); }
-        .btn-delete:hover { background: rgba(239, 68, 68, 0.1); }
+        .tool-btn:hover { background: rgba(255,255,255,0.1); color: white; border-color: rgba(255,255,255,0.2); }
+
+        .btn-delete { color: #fca5a5; border-color: rgba(239, 68, 68, 0.3); background: rgba(239, 68, 68, 0.1); }
+        .btn-delete:hover { background: rgba(239, 68, 68, 0.2); color: #fecaca; border-color: #ef4444; }
 
         .back-btn {
             display: none;
             align-items: center;
             gap: 8px;
-            color: var(--primary-blue);
+            color: var(--text-muted);
             cursor: pointer;
             font-weight: 600;
             margin-bottom: 20px;
             background: none;
             border: none;
             font-size: 1rem;
+            padding: 0;
+            transition: color 0.2s;
         }
-        .back-btn:hover { text-decoration: underline; }
+        .back-btn:hover { color: white; }
+        .back-btn i { color: var(--primary-color); }
 
         /* Estilos Modal Confirmación */
         .confirm-content {
             text-align: center;
             max-width: 400px;
+            background: #141414;
+            border: 1px solid var(--card-border);
         }
         .confirm-icon {
-            font-size: 3rem;
+            font-size: 3.5rem;
             color: #ef4444;
-            margin-bottom: 15px;
+            margin-bottom: 20px;
+            opacity: 0.9;
         }
         .confirm-actions {
             display: flex;
             justify-content: center;
             gap: 15px;
-            margin-top: 25px;
+            margin-top: 30px;
         }
         .btn-cancel {
             background-color: transparent;
-            border: 1px solid var(--border-subtle);
+            border: 1px solid var(--card-border);
             color: var(--text-muted);
-            padding: 10px 20px;
-            border-radius: 8px;
+            padding: 12px 24px;
+            border-radius: 12px;
             cursor: pointer;
             transition: all 0.2s;
+            font-weight: 500;
         }
         .btn-cancel:hover { background-color: rgba(255,255,255,0.05); color: white; }
 
         .btn-confirm-delete {
-            background-color: #ef4444;
+            background: linear-gradient(135deg, #ef4444 0%, #b91c1c 100%);
             color: white;
             border: none;
-            padding: 10px 20px;
-            border-radius: 8px;
+            padding: 12px 24px;
+            border-radius: 12px;
             cursor: pointer;
             font-weight: 600;
             box-shadow: 0 4px 15px rgba(239, 68, 68, 0.3);
             transition: all 0.2s;
         }
-        .btn-confirm-delete:hover { background-color: #dc2626; transform: translateY(-2px); }
+        .btn-confirm-delete:hover { transform: translateY(-2px); box-shadow: 0 8px 20px rgba(239, 68, 68, 0.4); }
 
         /* Responsive Adjustments */
         @media (max-width: 768px) {
-            body:not(.no-pad-bottom) {
-                padding-bottom: 70px;
-            }
-        }
+            .gallery-header h1 { font-size: 2rem; }
+            .folders-grid { grid-template-columns: 1fr 1fr; gap: 15px; }
+            .folder-card { height: 220px; border-radius: 16px; }
+            .folder-overlay { padding: 15px; }
+            .folder-info h3 { font-size: 1rem; }
+            .folder-info span { font-size: 0.8rem; }
 
+            .images-grid { grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 10px; }
+
+            .toolbar { width: 100%; justify-content: space-between; }
+            .tool-btn { padding: 8px 12px; font-size: 0.8rem; flex: 1; justify-content: center; }
+
+            body:not(.no-pad-bottom) { padding-bottom: 70px; }
+        }
     </style>
 </head>
 <body>
@@ -265,20 +338,31 @@
                 {% if company.logo %}
                     <img src="{{ company.logo.url }}" alt="Logo" class="logo">
                 {% else %}
-                    <div style="width:100%;height:100%;background:var(--primary-blue);"></div>
+                    <div style="width:100%;height:100%;background:var(--primary-gradient);"></div>
                 {% endif %}
             </div>
             <h1>Nayelina AI</h1>
         </a>
 
         <div class="user-menu">
-            <a href="{% url 'generate_image' %}" class="action-btn gallery-btn desktop-nav-btn" style="padding: 6px 12px; font-size: 0.85rem;">
+            <a href="{% url 'generate_image' %}" class="action-btn gallery-btn desktop-nav-btn">
                 <i class="fas fa-home"></i> Home
             </a>
-            <a href="{% url 'workspace' %}" class="action-btn gallery-btn desktop-nav-btn" style="padding: 6px 12px; font-size: 0.85rem;">
-                <i class="fas fa-rocket"></i> Workspace
+
+            <!-- Botón WORKSPACE con SVG Estrellas -->
+            <a href="{% url 'workspace' %}" class="action-btn desktop-nav-btn" style="background: var(--primary-gradient); color: white; border: none; box-shadow: 0 4px 15px var(--primary-glow);">
+                <svg class="star-icon-sm" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" style="margin-right: 5px;">
+                    <path d="M12 2L14 9L21 11L14 13L12 20L10 13L3 11L10 9L12 2Z" />
+                    <path d="M19 2L20 5L23 6L20 7L19 10L18 7L15 6L18 5L19 2Z" />
+                    <path d="M5 16L6 18L9 19L6 20L5 23L4 20L1 19L4 18L5 16Z" />
+                </svg>
+                Workspace
             </a>
-            <div class="user-avatar">{{ user.username|slice:":1"|upper }}</div>
+
+            <!-- AVATAR CLICABLE (PERFIL) -->
+            <a href="{% url 'profile' %}" class="user-avatar" style="width:36px; height:36px; background:var(--primary-gradient); border-radius:50%; display:flex; align-items:center; justify-content:center; color:white; font-weight:700; font-size:0.9rem; box-shadow:0 0 10px var(--primary-glow); border:2px solid rgba(255,255,255,0.1); text-decoration:none;">
+                {{ user.username|slice:":1"|upper }}
+            </a>
         </div>
     </header>
 
@@ -300,18 +384,26 @@
                         {% if item.latest_image %}
                             <img src="{{ item.latest_image.image.url }}" alt="{{ item.character.name }}">
                         {% else %}
-                            <div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;color:var(--text-muted);">
-                                <i class="fas fa-image" style="font-size:2rem;"></i>
+                            <div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;color:var(--text-muted);background:#1e293b;">
+                                <i class="fas fa-image" style="font-size:3rem; opacity:0.5;"></i>
                             </div>
                         {% endif %}
                     </div>
-                    <div class="folder-info">
-                        <h3>{{ item.character.name }}</h3>
-                        <span>{{ item.count }} images</span>
+
+                    <!-- Overlay de Información -->
+                    <div class="folder-overlay">
+                        <div class="folder-info">
+                            <h3>{{ item.character.name }}</h3>
+                            <span><i class="fas fa-images"></i> {{ item.count }} images</span>
+                        </div>
                     </div>
                 </div>
                 {% empty %}
-                <p style="color: var(--text-muted);">You haven't generated any images yet.</p>
+                <div style="grid-column: 1/-1; text-align: center; padding: 60px; color: var(--text-muted);">
+                    <i class="fas fa-folder-open" style="font-size: 4rem; margin-bottom: 20px; opacity: 0.3;"></i>
+                    <p>You haven't generated any images yet.</p>
+                    <a href="{% url 'generate_image' %}" class="cta-button" style="margin-top: 20px; font-size: 0.9rem; padding: 10px 24px;">Start Creating</a>
+                </div>
                 {% endfor %}
             </div>
         </div>
@@ -344,14 +436,14 @@
     </div>
 
     <!-- Modal de Confirmación de Borrado -->
-    <div id="modal-confirm" class="modal">
+    <div id="modal-confirm" class="modal" style="display: none;"> <!-- AÑADIDO: style="display: none;" -->
         <div class="modal-content confirm-content">
             <div class="modal-body">
                 <div class="confirm-icon">
                     <i class="fas fa-exclamation-triangle"></i>
                 </div>
                 <h2 style="color: var(--text-main); margin-bottom: 10px;">Are you sure?</h2>
-                <p style="color: var(--text-muted);">You are about to permanently delete <strong id="confirm-count-text">0</strong> images. This action cannot be undone.</p>
+                <p style="color: var(--text-muted); line-height: 1.5;">You are about to permanently delete <strong id="confirm-count-text" style="color: white;">0</strong> images.<br>This action cannot be undone.</p>
 
                 <div class="confirm-actions">
                     <button class="btn-cancel" onclick="closeConfirm()">Cancel</button>
@@ -368,7 +460,12 @@
             <span>Home</span>
         </a>
         <a href="{% url 'workspace' %}" class="bottom-nav-item">
-            <i class="fas fa-rocket"></i>
+            <!-- SVG Estrellas (Pequeño) -->
+            <svg class="star-icon-sm" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" style="width: 24px; height: 24px; fill: currentColor;">
+                <path d="M12 2L14 9L21 11L14 13L12 20L10 13L3 11L10 9L12 2Z" />
+                <path d="M19 2L20 5L23 6L20 7L19 10L18 7L15 6L18 5L19 2Z" />
+                <path d="M5 16L6 18L9 19L6 20L5 23L4 20L1 19L4 18L5 16Z" />
+            </svg>
             <span>Workspace</span>
         </a>
         <a href="{% url 'gallery' %}" class="bottom-nav-item active">
@@ -407,15 +504,26 @@
             selectedImages.clear();
             updateToolbar();
 
-            document.getElementById('folders-view').style.display = 'none';
-            document.getElementById('images-view').style.display = 'block';
-            document.querySelector('.back-btn').style.display = 'flex';
-            document.querySelector('.images-grid').style.display = 'grid';
-            document.querySelector('.toolbar').style.display = 'flex';
+            // Animación de transición simple
+            const foldersView = document.getElementById('folders-view');
+            foldersView.style.opacity = '0';
 
-            document.getElementById('detail-title').textContent = data.name;
+            setTimeout(() => {
+                foldersView.style.display = 'none';
+                const imagesView = document.getElementById('images-view');
+                imagesView.style.display = 'block';
+                imagesView.style.opacity = '0';
 
-            renderGrid();
+                document.querySelector('.back-btn').style.display = 'flex';
+                document.querySelector('.images-grid').style.display = 'grid';
+                document.querySelector('.toolbar').style.display = 'flex';
+                document.getElementById('detail-title').textContent = data.name;
+
+                renderGrid();
+
+                // Fade in
+                setTimeout(() => imagesView.style.opacity = '1', 50);
+            }, 200);
         }
 
         function renderGrid() {
@@ -425,13 +533,21 @@
             const data = galleryData[currentCharacterId];
             if (!data) return;
 
-            data.images.forEach(img => {
+            if (data.images.length === 0) {
+                grid.innerHTML = '<p style="grid-column: 1/-1; text-align: center; color: var(--text-muted); padding: 40px;">No images in this folder.</p>';
+                return;
+            }
+
+            data.images.forEach((img, index) => {
                 const div = document.createElement('div');
                 div.className = `image-item ${selectedImages.has(img.id) ? 'selected' : ''}`;
                 div.onclick = (e) => toggleSelection(img.id, e);
 
+                // Animación escalonada
+                div.style.animation = `fadeInUp 0.4s ease-out ${index * 0.05}s backwards`;
+
                 div.innerHTML = `
-                    <img src="${img.url}">
+                    <img src="${img.url}" loading="lazy">
                     <div class="select-check">
                         <i class="fas fa-check"></i>
                     </div>
@@ -441,8 +557,15 @@
         }
 
         function showFolders() {
-            document.getElementById('images-view').style.display = 'none';
-            document.getElementById('folders-view').style.display = 'block';
+            const imagesView = document.getElementById('images-view');
+            imagesView.style.opacity = '0';
+
+            setTimeout(() => {
+                imagesView.style.display = 'none';
+                const foldersView = document.getElementById('folders-view');
+                foldersView.style.display = 'block';
+                setTimeout(() => foldersView.style.opacity = '1', 50);
+            }, 200);
         }
 
         // --- LÓGICA DE SELECCIÓN ---
@@ -472,17 +595,21 @@
 
         function updateToolbar() {
             document.getElementById('selected-count').textContent = selectedImages.size;
+            const deleteBtn = document.querySelector('.btn-delete');
+            if (selectedImages.size > 0) {
+                deleteBtn.style.opacity = '1';
+                deleteBtn.style.pointerEvents = 'auto';
+            } else {
+                deleteBtn.style.opacity = '0.5';
+                deleteBtn.style.pointerEvents = 'none';
+            }
         }
 
         // --- LÓGICA DE BORRADO CON MODAL ---
 
         function askDeleteConfirmation() {
             if (selectedImages.size === 0) return;
-
-            // Actualizar texto del modal
             document.getElementById('confirm-count-text').textContent = selectedImages.size;
-
-            // Mostrar modal
             document.getElementById('modal-confirm').style.display = 'block';
         }
 
@@ -495,7 +622,6 @@
             const formData = new FormData();
             idsToDelete.forEach(id => formData.append('image_ids[]', id));
 
-            // Cerrar modal y mostrar estado de carga (opcional)
             closeConfirm();
 
             fetch(deleteUrl, {
@@ -506,7 +632,6 @@
             .then(res => res.json())
             .then(data => {
                 if (data.status === 'success') {
-                    // Actualizar datos locales
                     const charData = galleryData[currentCharacterId];
                     charData.images = charData.images.filter(img => !selectedImages.has(img.id));
 
@@ -514,9 +639,7 @@
                     updateToolbar();
                     renderGrid();
 
-                    if (charData.images.length === 0) {
-                        document.getElementById('detail-grid').innerHTML = '<p style="color:var(--text-muted);">Empty folder.</p>';
-                    }
+                    // Actualizar contador en la tarjeta de carpeta (opcional, requeriría recarga o manipulación DOM compleja)
                 } else {
                     alert('Error deleting: ' + data.message);
                 }
@@ -524,13 +647,15 @@
             .catch(err => alert('Connection error'));
         }
 
-        // Cerrar modal si se hace clic fuera
         window.onclick = (event) => {
             const modal = document.getElementById('modal-confirm');
             if (event.target == modal) {
                 closeConfirm();
             }
         };
+
+        // Inicializar estado del botón borrar
+        updateToolbar();
     </script>
 
 </body>

@@ -16,867 +16,140 @@
     <!-- Estilos -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link rel="stylesheet" href="{% static 'myapp/css/styles.css' %}">
+    <link rel="stylesheet" href="{% static 'myapp/css/workspace.css' %}">
+
+    <!-- INYECCIÓN DINÁMICA DE COLORES DESDE EL ADMIN -->
+    {% if company %}
+    <style>
+        :root {
+            /* Colores Base con !important para asegurar prioridad */
+            --primary-start: {{ company.primary_color_start|default:"#a855f7" }};
+            --primary-mid: {{ company.primary_color_mid|default:"#ef4444" }};
+            --primary-end: {{ company.primary_color_end|default:"#ff9068" }};
+            --accent-glow: {{ company.accent_glow_color|default:"#ef4444" }};
+
+            /* Variables derivadas para usar en styles.css */
+            --primary-color: var(--primary-mid);
+            --primary-gradient: linear-gradient(135deg, var(--primary-start) 0%, var(--primary-mid) 50%, var(--primary-end) 100%);
+
+            /* Glows dinámicos (con opacidad) */
+            --primary-glow: color-mix(in srgb, var(--accent-glow), transparent 50%);
+
+            /* Fondo dinámico (usando los colores elegidos) */
+            --bg-gradient:
+                radial-gradient(circle at 50% -20%, color-mix(in srgb, var(--primary-start), transparent 85%) 0%, transparent 50%),
+                radial-gradient(circle at 0% 30%, color-mix(in srgb, var(--primary-mid), transparent 90%) 0%, transparent 40%),
+                radial-gradient(circle at 100% 70%, color-mix(in srgb, var(--primary-start), transparent 92%) 0%, transparent 40%),
+                linear-gradient(to bottom, #0f0505 0%, #020202 100%);
+        }
+    </style>
+    {% endif %}
 
     <style>
-        /* --- SCROLLBAR PREMIUM (Visible y Elegante) --- */
-        ::-webkit-scrollbar {
-            width: 10px; /* Ancho vertical */
-            height: 10px; /* Alto horizontal */
-        }
-        ::-webkit-scrollbar-track {
-            background: transparent; /* Fondo invisible */
-        }
-        ::-webkit-scrollbar-thumb {
-            background-color: rgba(255, 255, 255, 0.15); /* Color de la barra */
-            border-radius: 20px; /* Bordes muy redondos */
-            border: 2px solid transparent; /* Espacio para efecto flotante */
-            background-clip: content-box; /* Recorta el fondo al contenido */
-        }
-        ::-webkit-scrollbar-thumb:hover {
-            background-color: rgba(255, 255, 255, 0.3); /* Más visible al tocar/hover */
+        /* Icono SVG Estrella Pequeño (Para menús) */
+        .star-icon-sm {
+            width: 18px;
+            height: 18px;
+            fill: currentColor; /* Hereda el color del texto */
         }
 
-        /* --- LAYOUT PRINCIPAL --- */
-        :root {
-            --header-height: 60px;
-            --nav-height: 65px;
-            --sidebar-width: 280px;
-        }
-
-        html, body {
-            height: 100dvh;
-            width: 100%;
-            max-width: 100%;
-            overflow: hidden; /* Bloquear scroll global del body */
-            background-color: var(--bg-color);
+        /* Estilos para la pantalla de bienvenida (Tarjetas de sugerencia) */
+        .welcome-container {
             display: flex;
             flex-direction: column;
-            margin: 0;
-            padding: 0;
-        }
-
-        /* Grid Layout para Desktop */
-        .layout-grid {
-            display: grid;
-            grid-template-columns: var(--sidebar-width) 1fr var(--sidebar-width);
-            grid-template-rows: var(--header-height) 1fr;
-            height: 100%;
-            width: 100%;
-            overflow-x: hidden;
-        }
-
-        /* --- HEADER --- */
-        .workspace-header {
-            grid-column: 1 / -1;
-            display: flex;
-            justify-content: space-between;
             align-items: center;
-            padding: 0 20px;
-            background-color: rgba(15, 23, 42, 0.95);
-            border-bottom: 1px solid var(--border-subtle);
-            z-index: 20;
-            height: var(--header-height);
-            width: 100%;
-            box-sizing: border-box;
+            justify-content: center;
+            height: 100%;
+            padding: 20px;
+            text-align: center;
         }
 
-        .logo-container h1 {
-            font-size: 1.2rem;
-            background: linear-gradient(to right, #fff, #ffcccc);
+        .welcome-title {
+            font-size: 2rem;
+            font-weight: 700;
+            margin-bottom: 10px;
+            background: linear-gradient(to right, #fff, #cbd5e1);
             -webkit-background-clip: text;
             -webkit-text-fill-color: transparent;
         }
 
-        /* Botones de Navegación Desktop */
-        .desktop-nav-btn {
-            padding: 8px 16px;
-            border-radius: 8px;
-            font-size: 0.85rem;
-            font-weight: 600;
-            text-decoration: none;
+        .welcome-subtitle {
             color: var(--text-muted);
-            display: flex;
-            align-items: center;
-            gap: 8px;
-            transition: all 0.2s;
-            border: 1px solid transparent;
-        }
-        .desktop-nav-btn:hover {
-            background-color: rgba(255, 255, 255, 0.05);
-            color: white;
-            border-color: var(--border-subtle);
-        }
-
-        /* --- SIDEBARS --- */
-        .sidebar {
-            background-color: rgba(15, 23, 42, 0.6);
-            border-right: 1px solid var(--border-subtle);
-            display: flex;
-            flex-direction: column;
-            padding: 20px;
-            overflow-y: auto; /* Scrollbar aparecerá aquí */
-            backdrop-filter: blur(10px);
-        }
-
-        .sidebar-right {
-            border-right: none;
-            border-left: 1px solid var(--border-subtle);
-        }
-
-        .sidebar-title {
-            font-size: 0.75rem;
-            font-weight: 700;
-            color: var(--text-muted);
-            text-transform: uppercase;
-            letter-spacing: 1.2px;
-            margin-bottom: 15px;
-            display: flex;
-            align-items: center;
-            gap: 8px;
-        }
-
-        /* --- MAIN CONTENT (CHAT) --- */
-        .main-content {
-            display: flex;
-            flex-direction: column;
-            position: relative;
-            background-color: var(--bg-color);
-            background-image: radial-gradient(circle at 50% 30%, rgba(59, 130, 246, 0.04) 0%, transparent 60%);
-            overflow: hidden;
-            height: 100%;
-            width: 100%;
-        }
-
-        /* Header del Personaje (Sticky) */
-        .character-header {
-            display: flex;
-            align-items: center;
-            gap: 12px;
-            padding: 10px 20px;
-            background-color: rgba(15, 23, 42, 0.85);
-            border-bottom: 1px solid var(--border-subtle);
-            backdrop-filter: blur(8px);
-            z-index: 10;
-            flex-shrink: 0;
-            transition: all 0.3s ease;
-            width: 100%;
-            box-sizing: border-box;
-        }
-
-        .char-avatar {
-            width: 40px;
-            height: 40px;
-            border-radius: 50%;
-            object-fit: cover;
-            border: 2px solid var(--primary-blue);
-            flex-shrink: 0;
-        }
-
-        .char-info {
-            min-width: 0;
-            flex: 1;
-        }
-
-        .char-info h2 {
-            margin: 0;
+            margin-bottom: 30px;
             font-size: 1rem;
-            color: var(--text-main);
-            font-weight: 600;
-            white-space: nowrap;
-            overflow: hidden;
-            text-overflow: ellipsis;
         }
 
-        .char-info span {
-            font-size: 0.8rem;
-            color: var(--text-muted);
-            display: block;
-            white-space: nowrap;
-            overflow: hidden;
-            text-overflow: ellipsis;
-        }
-
-        /* Área de Chat */
-        .chat-area {
-            flex: 1;
-            padding: 20px;
-            padding-bottom: 10px;
-            overflow-y: auto; /* Scrollbar aparecerá aquí */
-            overflow-x: hidden;
+        .suggestion-grid {
             display: flex;
-            flex-direction: column;
-            gap: 24px;
-            scroll-behavior: smooth;
-            width: 100%;
-            box-sizing: border-box;
-        }
-
-        /* Mensajes */
-        .message {
-            max-width: 85%;
-            padding: 14px 18px;
-            border-radius: 18px;
-            font-size: 0.95rem;
-            line-height: 1.6;
-            position: relative;
-            animation: fadeInUp 0.3s ease-out;
-            word-wrap: break-word;
-            overflow-wrap: break-word;
-            word-break: break-word;
-        }
-
-        .message:hover .delete-msg-btn {
-            opacity: 1;
-        }
-
-        @keyframes fadeInUp {
-            from { opacity: 0; transform: translateY(10px); }
-            to { opacity: 1; transform: translateY(0); }
-        }
-
-        .message.user {
-            align-self: flex-end;
-            background: linear-gradient(135deg, var(--primary-blue) 0%, #2563eb 100%);
-            color: white;
-            border-bottom-right-radius: 4px;
-            box-shadow: 0 4px 15px rgba(37, 99, 235, 0.2);
-        }
-
-        .message.ai {
-            align-self: flex-start;
-            background-color: rgba(30, 41, 59, 0.5);
-            border: 1px solid var(--border-subtle);
-            color: var(--text-main);
-            border-bottom-left-radius: 4px;
-            width: 100%;
-            max-width: 800px;
-        }
-
-        /* Resultados de Imagen */
-        .result-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-            gap: 12px;
-            margin-top: 15px;
-            width: 100%;
-        }
-        .result-card {
-            border-radius: 12px;
-            overflow: hidden;
-            border: 1px solid var(--border-subtle);
-            background: #000;
-            position: relative;
-        }
-        .result-card img {
-            width: 100%;
-            height: auto;
-            display: block;
-            transition: transform 0.3s;
-        }
-        .result-card img:hover { transform: scale(1.03); }
-
-        /* ETIQUETAS DE TIPO DE IMAGEN */
-        .result-badge {
-            position: absolute;
-            top: 8px;
-            right: 8px;
-            padding: 4px 8px;
-            border-radius: 6px;
-            font-size: 0.75rem;
-            font-weight: 600;
-            color: white;
-            backdrop-filter: blur(4px);
-            box-shadow: 0 2px 4px rgba(0,0,0,0.3);
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
-            z-index: 5;
-        }
-
-        .badge-normal { background: rgba(59, 130, 246, 0.8); border: 1px solid rgba(255,255,255,0.2); }
-        .badge-upscale { background: rgba(16, 185, 129, 0.8); border: 1px solid rgba(255,255,255,0.2); }
-        .badge-face { background: rgba(244, 63, 94, 0.8); border: 1px solid rgba(255,255,255,0.2); }
-
-        /* ETIQUETA DE RESOLUCIÓN */
-        .resolution-badge {
-            position: absolute;
-            bottom: 8px;
-            right: 8px;
-            padding: 2px 6px;
-            border-radius: 4px;
-            font-size: 0.7rem;
-            font-weight: 500;
-            color: rgba(255, 255, 255, 0.9);
-            background: rgba(0, 0, 0, 0.6);
-            backdrop-filter: blur(2px);
-            z-index: 5;
-            font-family: monospace;
-        }
-
-        /* PLACEHOLDER ELIMINADO (MEJORADO) */
-        .deleted-placeholder {
-            width: 100%;
-            aspect-ratio: 3/4; /* Mantiene la forma vertical típica */
-            display: flex;
-            flex-direction: column;
-            align-items: center;
+            gap: 20px;
             justify-content: center;
-            background: rgba(30, 41, 59, 0.5);
-            color: #64748b;
-            text-align: center;
-            padding: 15px;
-            box-sizing: border-box;
-            border: 2px dashed #475569; /* Borde más visible */
-            border-radius: 12px;
-        }
-        .deleted-placeholder i {
-            font-size: 2rem;
-            margin-bottom: 10px;
-            color: #ef4444; /* Icono rojo */
-        }
-        .deleted-placeholder span {
-            font-size: 0.85rem;
-            font-weight: 600;
+            flex-wrap: wrap;
+            margin-top: 20px;
         }
 
-        /* --- INPUT AREA --- */
-        .input-container {
-            padding: 15px 20px 20px;
-            background: linear-gradient(to top, var(--bg-color) 80%, transparent);
-            z-index: 20;
+        .suggestion-card {
+            width: 160px;
+            height: 220px;
+            border-radius: 16px;
+            overflow: hidden;
             position: relative;
-            width: 100%;
-            box-sizing: border-box;
-        }
-
-        .input-box {
-            background-color: #1e293b;
-            border: 1px solid var(--border-subtle);
-            border-radius: 28px;
-            padding: 8px 8px 8px 20px;
-            display: flex;
-            align-items: flex-end;
-            gap: 10px;
-            transition: all 0.3s ease;
-            box-shadow: 0 4px 20px rgba(0,0,0,0.2);
-        }
-
-        .input-box:focus-within {
-            border-color: var(--primary-blue);
-            background-color: #252f42;
-            box-shadow: 0 4px 25px rgba(59, 130, 246, 0.15);
-        }
-
-        textarea {
-            flex: 1;
-            background: transparent;
-            border: none;
-            color: white;
-            font-family: inherit;
-            font-size: 1rem;
-            resize: none;
-            max-height: 120px;
-            padding: 10px 0;
-            line-height: 1.4;
-        }
-        textarea:focus { outline: none; }
-
-        .send-btn {
-            background-color: var(--primary-blue);
-            color: white;
-            width: 42px;
-            height: 42px;
-            border-radius: 50%;
-            border: none;
             cursor: pointer;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            transition: all 0.2s;
-            flex-shrink: 0;
+            border: 1px solid var(--card-border);
+            transition: all 0.3s ease;
+            box-shadow: 0 10px 30px -10px rgba(0,0,0,0.5);
         }
-        .send-btn:hover { transform: scale(1.1); background-color: #3b82f6; }
-        .send-btn:disabled { background-color: #334155; color: #64748b; transform: none; }
 
-        /* --- BOTTOM NAV (MOBILE) --- */
-        .bottom-nav {
-            display: none;
-            position: fixed;
+        .suggestion-card:hover {
+            transform: translateY(-5px);
+            border-color: var(--primary-color);
+            box-shadow: 0 15px 40px -10px var(--primary-glow);
+        }
+
+        .suggestion-card img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            transition: transform 0.5s ease;
+        }
+
+        .suggestion-card:hover img {
+            transform: scale(1.1);
+        }
+
+        .suggestion-overlay {
+            position: absolute;
             bottom: 0;
             left: 0;
             width: 100%;
-            height: var(--nav-height);
-            background-color: rgba(10, 10, 10, 0.9);
-            backdrop-filter: blur(12px);
-            border-top: 1px solid var(--border-subtle);
-            z-index: 100;
-            justify-content: space-around;
-            align-items: center;
-            padding-bottom: env(safe-area-inset-bottom);
-            transition: transform 0.3s ease;
-            box-sizing: border-box;
-        }
-
-        .bottom-nav-item {
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            color: var(--text-muted);
-            text-decoration: none;
-            font-size: 0.7rem;
-            width: 100%;
-            height: 100%;
-        }
-        .bottom-nav-item i { font-size: 1.3rem; margin-bottom: 4px; }
-        .bottom-nav-item.active { color: var(--primary-blue); }
-
-        /* Botones Toggle para Móvil */
-        .mobile-toggle-btn {
-            display: none;
-            background: transparent;
-            border: none;
-            color: var(--text-main);
-            font-size: 1.2rem;
-            cursor: pointer;
-            padding: 8px;
-        }
-
-        /* --- ESTILOS DEL BOTÓN DE CUPÓN --- */
-        .header-coupon-btn {
-            cursor: pointer;
-            background: transparent;
-            border: 1px solid var(--border-subtle);
-            padding: 8px 16px;
-            border-radius: 8px;
-            font-size: 0.85rem;
-            font-weight: 600;
-            color: var(--text-muted);
-            display: flex;
-            align-items: center;
-            gap: 8px;
-            transition: all 0.2s;
-        }
-        .header-coupon-btn:hover {
-            background-color: rgba(255, 255, 255, 0.05);
+            padding: 15px 10px;
+            background: linear-gradient(to top, rgba(0,0,0,0.9), transparent);
             color: white;
-            border-color: var(--border-subtle);
-        }
-
-        /* --- RESPONSIVE --- */
-        @media (max-width: 1024px) {
-            .layout-grid {
-                /* CAMBIO: Ahora usamos el mismo layout que en móvil para tablets/pantallas medianas */
-                display: flex;
-                flex-direction: column;
-                height: 100dvh;
-                width: 100%;
-                overflow-x: hidden;
-            }
-
-            .workspace-header {
-                padding: 0 15px;
-                height: 55px;
-                flex-shrink: 0;
-            }
-
-            /* Ocultamos elementos desktop */
-            .logo-container h1 { display: none; }
-            .logo-container .logo-wrapper { width: 32px; height: 32px; }
-            .desktop-nav-btn { display: none !important; }
-
-            /* AJUSTE BOTÓN CUPÓN MÓVIL */
-            .header-coupon-btn {
-                padding: 8px; /* Cuadrado para el icono */
-            }
-            .header-coupon-btn span {
-                display: none; /* Ocultar texto en móvil */
-            }
-
-            /* Sidebar Izquierda (Off-canvas) */
-            .sidebar {
-                position: fixed;
-                top: 0; left: 0; height: 100%; width: 80%;
-                max-width: 300px;
-                z-index: 200;
-                transform: translateX(-100%);
-                transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-                box-shadow: 10px 0 30px rgba(0,0,0,0.5);
-                background-color: #0f172a;
-            }
-            .sidebar.open { transform: translateX(0); }
-
-            /* Sidebar Derecha (Off-canvas) */
-            .sidebar-right {
-                display: flex; /* Aseguramos que sea flex, no none */
-                position: fixed; /* Fijo para superponerse */
-                top: 0;
-                left: auto;
-                right: 0;
-                height: 100%;
-                width: 80%;
-                max-width: 300px;
-                z-index: 200;
-                transform: translateX(100%); /* Oculto a la derecha */
-                transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-                box-shadow: -10px 0 30px rgba(0,0,0,0.5);
-                background-color: #0f172a;
-                border-left: 1px solid var(--border-subtle);
-                border-right: none;
-            }
-            .sidebar-right.open { transform: translateX(0); }
-
-            .main-content {
-                flex: 1;
-                height: auto;
-                width: 100%;
-            }
-
-            /* Ajustes de Chat */
-            .character-header {
-                padding: 8px 15px;
-                background: rgba(15, 23, 42, 0.95);
-            }
-            .char-avatar { width: 32px; height: 32px; }
-            .char-info h2 { font-size: 0.9rem; }
-            .char-info span { font-size: 0.75rem; max-width: 200px; }
-
-            .chat-area {
-                padding: 15px;
-                width: 100%;
-                box-sizing: border-box;
-            }
-            .message { max-width: 90%; font-size: 0.9rem; padding: 12px 15px; }
-
-            /* Input Area */
-            .input-container {
-                padding: 10px 15px 15px;
-                background: var(--bg-color);
-                border-top: 1px solid var(--border-subtle);
-                margin-bottom: var(--nav-height);
-            }
-
-            .input-box {
-                border-radius: 24px;
-                padding: 6px 6px 6px 15px;
-            }
-
-            .send-btn { width: 36px; height: 36px; }
-
-            /* Mostrar controles móviles */
-            .bottom-nav { display: flex; }
-            .mobile-toggle-btn { display: block; }
-        }
-
-        /* Ajuste específico para móviles muy pequeños si es necesario */
-        @media (max-width: 768px) {
-            /* Ya cubierto por la regla anterior, pero mantenemos por si acaso */
-        }
-
-        /* Overlay */
-        .sidebar-overlay {
-            display: none;
-            position: fixed;
-            top: 0; left: 0; width: 100%; height: 100%;
-            background: rgba(0,0,0,0.6);
-            z-index: 150;
-            backdrop-filter: blur(3px);
-            opacity: 0;
-            transition: opacity 0.3s;
-        }
-        .sidebar-overlay.show { display: block; opacity: 1; }
-
-        /* Estilos Generales de UI */
-        .resource-btn {
-            width: 100%; padding: 12px; margin-bottom: 10px; border-radius: 12px;
-            border: 1px solid rgba(255,255,255,0.1); background: rgba(255,255,255,0.03);
-            color: var(--text-muted); cursor: pointer; display: flex; align-items: center; gap: 10px;
-            transition: all 0.2s;
-        }
-        .resource-btn:hover { background: rgba(255,255,255,0.08); color: white; }
-
-        /* --- NUEVOS ESTILOS PARA ASPECT RATIO --- */
-        .aspect-ratio-grid {
-            display: grid;
-            grid-template-columns: repeat(3, 1fr);
-            gap: 10px;
-            margin-bottom: 15px;
-        }
-        .aspect-ratio-btn {
-            background-color: rgba(255, 255, 255, 0.03);
-            border: 1px solid var(--border-subtle);
-            border-radius: 8px;
-            padding: 10px;
-            cursor: pointer;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            gap: 8px;
-            transition: all 0.2s ease;
-            color: var(--text-muted);
-        }
-        .aspect-ratio-btn:hover {
-            background-color: rgba(255, 255, 255, 0.08);
-            border-color: #475569;
-        }
-        .aspect-ratio-btn.active {
-            background-color: rgba(59, 130, 246, 0.15);
-            border-color: var(--primary-blue);
-            color: var(--primary-blue);
             font-weight: 600;
-        }
-        .aspect-ratio-btn .silhouette {
-            height: 24px;
-            background-color: rgba(255, 255, 255, 0.1);
-            border: 1px solid transparent; /* Añadido para transición */
-            border-radius: 2px;
-            transition: all 0.2s ease;
-        }
-        .aspect-ratio-btn.active .silhouette {
-            border-color: var(--primary-blue); /* Borde azul en activo */
-            background-color: rgba(59, 130, 246, 0.2); /* Fondo ligeramente azulado */
-        }
-        .aspect-ratio-btn span {
-            font-size: 0.8rem;
-            font-weight: 500;
-        }
-
-        /* Estilo para el input de semilla (más ancho) */
-        .seed-input {
-            background: #0f172a; border: 1px solid var(--border-subtle); color: white;
-            padding: 8px; border-radius: 8px; width: 100%; text-align: center;
-            box-sizing: border-box;
-        }
-
-        /* Checkbox Styles */
-        .checkbox-wrapper {
-            display: flex;
-            align-items: center;
-            gap: 10px;
-            margin-bottom: 10px;
-            color: var(--text-muted);
             font-size: 0.9rem;
-            cursor: pointer;
-        }
-        .checkbox-wrapper input {
-            accent-color: var(--primary-blue);
-            width: 16px;
-            height: 16px;
-        }
-
-        /* History Item Styles */
-        .history-item {
-            padding: 10px;
-            border-radius: 8px;
-            font-size: 0.9rem;
-            display: flex;
-            gap: 10px;
-            align-items: center;
-            color: var(--text-muted);
-            text-decoration: none;
-            margin-bottom: 5px;
-            transition: background-color 0.2s;
-        }
-        .history-item:hover {
-            background-color: rgba(255,255,255,0.05);
-            color: white;
-        }
-        .history-item.active {
-            background: rgba(59,130,246,0.1);
-            color: var(--primary-blue);
-            font-weight: 600;
-        }
-        .history-item img {
-            width: 24px;
-            height: 24px;
-            border-radius: 50%;
-            object-fit: cover;
-        }
-
-        /* Modales */
-        .modal { display: none; position: fixed; z-index: 300; left: 0; top: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); backdrop-filter: blur(5px); }
-        .modal-content { background: #1e293b; margin: 10% auto; width: 90%; max-width: 500px; border-radius: 20px; border: 1px solid var(--border-subtle); overflow: hidden; }
-        .modal-header { padding: 15px 20px; border-bottom: 1px solid rgba(255,255,255,0.05); display: flex; justify-content: space-between; align-items: center; }
-        .modal-body { padding: 20px; max-height: 60vh; overflow-y: auto; }
-        .modal-footer { padding: 15px 20px; border-top: 1px solid rgba(255,255,255,0.05); display: flex; justify-content: flex-end; gap: 10px; }
-        .modal-btn { padding: 8px 16px; border-radius: 8px; border: none; cursor: pointer; }
-        .modal-btn-danger { background-color: #ef4444; color: white; }
-        .modal-btn-secondary { background-color: #475569; color: white; }
-
-        /* Lista Personajes */
-        .char-list-item { display: flex; align-items: center; gap: 15px; padding: 10px; border-radius: 10px; cursor: pointer; color: white; text-decoration: none; }
-        .char-list-item:hover { background: rgba(255,255,255,0.05); }
-
-        /* Botones de Borrado */
-        .delete-msg-btn {
-            position: absolute;
-            top: 50%;
-            transform: translateY(-50%);
-            background: #ef4444;
-            color: white;
-            border: none;
-            width: 24px;
-            height: 24px;
-            border-radius: 50%;
-            cursor: pointer;
-            opacity: 0;
-            transition: opacity 0.2s;
-            font-size: 0.8rem;
-        }
-        .message.user .delete-msg-btn { left: -35px; }
-        .message.ai .delete-msg-btn { right: -35px; }
-
-        .clear-chat-btn {
-            color: #ef4444;
-            background: transparent;
-            border: none;
-            cursor: pointer;
-            font-size: 1.2rem;
-        }
-
-        /* Estilos para los botones de filtro (Categorías) */
-        .filter-btn {
-            background: rgba(255,255,255,0.05);
-            border: 1px solid var(--border-subtle);
-            color: var(--text-muted);
-            padding: 6px 12px;
-            border-radius: 20px;
-            font-size: 0.8rem;
-            cursor: pointer;
-            white-space: nowrap;
-            transition: all 0.2s;
-        }
-        .filter-btn:hover {
-            background: rgba(255,255,255,0.1);
-            color: white;
-        }
-        .filter-btn.active {
-            background: var(--primary-blue);
-            color: white;
-            border-color: var(--primary-blue);
-        }
-
-        /* Estilos para los botones de etiquetas (Tags) */
-        .tag-btn {
-            background: transparent;
-            border: 1px solid rgba(255,255,255,0.15);
-            color: #94a3b8;
-            padding: 4px 10px;
-            border-radius: 6px;
-            font-size: 0.75rem;
-            cursor: pointer;
-            transition: all 0.2s;
-        }
-        .tag-btn:hover {
-            border-color: rgba(255,255,255,0.3);
-            color: white;
-        }
-        .tag-btn.active {
-            background: rgba(16, 185, 129, 0.15); /* Verde suave */
-            border-color: #10b981;
-            color: #10b981;
-        }
-
-        /* --- NUEVO: Estilo para el contador de tokens --- */
-        .token-badge {
-            background-color: rgba(255, 255, 255, 0.05);
-            color: var(--text-muted);
-            padding: 6px 12px;
-            border-radius: 20px;
-            font-size: 0.8rem;
-            font-weight: 600;
-            display: flex;
-            align-items: center;
-            gap: 6px;
-            border: 1px solid var(--border-subtle);
-            /* cursor: pointer; ELIMINADO */
-        }
-        .token-badge i {
-            color: #facc15; /* Amarillo */
-        }
-
-        /* --- NUEVO: ESTILOS MODAL CUPÓN --- */
-        #modal-coupon .modal-content {
-            background: linear-gradient(145deg, #2d221a, #1a1a1a);
-            border: 1px solid #d97706; /* Naranja oscuro */
-            box-shadow: 0 8px 30px rgba(245, 158, 11, 0.2);
-        }
-        #modal-coupon .modal-header h3 {
-            color: #f59e0b; /* Naranja claro */
-            text-shadow: 0 0 10px rgba(245, 158, 11, 0.5);
-        }
-        #modal-coupon #coupon-code {
-            background: #1c1917;
-            border-color: #78350f; /* Naranja muy oscuro */
             text-align: center;
+            box-sizing: border-box;
+        }
+
+        .start-btn-large {
+            background: var(--primary-gradient);
+            color: white;
+            border: none;
+            padding: 15px 40px;
+            border-radius: 50px;
             font-size: 1.1rem;
-            letter-spacing: 2px;
-        }
-        #modal-coupon #coupon-code:focus {
-            border-color: #f59e0b;
-            box-shadow: 0 0 15px rgba(245, 158, 11, 0.3);
-        }
-        #modal-coupon .modal-btn {
-            background-color: #d97706;
-            color: white;
-            font-weight: bold;
-            transition: transform 0.2s;
-        }
-        #modal-coupon .modal-btn:hover {
-            transform: scale(1.05);
-        }
-
-        /* --- NUEVO: ANIMACIÓN ESTRELLAS DENTRO DEL MODAL --- */
-        .success-animation-container {
-            text-align: center;
-            display: none; /* Oculto por defecto */
-            position: relative;
-            padding: 20px;
-            min-height: 150px;
+            font-weight: 700;
+            cursor: pointer;
+            box-shadow: 0 10px 30px -5px var(--primary-glow);
+            transition: all 0.3s ease;
             display: flex;
-            flex-direction: column;
             align-items: center;
-            justify-content: center;
+            gap: 10px;
+            margin-bottom: 40px;
         }
 
-        .success-icon {
-            font-size: 4rem;
-            color: #10b981; /* Verde éxito */
-            margin-bottom: 15px;
-            animation: scaleUp 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275);
-            z-index: 2;
-        }
-
-        .success-text {
-            font-size: 1.2rem;
-            color: #f59e0b;
-            font-weight: bold;
-            z-index: 2;
-            animation: fadeIn 0.5s ease-out;
-        }
-
-        .mini-star {
-            position: absolute;
-            color: #fbbf24; /* Dorado */
-            font-size: 1rem;
-            opacity: 0;
-            z-index: 1;
-        }
-
-        @keyframes scaleUp {
-            from { transform: scale(0); opacity: 0; }
-            to { transform: scale(1); opacity: 1; }
-        }
-
-        @keyframes fadeIn {
-            from { opacity: 0; transform: translateY(10px); }
-            to { opacity: 1; transform: translateY(0); }
-        }
-
-        @keyframes sparkle {
-            0% { transform: scale(0) rotate(0deg); opacity: 0; }
-            50% { opacity: 1; }
-            100% { transform: scale(1.5) translate(var(--tx), var(--ty)) rotate(180deg); opacity: 0; }
+        .start-btn-large:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 15px 40px -5px var(--primary-glow);
         }
     </style>
 </head>
@@ -905,20 +178,21 @@
             </a>
 
             <div class="user-menu" style="display:flex; gap:15px; align-items:center;">
-                <!-- Botones de Navegación Desktop (Restaurados) -->
-                <a href="{% url 'gallery' %}" class="desktop-nav-btn">
-                    <i class="fas fa-images"></i> Gallery
-                </a>
-                <a href="{% url 'generate_image' %}" class="desktop-nav-btn">
+                <!-- Botones de Navegación Desktop (PREMIUM STYLE) -->
+                <a href="{% url 'generate_image' %}" class="action-btn desktop-nav-btn">
                     <i class="fas fa-home"></i> Home
                 </a>
 
-                <!-- NUEVO: Botón de Cupones (Visible en Móvil como Icono) -->
-                <button onclick="document.getElementById('modal-coupon').style.display='block'" class="header-coupon-btn">
+                <a href="{% url 'gallery' %}" class="action-btn desktop-nav-btn">
+                    <i class="fas fa-images"></i> Gallery
+                </a>
+
+                <!-- Botón de Cupones (Estilo Premium también) -->
+                <button onclick="document.getElementById('modal-coupon').style.display='block'" class="action-btn header-coupon-btn">
                     <i class="fas fa-ticket-alt" style="color: #fbbf24;"></i> <span>Coupons</span>
                 </button>
 
-                <!-- NUEVO: Contador de Tokens (Solo informativo) -->
+                <!-- Contador de Tokens -->
                 {% if user.is_authenticated and not user.is_staff %}
                 <div class="token-badge">
                     <i class="fas fa-coins"></i>
@@ -926,9 +200,11 @@
                 </div>
                 {% endif %}
 
-                <div class="user-avatar" style="width:32px; height:32px; background:var(--primary-gradient); border-radius:50%; display:flex; align-items:center; justify-content:center; font-weight:bold; color:white;">
+                <!-- AVATAR CLICABLE (PERFIL) -->
+                <a href="{% url 'profile' %}" class="user-avatar" style="width:32px; height:32px; background:var(--primary-gradient); border-radius:50%; display:flex; align-items:center; justify-content:center; font-weight:bold; color:white; text-decoration:none;">
                     {{ user.username|slice:":1"|upper }}
-                </div>
+                </a>
+
                 <!-- Botón Derecho (Recursos / Carpeta) -->
                 <button class="mobile-toggle-btn" onclick="toggleSidebar('right')">
                     <i class="fas fa-folder"></i>
@@ -938,12 +214,15 @@
 
         <!-- Sidebar Izquierda -->
         <aside class="sidebar" id="sidebar-left">
-            <button onclick="document.getElementById('modal-characters').style.display='block'" class="resource-btn" style="background: var(--primary-gradient); border:none; color:white; justify-content:center; font-weight:600;">
+            <!-- CAMBIO: Solo mostrar si hay un personaje seleccionado -->
+            {% if selected_character %}
+            <button onclick="document.getElementById('modal-characters').style.display='block'" class="resource-btn" style="background: var(--primary-gradient); border:none; color:white; justify-content:center; font-weight:600; margin-bottom: 25px;">
                 <i class="fas fa-plus"></i> New Chat / Character
             </button>
+            {% endif %}
 
-            <!-- NUEVA SECCIÓN DE ASPECT RATIO -->
-            <div class="sidebar-title" style="margin-top:20px;">Aspect Ratio</div>
+            <!-- SECCIÓN DE ASPECT RATIO -->
+            <div class="sidebar-title">Aspect Ratio</div>
             <input type="hidden" id="width-input" value="{{ default_width }}">
             <input type="hidden" id="height-input" value="{{ default_height }}">
             <div class="aspect-ratio-grid">
@@ -956,17 +235,21 @@
                 <button class="aspect-ratio-btn" data-width="1280" data-height="720"><div class="silhouette" style="width: 24px; height: 13.5px;"></div><span>16:9</span></button>
             </div>
 
-            <!-- NUEVO: Input de Semilla -->
-            <div class="sidebar-title" style="margin-top:20px;">Seed</div>
+            <!-- Input de Semilla (MEJORADO) -->
+            <div class="sidebar-title">Seed</div>
             <div style="margin-bottom:15px;">
-                <input type="number" id="seed-input" class="seed-input" placeholder="Random (-1)" value="{% if default_seed != -1 %}{{ default_seed }}{% endif %}" step="4">
+                <div class="seed-control-group">
+                    <button type="button" class="seed-action-btn" onclick="adjustSeed(-4)"><i class="fas fa-minus"></i></button>
+                    <input type="number" id="seed-input" class="seed-input" placeholder="Random (-1)" value="{% if default_seed != -1 %}{{ default_seed }}{% endif %}" step="4">
+                    <button type="button" class="seed-action-btn" onclick="adjustSeed(4)"><i class="fas fa-plus"></i></button>
+                </div>
                 <div style="font-size:0.7rem; color:var(--text-muted); margin-top:5px; text-align:center;">
                     Leave empty or -1 for random.
                 </div>
             </div>
 
-            <!-- NUEVO: Opciones de Salida (CONDICIONALES) -->
-            <div class="sidebar-title" style="margin-top:20px;">Output Options</div>
+            <!-- Opciones de Salida -->
+            <div class="sidebar-title">Output Options</div>
             <label class="checkbox-wrapper">
                 <input type="checkbox" id="check-normal" checked>
                 <span>Generate Normal (Fast)</span>
@@ -991,29 +274,29 @@
         <main class="main-content">
             {% if selected_character %}
                 <div class="character-header">
-                    <!-- CAMBIO: Usamos catalog_images_set -->
+                    <!-- Avatar del Personaje -->
                     {% if selected_character.catalog_images_set.all %}
                         <img src="{{ selected_character.catalog_images_set.all.0.image.url }}" class="char-avatar">
                     {% else %}
                         <img src="https://via.placeholder.com/100x100" class="char-avatar">
                     {% endif %}
+
                     <div class="char-info">
                         <h2>{{ selected_character.name }}</h2>
                         <span>{{ selected_character.description|default:"AI Assistant" }}</span>
                     </div>
-                    <button class="clear-chat-btn" onclick="openDeleteModal(null, true)">
+
+                    <button class="clear-chat-btn" onclick="openDeleteModal(null, true)" title="Clear Chat">
                         <i class="fas fa-trash-alt"></i>
                     </button>
                 </div>
-            {% endif %}
 
-            <div class="chat-area" id="chat-area">
-                {% if selected_character %}
+                <div class="chat-area" id="chat-area">
                     <div class="message ai">
                         Hello! I am <strong>{{ selected_character.name }}</strong>. What image would you like to create today? 🎨
                     </div>
 
-                    <!-- HISTORIAL DE CHAT CARGADO DESDE EL BACKEND -->
+                    <!-- HISTORIAL DE CHAT -->
                     {% for msg in chat_history %}
                         <div class="message {% if msg.is_user %}user{% else %}ai{% endif %}" data-msg-id="{{ msg.id }}">
                             <button class="delete-msg-btn" onclick="openDeleteModal('{{ msg.id }}')"><i class="fas fa-trash"></i></button>
@@ -1048,22 +331,39 @@
                             {% endif %}
                         </div>
                     {% endfor %}
-
-                {% else %}
-                    <div class="message ai">
-                        Welcome to the Workspace. Select a character to start generating amazing images.
-                    </div>
-                {% endif %}
-            </div>
-
-            <div class="input-container">
-                <div class="input-box">
-                    <textarea id="prompt-input" placeholder="Describe your image here..." rows="1"></textarea>
-                    <button id="send-btn" class="send-btn" {% if not selected_character %}disabled{% endif %}>
-                        <i class="fas fa-arrow-up"></i>
-                    </button>
                 </div>
-            </div>
+
+                <div class="input-container">
+                    <div class="input-box">
+                        <textarea id="prompt-input" placeholder="Describe your image here..." rows="1"></textarea>
+                        <button id="send-btn" class="send-btn">
+                            <i class="fas fa-arrow-up"></i>
+                        </button>
+                    </div>
+                </div>
+
+            {% else %}
+                <!-- PANTALLA DE BIENVENIDA MEJORADA -->
+                <div class="welcome-container">
+                    <h1 class="welcome-title">Welcome to Your Workspace</h1>
+                    <p class="welcome-subtitle">Select a character to start creating amazing art.</p>
+
+                    <button onclick="document.getElementById('modal-characters').style.display='block'" class="start-btn-large">
+                        <i class="fas fa-plus-circle"></i> Select Character
+                    </button>
+
+                    <div class="suggestion-grid">
+                        {% for item in random_preview_images %}
+                        <a href="?character_id={{ item.character_id }}" class="suggestion-card">
+                            <img src="{{ item.image_url }}" alt="{{ item.character_name }}">
+                            <div class="suggestion-overlay">
+                                {{ item.character_name }}
+                            </div>
+                        </a>
+                        {% endfor %}
+                    </div>
+                </div>
+            {% endif %}
         </main>
 
         <!-- Sidebar Derecha -->
@@ -1077,14 +377,13 @@
                     <i class="fas fa-photo-video" style="color:#34d399;"></i> Generated Gallery
                 </button>
             {% else %}
-                <p style="color:var(--text-muted); text-align:center; font-size:0.9rem;">Select a character.</p>
+                <p style="color:var(--text-muted); text-align:center; font-size:0.9rem; margin-top: 20px;">Select a character to see resources.</p>
             {% endif %}
 
-            <div class="sidebar-title" style="margin-top:20px;">History</div>
+            <div class="sidebar-title" style="margin-top:30px;">History</div>
             <!-- LISTA DE CHATS RECIENTES -->
             {% for chat in recent_chats %}
                 <a href="?character_id={{ chat.id }}&load_history=true" class="history-item {% if selected_character.id == chat.id %}active{% endif %}">
-                    <!-- CAMBIO: Usamos catalog_images_set -->
                     {% if chat.catalog_images_set.all %}
                         <img src="{{ chat.catalog_images_set.all.0.image.url }}">
                     {% else %}
@@ -1105,7 +404,12 @@
             <span>Home</span>
         </a>
         <a href="{% url 'workspace' %}" class="bottom-nav-item active">
-            <i class="fas fa-rocket"></i>
+            <!-- SVG Estrellas (Pequeño) -->
+            <svg class="star-icon-sm" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" style="width: 24px; height: 24px; fill: currentColor;">
+                <path d="M12 2L14 9L21 11L14 13L12 20L10 13L3 11L10 9L12 2Z" />
+                <path d="M19 2L20 5L23 6L20 7L19 10L18 7L15 6L18 5L19 2Z" />
+                <path d="M5 16L6 18L9 19L6 20L5 23L4 20L1 19L4 18L5 16Z" />
+            </svg>
             <span>Workspace</span>
         </a>
         <a href="{% url 'gallery' %}" class="bottom-nav-item">
@@ -1122,18 +426,18 @@
                 <span class="close-btn" onclick="document.getElementById('modal-characters').style.display='none'" style="color:white; cursor:pointer;">&times;</span>
             </div>
             <div class="modal-body">
-                <input type="text" id="char-search" placeholder="Search..." style="width:100%; padding:10px; background:#0f172a; border:1px solid var(--border-subtle); color:white; border-radius:8px; margin-bottom:15px;" onkeyup="filterCharacters()">
+                <input type="text" id="char-search" placeholder="Search..." style="width:100%; padding:12px; background:rgba(0,0,0,0.3); border:1px solid var(--border-subtle); color:white; border-radius:12px; margin-bottom:20px;" onkeyup="filterCharacters()">
 
-                <!-- FILTROS DE CATEGORÍA DINÁMICOS -->
-                <div style="display:flex; gap:10px; margin-bottom:10px; overflow-x:auto; padding-bottom:5px;">
+                <!-- FILTROS DE CATEGORÍA -->
+                <div style="display:flex; gap:10px; margin-bottom:15px; overflow-x:auto; padding-bottom:5px;">
                     <button class="filter-btn active" onclick="filterCategory('ALL', this)">All</button>
                     {% for cat in all_categories %}
                         <button class="filter-btn" onclick="filterCategory('{{ cat.id }}', this)">{{ cat.name }}</button>
                     {% endfor %}
                 </div>
 
-                <!-- FILTROS DE SUBCATEGORÍAS (TAGS) -->
-                <div style="display:flex; gap:8px; margin-bottom:15px; flex-wrap:wrap;">
+                <!-- FILTROS DE SUBCATEGORÍAS -->
+                <div style="display:flex; gap:8px; margin-bottom:20px; flex-wrap:wrap;">
                     {% for sub in all_subcategories %}
                         <button class="tag-btn" onclick="toggleSubCategory('{{ sub.id }}', this)">#{{ sub.name }}</button>
                     {% endfor %}
@@ -1141,12 +445,10 @@
 
                 <div id="char-list">
                     {% for char in all_characters %}
-                    <!-- CAMBIO: Añadimos data-subcategory-id -->
                     <a href="?character_id={{ char.id }}" class="char-list-item"
                        data-category-id="{{ char.category.id|default:'NONE' }}"
                        data-subcategory-id="{{ char.subcategory.id|default:'NONE' }}">
 
-                        <!-- CAMBIO: Usamos catalog_images_set -->
                         {% if char.catalog_images_set.all %}
                             <img src="{{ char.catalog_images_set.all.0.image.url }}" style="width:40px; height:40px; border-radius:50%; object-fit:cover;">
                         {% else %}
@@ -1168,7 +470,6 @@
             </div>
             <div class="modal-body">
                 <div class="modal-grid" style="display:grid; grid-template-columns:1fr 1fr; gap:10px;">
-                    <!-- CAMBIO: Usamos catalog_images_set -->
                     {% if selected_character and selected_character.catalog_images_set.all %}
                         {% for img in selected_character.catalog_images_set.all %}
                             <img src="{{ img.image.url }}" style="width:100%; border-radius:8px;" onclick="window.open(this.src)">
@@ -1219,18 +520,15 @@
                 <span onclick="document.getElementById('modal-coupon').style.display='none'" style="cursor:pointer; color:white;">&times;</span>
             </div>
             <div class="modal-body">
-                <!-- Contenedor del Formulario -->
                 <div id="coupon-input-container">
                     <p style="color:var(--text-muted); margin-bottom:15px;">Enter your coupon code to receive extra tokens.</p>
                     <input type="text" id="coupon-code" placeholder="Enter code here..." style="width:100%; padding:10px; background:#0f172a; border:1px solid var(--border-subtle); color:white; border-radius:8px; margin-bottom:15px; box-sizing:border-box;">
                     <div id="coupon-message" style="margin-top:10px; font-size:0.9rem;"></div>
                 </div>
 
-                <!-- Contenedor de Éxito (Oculto por defecto) -->
                 <div id="coupon-success-container" class="success-animation-container" style="display:none;">
                     <i class="fas fa-check-circle success-icon"></i>
                     <div id="success-text" class="success-text"></div>
-                    <!-- Las estrellas se generarán aquí -->
                 </div>
             </div>
             <div class="modal-footer" id="coupon-footer">
@@ -1239,51 +537,6 @@
             </div>
         </div>
     </div>
-
-    <style>
-        /* Estilos para los botones de filtro (Categorías) */
-        .filter-btn {
-            background: rgba(255,255,255,0.05);
-            border: 1px solid var(--border-subtle);
-            color: var(--text-muted);
-            padding: 6px 12px;
-            border-radius: 20px;
-            font-size: 0.8rem;
-            cursor: pointer;
-            white-space: nowrap;
-            transition: all 0.2s;
-        }
-        .filter-btn:hover {
-            background: rgba(255,255,255,0.1);
-            color: white;
-        }
-        .filter-btn.active {
-            background: var(--primary-blue);
-            color: white;
-            border-color: var(--primary-blue);
-        }
-
-        /* Estilos para los botones de etiquetas (Tags) */
-        .tag-btn {
-            background: transparent;
-            border: 1px solid rgba(255,255,255,0.15);
-            color: #94a3b8;
-            padding: 4px 10px;
-            border-radius: 6px;
-            font-size: 0.75rem;
-            cursor: pointer;
-            transition: all 0.2s;
-        }
-        .tag-btn:hover {
-            border-color: rgba(255,255,255,0.3);
-            color: white;
-        }
-        .tag-btn.active {
-            background: rgba(16, 185, 129, 0.15); /* Verde suave */
-            border-color: #10b981;
-            color: #10b981;
-        }
-    </style>
 
     <script>
         const generateUrl = "{% url 'generate_image' %}";
@@ -1302,23 +555,21 @@
         // Auto-resize Textarea
         textarea.addEventListener('input', function() {
             this.style.height = 'auto';
-            this.style.height = Math.min(this.scrollHeight, 120) + 'px';
+            this.style.height = Math.min(this.scrollHeight, 150) + 'px';
         });
 
         // Scroll al fondo al cargar
         window.onload = scrollToBottom;
 
-        // Mobile Keyboard Handling (Gemini Style)
+        // Mobile Keyboard Handling
         if (window.innerWidth <= 768) {
             textarea.addEventListener('focus', () => {
-                // Ocultar nav para dar espacio al teclado
                 bottomNav.style.transform = 'translateY(100%)';
                 inputContainer.style.marginBottom = '0';
-                setTimeout(() => scrollToBottom(), 300); // Esperar al teclado
+                setTimeout(() => scrollToBottom(), 300);
             });
 
             textarea.addEventListener('blur', () => {
-                // Restaurar nav
                 bottomNav.style.transform = 'translateY(0)';
                 inputContainer.style.marginBottom = 'var(--nav-height)';
             });
@@ -1332,8 +583,6 @@
         function toggleSidebar(side) {
             const el = document.getElementById(`sidebar-${side}`);
             const overlay = document.getElementById('sidebar-overlay');
-
-            // Cerrar el opuesto
             const other = side === 'left' ? 'right' : 'left';
             document.getElementById(`sidebar-${other}`).classList.remove('open');
 
@@ -1365,12 +614,18 @@
             loadUserGallery();
         };
 
+        // --- CERRAR MODALES AL CLIC FUERA (NUEVO) ---
+        window.onclick = function(event) {
+            if (event.target.classList.contains('modal')) {
+                event.target.style.display = 'none';
+            }
+        }
+
         // --- ASPECT RATIO LOGIC ---
         const ratioContainer = document.querySelector('.aspect-ratio-grid');
         const widthInput = document.getElementById('width-input');
         const heightInput = document.getElementById('height-input');
 
-        // Set default active button on load
         document.addEventListener('DOMContentLoaded', () => {
             const buttons = ratioContainer.querySelectorAll('.aspect-ratio-btn');
             let defaultFound = false;
@@ -1380,7 +635,6 @@
                     defaultFound = true;
                 }
             });
-            // If no match found (e.g., custom config), activate the first one (1:1)
             if (!defaultFound && buttons.length > 0) {
                 const firstButton = buttons[0];
                 firstButton.classList.add('active');
@@ -1392,22 +646,25 @@
         ratioContainer.addEventListener('click', (e) => {
             const clickedButton = e.target.closest('.aspect-ratio-btn');
             if (!clickedButton) return;
-
-            // Update UI
             ratioContainer.querySelectorAll('.aspect-ratio-btn').forEach(btn => btn.classList.remove('active'));
             clickedButton.classList.add('active');
-
-            // Update hidden inputs
             widthInput.value = clickedButton.dataset.width;
             heightInput.value = clickedButton.dataset.height;
         });
+
+        // --- SEED LOGIC (NUEVO) ---
+        function adjustSeed(delta) {
+            const input = document.getElementById('seed-input');
+            let val = parseInt(input.value);
+            if (isNaN(val) || val === -1) val = 0; // Si es random (-1) o vacío, empezar en 0
+            input.value = val + delta;
+        }
 
         // --- GENERATION LOGIC ---
         function sendPrompt() {
             const prompt = textarea.value.trim();
             if (!prompt || !characterId) return;
 
-            // Add User Message
             const userMsg = document.createElement('div');
             userMsg.className = 'message user';
             userMsg.textContent = prompt;
@@ -1417,7 +674,6 @@
             textarea.style.height = 'auto';
             scrollToBottom();
 
-            // Add Loader
             const loaderMsg = document.createElement('div');
             loaderMsg.className = 'message ai';
             loaderMsg.innerHTML = '<i class="fas fa-circle-notch fa-spin"></i> Creating your image...';
@@ -1426,13 +682,10 @@
 
             const width = document.getElementById('width-input').value;
             const height = document.getElementById('height-input').value;
-            const seed = document.getElementById('seed-input').value; // NUEVO: Obtener semilla
-
-            // Obtener estado de los checkboxes (si existen)
+            const seed = document.getElementById('seed-input').value;
             const checkNormal = document.getElementById('check-normal');
             const checkUpscale = document.getElementById('check-upscale');
             const checkFacedetailer = document.getElementById('check-facedetailer');
-
             const useNormal = checkNormal ? checkNormal.checked : true;
             const useUpscale = checkUpscale ? checkUpscale.checked : false;
             const useFaceDetailer = checkFacedetailer ? checkFacedetailer.checked : false;
@@ -1442,9 +695,7 @@
             formData.append('prompt', prompt);
             formData.append('width', width);
             formData.append('height', height);
-            formData.append('seed', seed); // NUEVO: Enviar semilla
-
-            // Enviar preferencias
+            formData.append('seed', seed);
             formData.append('use_normal', useNormal);
             formData.append('use_upscale', useUpscale);
             formData.append('use_facedetailer', useFaceDetailer);
@@ -1458,42 +709,20 @@
             .then(data => {
                 chatArea.removeChild(loaderMsg);
                 if (data.status === 'success') {
-                    // Añadimos los IDs a los mensajes para poder borrarlos
                     userMsg.setAttribute('data-msg-id', data.user_msg_id);
-
                     const resultMsg = document.createElement('div');
                     resultMsg.className = 'message ai';
                     resultMsg.setAttribute('data-msg-id', data.ai_msg_id);
-
                     let html = 'Here are your generated images.<br><div class="result-grid">';
-
                     data.results.forEach(item => {
                         let badgeText = "NORMAL";
                         let badgeClass = "badge-normal";
-
-                        if (item.type === "Gen_UpScaler") {
-                            badgeText = "UPSCALER";
-                            badgeClass = "badge-upscale";
-                        } else if (item.type === "Gen_FaceDetailer") {
-                            badgeText = "FACEDETAILER";
-                            badgeClass = "badge-face";
-                        }
-
-                        // Añadir etiqueta de resolución si existe
+                        if (item.type === "Gen_UpScaler") { badgeText = "UPSCALER"; badgeClass = "badge-upscale"; }
+                        else if (item.type === "Gen_FaceDetailer") { badgeText = "FACEDETAILER"; badgeClass = "badge-face"; }
                         let resBadge = '';
-                        if (item.width && item.height) {
-                            resBadge = `<span class="resolution-badge">${item.width}x${item.height}</span>`;
-                        }
-
-                        html += `
-                            <div class="result-card">
-                                <span class="result-badge ${badgeClass}">${badgeText}</span>
-                                ${resBadge}
-                                <img src="${item.url}" onclick="window.open('${item.url}')">
-                            </div>
-                        `;
+                        if (item.width && item.height) { resBadge = `<span class="resolution-badge">${item.width}x${item.height}</span>`; }
+                        html += `<div class="result-card"><span class="result-badge ${badgeClass}">${badgeText}</span>${resBadge}<img src="${item.url}" onclick="window.open('${item.url}')"></div>`;
                     });
-
                     html += '</div>';
                     resultMsg.innerHTML = html;
                     chatArea.appendChild(resultMsg);
@@ -1525,20 +754,17 @@
         const deleteModalText = document.getElementById('delete-modal-text');
         const confirmDeleteBtn = document.getElementById('confirm-delete-btn');
         const deleteImagesCheckbox = document.getElementById('delete-images-checkbox');
-
         let messageToDelete = null;
         let isClearingChat = false;
 
         function openDeleteModal(msgId, clearChat = false) {
             messageToDelete = msgId;
             isClearingChat = clearChat;
-
             if (clearChat) {
                 deleteModalText.textContent = `Are you sure you want to delete the ENTIRE history of this chat? This action cannot be undone.`;
             } else {
                 deleteModalText.textContent = `Are you sure you want to delete this message?`;
             }
-
             deleteModal.style.display = 'block';
         }
 
@@ -1550,29 +776,21 @@
 
         confirmDeleteBtn.onclick = function() {
             const deleteImages = deleteImagesCheckbox.checked;
-
             if (isClearingChat) {
-                // Borrar historial completo
                 const formData = new FormData();
                 formData.append('character_id', characterId);
                 formData.append('delete_images', deleteImages);
-
                 fetch(clearChatUrl, {
                     method: 'POST',
                     headers: { 'X-CSRFToken': csrfToken, 'X-Requested-With': 'XMLHttpRequest' },
                     body: new URLSearchParams(formData)
                 }).then(res => res.json()).then(data => {
-                    if (data.status === 'success') {
-                        window.location.reload(); // Recargar para ver el chat limpio
-                    }
+                    if (data.status === 'success') window.location.reload();
                 });
-
             } else if (messageToDelete) {
-                // Borrar mensaje individual
                 const formData = new FormData();
                 formData.append('message_id', messageToDelete);
                 formData.append('delete_images', deleteImages);
-
                 fetch(deleteMsgUrl, {
                     method: 'POST',
                     headers: { 'X-CSRFToken': csrfToken, 'X-Requested-With': 'XMLHttpRequest' },
@@ -1611,37 +829,26 @@
 
         function filterCharacters() {
             const searchVal = document.getElementById('char-search').value.toLowerCase();
-            // Esta función se llama al escribir en el buscador
             applyFilters();
         }
 
         function filterCategory(categoryId, btn) {
-            // Actualizar botones de categoría
             document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
             btn.classList.add('active');
-
-            // Guardar el ID activo
             document.getElementById('char-list').dataset.activeCategory = categoryId;
-
             applyFilters();
         }
 
         function toggleSubCategory(subId, btn) {
-            // Toggle clase active
             btn.classList.toggle('active');
-
-            // Actualizar lista de subcategorías activas
             const list = document.getElementById('char-list');
             let activeSubs = list.dataset.activeSubs ? list.dataset.activeSubs.split(',') : [];
-
             if (btn.classList.contains('active')) {
                 activeSubs.push(subId);
             } else {
                 activeSubs = activeSubs.filter(id => id !== subId);
             }
-
             list.dataset.activeSubs = activeSubs.join(',');
-
             applyFilters();
         }
 
@@ -1650,42 +857,28 @@
             const list = document.getElementById('char-list');
             const activeCategoryId = list.dataset.activeCategory || 'ALL';
             const activeSubs = list.dataset.activeSubs ? list.dataset.activeSubs.split(',').filter(Boolean) : [];
-
             const items = document.getElementsByClassName('char-list-item');
             Array.from(items).forEach(item => {
                 const name = item.textContent.toLowerCase();
                 const itemCategoryId = item.getAttribute('data-category-id');
                 const itemSubCategoryId = item.getAttribute('data-subcategory-id');
-
-                // 1. Filtro de Texto
                 const matchesSearch = name.includes(searchVal);
-
-                // 2. Filtro de Categoría (Obligatorio)
                 const matchesCategory = activeCategoryId === 'ALL' || itemCategoryId === activeCategoryId;
-
-                // 3. Filtro de SubCategoría (Opcional - Debe coincidir con ALGUNA de las seleccionadas)
-                // Si no hay subcategorías activas, pasa siempre. Si hay, debe coincidir con una.
-                // NOTA: Como un personaje solo tiene UNA subcategoría, la lógica cambia a "OR" (coincide con alguna de las seleccionadas)
                 const matchesSub = activeSubs.length === 0 || activeSubs.includes(itemSubCategoryId);
-
                 item.style.display = (matchesSearch && matchesCategory && matchesSub) ? 'flex' : 'none';
             });
         }
 
-        // --- COUPON REDEMPTION LOGIC ---
         function redeemCoupon() {
             const code = document.getElementById('coupon-code').value.trim();
             const messageDiv = document.getElementById('coupon-message');
-
             if (!code) {
                 messageDiv.style.color = '#ef4444';
                 messageDiv.textContent = 'Please enter a code.';
                 return;
             }
-
             const formData = new FormData();
             formData.append('code', code);
-
             fetch(redeemCouponUrl, {
                 method: 'POST',
                 headers: { 'X-CSRFToken': csrfToken, 'X-Requested-With': 'XMLHttpRequest' },
@@ -1694,35 +887,25 @@
             .then(res => res.json())
             .then(data => {
                 if (data.status === 'success') {
-                    // Ocultar input y botones
                     document.getElementById('coupon-input-container').style.display = 'none';
                     document.getElementById('coupon-footer').style.display = 'none';
-
-                    // Mostrar contenedor de éxito
                     const successContainer = document.getElementById('coupon-success-container');
                     successContainer.style.display = 'flex';
                     document.getElementById('success-text').textContent = data.message;
-
-                    // Generar estrellitas dentro del contenedor
                     for(let i=0; i<20; i++) {
                         const star = document.createElement('i');
                         star.className = 'fas fa-star mini-star';
-
-                        // Posición aleatoria alrededor del centro
                         const angle = Math.random() * Math.PI * 2;
                         const distance = 30 + Math.random() * 100;
                         const tx = Math.cos(angle) * distance;
                         const ty = Math.sin(angle) * distance;
-
                         star.style.setProperty('--tx', `${tx}px`);
                         star.style.setProperty('--ty', `${ty}px`);
                         star.style.left = '50%';
                         star.style.top = '50%';
                         star.style.animation = `sparkle 0.8s ease-out forwards ${Math.random() * 0.5}s`;
-
                         successContainer.appendChild(star);
                     }
-
                     setTimeout(() => window.location.reload(), 2500);
                 } else {
                     messageDiv.style.color = '#ef4444';
@@ -1734,6 +917,15 @@
                 messageDiv.textContent = 'Connection error.';
             });
         }
+
+        // Cerrar modal al hacer clic fuera
+        window.onclick = function(event) {
+            if (event.target.classList.contains('modal')) {
+                event.target.style.display = 'none';
+            }
+        }
     </script>
+    <script src="{% static 'myapp/js/scripts.js' %}"></script>
+
 </body>
 </html>

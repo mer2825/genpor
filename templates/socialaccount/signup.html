@@ -1,53 +1,120 @@
 {% extends "base.html" %}
 {% load i18n %}
-{% load static %}
 
 {% block title %}{% trans "Sign Up" %}{% endblock %}
 
+{% block navbar %}{% endblock %}
+{% block footer %}{% endblock %}
+
 {% block content %}
-<div style="display: flex; justify-content: center; align-items: center; min-height: 80vh; padding: 20px;">
-    <div style="background-color: #1e293b; padding: 40px; border-radius: 20px; border: 1px solid rgba(255,255,255,0.1); max-width: 500px; width: 100%; box-shadow: 0 10px 25px rgba(0,0,0,0.5); text-align: center;">
+<!-- Contenedor Full Screen - MODO OSCURO -->
+<div class="fixed inset-0 z-50 bg-black flex overflow-hidden font-sans">
 
-        <h1 style="color: white; margin-bottom: 20px; font-size: 1.8rem;">{% trans "Sign Up" %}</h1>
-
-        <p style="color: #94a3b8; margin-bottom: 30px; line-height: 1.6;">
-            {% trans "You are about to use your" %} <strong>{{ provider_name }}</strong> {% trans "account to login to" %} {{ site_name }}.
-            <br>
-            {% trans "As a final step, please complete the following form:" %}
-        </p>
-
-        <form class="signup" id="signup_form" method="post" action="{% url 'socialaccount_signup' %}">
-            {% csrf_token %}
-
-            <!-- Renderizado manual del formulario para estilo -->
-            {% for field in form %}
-                <div style="margin-bottom: 20px; text-align: left;">
-                    <label style="display: block; color: #cbd5e1; margin-bottom: 8px; font-size: 0.9rem;">{{ field.label }}</label>
-                    <div style="background: #0f172a; border: 1px solid rgba(255,255,255,0.1); border-radius: 8px; padding: 10px;">
-                        {{ field }}
-                    </div>
-                    {% if field.errors %}
-                        <div style="color: #ef4444; font-size: 0.8rem; margin-top: 5px;">{{ field.errors }}</div>
-                    {% endif %}
+    <!-- LADO IZQUIERDO: Imagen Carrusel + Branding (50% del ancho) -->
+    <div class="hidden lg:flex lg:w-1/2 relative bg-gray-900 items-end justify-start overflow-hidden group">
+        <!-- Slideshow de imágenes -->
+        {% if hero_images %}
+            {% for img in hero_images %}
+                <div class="hero-slide absolute inset-0 bg-cover bg-center transition-opacity duration-1000 ease-in-out {% if not forloop.first %}opacity-0{% endif %}"
+                     style="background-image: url('{{ img.image.url }}');">
                 </div>
             {% endfor %}
+        {% else %}
+            <div class="absolute inset-0 bg-cover bg-center"
+                 style="background-image: url('https://images.unsplash.com/photo-1620641788421-7a1c342ea42e?q=80&w=2574&auto=format&fit=crop');"></div>
+        {% endif %}
 
-            <button type="submit" style="width: 100%; padding: 12px; background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%); color: white; border: none; border-radius: 10px; font-weight: bold; cursor: pointer; font-size: 1rem; margin-top: 10px; transition: transform 0.2s;">
-                {% trans "Sign Up" %}
-            </button>
-        </form>
+        <!-- Overlay MUY sutil -->
+        <div class="absolute inset-0 bg-black/10"></div>
+
+        <!-- Contenido Texto (Abajo a la izquierda) -->
+        <div class="relative z-10 p-16 w-full max-w-4xl">
+            {% if company_settings.logo %}
+                <img src="{{ company_settings.logo.url }}" alt="Logo" class="h-24 mb-8 object-contain drop-shadow-[0_0_10px_rgba(255,255,255,0.5)]">
+            {% endif %}
+
+            <h2 class="text-6xl font-extrabold text-white mb-6 tracking-tight drop-shadow-md">
+                Únete a <br/>
+                <span class="text-[#d946ef]" style="text-shadow: 0 0 20px rgba(220, 38, 38, 0.9), 0 0 40px rgba(220, 38, 38, 0.6);">
+                    {{ company_settings.name|default:"la Comunidad" }}
+                </span>
+            </h2>
+
+            <div class="h-2 w-32 bg-[#d946ef] mb-8 rounded-full shadow-[0_0_15px_rgba(220,38,38,0.8)]"></div>
+
+            <p class="text-white text-xl font-bold leading-relaxed max-w-2xl drop-shadow-[0_2px_4px_rgba(0,0,0,0.8)]">
+                {{ company_settings.app_hero_description|default:"Crea, comparte y explora. La plataforma definitiva para artistas digitales." }}
+            </p>
+        </div>
+    </div>
+
+    <!-- LADO DERECHO: Formulario (50% del ancho) -->
+    <div class="w-full lg:w-1/2 flex flex-col justify-center items-center bg-[#0a0a0a] px-8 sm:px-12 relative border-l border-gray-900 shadow-2xl overflow-y-auto">
+
+        <!-- Botón Volver -->
+        <a href="/" class="absolute top-8 right-8 text-gray-500 hover:text-orange-500 transition-colors flex items-center gap-2 text-sm font-medium z-10">
+            <span>Volver</span>
+            <i class="fas fa-times"></i>
+        </a>
+
+        <div class="w-full max-w-sm space-y-8 py-12">
+            <!-- Encabezado Formulario -->
+            <div class="text-center lg:text-left">
+                <h2 class="text-3xl font-bold text-white tracking-tight mb-2">{% trans "Sign Up" %}</h2>
+                <p class="text-sm text-gray-400">
+                    {% blocktrans with provider_name=account.get_provider.name site_name=site.name %}You are about to use your {{provider_name}} account to login to
+                    {{site_name}}. As a final step, please complete the following form:{% endblocktrans %}
+                </p>
+            </div>
+
+            <!-- Formulario -->
+            <form class="mt-8 space-y-5" method="POST">
+                {% csrf_token %}
+
+                {% if form.errors %}
+                    <div class="rounded-lg bg-red-900/20 p-4 border-l-4 border-red-600 mb-4">
+                        <p class="text-sm text-red-400">Por favor corrige los errores abajo.</p>
+                    </div>
+                {% endif %}
+
+                {% for field in form %}
+                    <div>
+                        <label for="{{ field.id_for_label }}" class="block text-sm font-medium text-gray-400 mb-1">
+                            {{ field.label }}
+                        </label>
+                        <input type="{{ field.field.widget.input_type }}"
+                               name="{{ field.name }}"
+                               id="{{ field.id_for_label }}"
+                               {% if field.field.required %}required{% endif %}
+                               class="block w-full px-4 py-3 border border-gray-800 rounded-lg bg-gray-900 text-white placeholder-gray-600 focus:outline-none focus:border-orange-500 focus:ring-1 focus:ring-orange-500 sm:text-sm transition-colors"
+                               placeholder="{{ field.label }}">
+                        {% if field.help_text %}
+                            <p class="mt-1 text-xs text-gray-600">{{ field.help_text }}</p>
+                        {% endif %}
+                    </div>
+                {% endfor %}
+
+                <div class="pt-2">
+                    <button type="submit" class="w-full flex justify-center py-3.5 px-4 border border-transparent rounded-lg shadow-sm text-sm font-bold text-white bg-gradient-to-r from-orange-600 to-red-600 hover:from-orange-700 hover:to-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-orange-500 transition-all duration-200 transform hover:scale-[1.02]">
+                        {% trans "Sign Up" %}
+                    </button>
+                </div>
+            </form>
+        </div>
     </div>
 </div>
 
-<style>
-    /* Estilos para los inputs generados por Django */
-    #signup_form input {
-        width: 100%;
-        background: transparent;
-        border: none;
-        color: white;
-        outline: none;
-        font-size: 1rem;
-    }
-</style>
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const slides = document.querySelectorAll('.hero-slide');
+        if (slides.length > 1) {
+            let currentSlide = 0;
+            setInterval(() => {
+                slides[currentSlide].classList.add('opacity-0');
+                currentSlide = (currentSlide + 1) % slides.length;
+                slides[currentSlide].classList.remove('opacity-0');
+            }, 5000);
+        }
+    });
+</script>
 {% endblock %}

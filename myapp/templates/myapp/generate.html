@@ -18,95 +18,172 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link rel="stylesheet" href="{% static 'myapp/css/styles.css' %}">
 
+    <!-- INYECCIÓN DINÁMICA DE COLORES DESDE EL ADMIN -->
+    {% if company %}
     <style>
-        /* --- SCROLLBAR PREMIUM (Visible y Elegante) --- */
-        ::-webkit-scrollbar {
-            width: 10px;
-            height: 10px;
-        }
-        ::-webkit-scrollbar-track {
-            background: transparent;
-        }
-        ::-webkit-scrollbar-thumb {
-            background-color: rgba(255, 255, 255, 0.15);
-            border-radius: 20px;
-            border: 2px solid transparent;
-            background-clip: content-box;
-        }
-        ::-webkit-scrollbar-thumb:hover {
-            background-color: rgba(255, 255, 255, 0.3);
+        :root {
+            /* Colores Base con !important para asegurar prioridad */
+            --primary-start: {{ company.primary_color_start|default:"#a855f7" }};
+            --primary-mid: {{ company.primary_color_mid|default:"#ef4444" }};
+            --primary-end: {{ company.primary_color_end|default:"#ff9068" }};
+            --accent-glow: {{ company.accent_glow_color|default:"#ef4444" }};
+            --offer-bar-color: {{ company.offer_bar_color|default:"#10b981" }}; /* NUEVO */
+
+            /* Variables derivadas para usar en styles.css */
+            --primary-color: var(--primary-mid);
+            --primary-gradient: linear-gradient(135deg, var(--primary-start) 0%, var(--primary-mid) 50%, var(--primary-end) 100%);
+
+            /* Glows dinámicos (con opacidad) */
+            --primary-glow: color-mix(in srgb, var(--accent-glow), transparent 50%);
+
+            /* Fondo dinámico (usando los colores elegidos) */
+            --bg-gradient:
+                radial-gradient(circle at 50% -20%, color-mix(in srgb, var(--primary-start), transparent 85%) 0%, transparent 50%),
+                radial-gradient(circle at 0% 30%, color-mix(in srgb, var(--primary-mid), transparent 90%) 0%, transparent 40%),
+                radial-gradient(circle at 100% 70%, color-mix(in srgb, var(--primary-start), transparent 92%) 0%, transparent 40%),
+                linear-gradient(to bottom, #0f0505 0%, #020202 100%);
         }
 
-        /* Estilos para los botones de filtro (Categorías) */
-        .filter-btn {
-            background: rgba(255,255,255,0.05);
-            border: 1px solid rgba(255,255,255,0.1);
-            color: var(--text-muted);
-            padding: 8px 16px;
-            border-radius: 24px;
-            font-size: 0.9rem;
-            cursor: pointer;
-            white-space: nowrap;
-            transition: all 0.3s ease;
-            margin-right: 8px;
-            font-weight: 500;
+        /* Sobrescribir la barra de ofertas con el color personalizado */
+        .oferta-bar {
+            /* CAMBIO: Usamos background-image para NO bloquear la posición (que la mueve la animación) */
+            background-image:
+                repeating-linear-gradient(
+                    45deg,
+                    rgba(0, 0, 0, 0.15),
+                    rgba(0, 0, 0, 0.15) 10px,
+                    rgba(0, 0, 0, 0.05) 10px,
+                    rgba(0, 0, 0, 0.05) 20px
+                ),
+                linear-gradient(90deg,
+                    color-mix(in srgb, var(--offer-bar-color), black 20%),
+                    var(--offer-bar-color),
+                    color-mix(in srgb, var(--offer-bar-color), black 20%)
+                ) !important;
+
+            /* Aseguramos el tamaño para que haya espacio para moverse */
+            background-size: 200% 200% !important;
+
+            border-bottom-color: color-mix(in srgb, var(--offer-bar-color), white 20%) !important;
+            box-shadow: 0 4px 25px color-mix(in srgb, var(--offer-bar-color), transparent 40%) !important;
+
+            /* Definimos AMBAS animaciones explícitamente */
+            animation: stripesMove 20s linear infinite, glowPulseCustom 3s ease-in-out infinite !important;
         }
-        .filter-btn:hover {
-            background: rgba(255,255,255,0.1);
+
+        /* Animación de pulso adaptada al color personalizado */
+        @keyframes glowPulseCustom {
+            0%, 100% {
+                box-shadow: 0 4px 15px color-mix(in srgb, var(--offer-bar-color), transparent 60%);
+                border-bottom-color: var(--offer-bar-color);
+            }
+            50% {
+                box-shadow: 0 4px 30px color-mix(in srgb, var(--offer-bar-color), transparent 30%);
+                border-bottom-color: color-mix(in srgb, var(--offer-bar-color), white 50%);
+            }
+        }
+    </style>
+    {% endif %}
+
+    <style>
+        /* Estilo para el Botón Flotante (FAB) */
+        .fab-create {
+            position: fixed;
+            bottom: 30px;
+            right: 30px;
+            background: var(--primary-gradient);
             color: white;
-            border-color: rgba(255,255,255,0.3);
-            transform: translateY(-1px);
-        }
-        .filter-btn.active {
-            background: linear-gradient(135deg, #ef4444, #b91c1c); /* Rojo vibrante */
-            color: white;
-            border-color: transparent;
-            box-shadow: 0 4px 12px rgba(239, 68, 68, 0.4); /* Sombra roja */
-            font-weight: 600;
-        }
-
-        /* Estilos para los botones de etiquetas (Subcategorías) */
-        .tag-btn {
-            background: transparent;
-            border: 1px solid rgba(168, 85, 247, 0.3); /* Borde morado sutil */
-            color: #c084fc; /* Texto morado claro */
-            padding: 6px 12px;
-            border-radius: 8px;
-            font-size: 0.8rem;
-            cursor: pointer;
-            transition: all 0.3s ease;
-            margin-right: 6px;
-            margin-bottom: 6px;
-        }
-        .tag-btn:hover {
-            border-color: #a855f7;
-            color: #e9d5ff;
-            background: rgba(168, 85, 247, 0.1);
-            transform: translateY(-1px);
-        }
-        .tag-btn.active {
-            background: rgba(168, 85, 247, 0.2); /* Fondo morado translúcido */
-            border-color: #d8b4fe; /* Borde morado brillante */
-            color: #d8b4fe; /* Texto morado brillante */
-            box-shadow: 0 0 10px rgba(168, 85, 247, 0.3); /* Resplandor morado */
-            font-weight: 600;
-        }
-
-        /* --- NUEVO: Estilo para el contador de tokens --- */
-        .token-badge {
-            background-color: rgba(255, 255, 255, 0.05);
-            color: var(--text-muted);
-            padding: 6px 12px;
-            border-radius: 20px;
-            font-size: 0.8rem;
-            font-weight: 600;
+            padding: 12px 28px;
+            border-radius: 50px;
+            font-size: 1.1rem;
+            font-weight: 700;
+            text-decoration: none;
+            box-shadow: 0 10px 25px rgba(255, 75, 75, 0.4);
             display: flex;
             align-items: center;
-            gap: 6px;
-            border: 1px solid var(--border-subtle);
+            gap: 12px;
+            z-index: 1000;
+            transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+            border: 2px solid rgba(255, 255, 255, 0.2);
+            letter-spacing: 0.5px;
+
+            /* Inicialmente oculto y pequeño para la animación de entrada */
+            opacity: 0;
+            transform: scale(0) translateY(20px);
+            pointer-events: none; /* No clicable mientras está oculto */
         }
-        .token-badge i {
-            color: #facc15; /* Amarillo */
+
+        .fab-create.visible {
+            opacity: 1;
+            transform: scale(1) translateY(0);
+            pointer-events: auto;
+        }
+
+        .fab-create:hover {
+            transform: translateY(-5px) scale(1.05);
+            box-shadow: 0 15px 35px rgba(255, 75, 75, 0.6);
+        }
+
+        /* Icono SVG Estrella 4 Puntas (Grupo) */
+        .star-icon {
+            width: 24px;
+            height: 24px;
+            fill: white;
+            filter: drop-shadow(0 0 2px rgba(255,255,255,0.6));
+        }
+
+        /* Icono SVG Estrella Pequeño (Para menús) */
+        .star-icon-sm {
+            width: 18px;
+            height: 18px;
+            fill: currentColor; /* Hereda el color del texto */
+        }
+
+        /* Partícula viajera (Estrella fugaz) */
+        .traveling-star {
+            position: fixed;
+            width: 20px;
+            height: 20px;
+            background: white;
+            border-radius: 50%;
+            box-shadow: 0 0 15px 5px rgba(255, 255, 255, 0.8), 0 0 30px 10px var(--primary-color);
+            z-index: 9999;
+            pointer-events: none;
+            opacity: 0;
+            transform: translate(-50%, -50%);
+        }
+
+        .traveling-star::after {
+            content: '';
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            width: 100px;
+            height: 2px;
+            background: linear-gradient(90deg, white, transparent);
+            transform: translateY(-50%) rotate(180deg); /* Cola hacia atrás */
+            transform-origin: left center;
+            opacity: 0.6;
+        }
+
+        /* Estilo para ocultar el botón original suavemente */
+        .cta-button {
+            transition: opacity 0.3s ease, transform 0.3s ease;
+        }
+        .cta-button.hidden-hero {
+            opacity: 0;
+            pointer-events: none;
+            transform: scale(0.8);
+        }
+
+        /* Ajuste para móvil: subirlo un poco para no tapar el bottom nav */
+        @media (max-width: 768px) {
+            .fab-create {
+                bottom: 80px;
+                right: 20px;
+                padding: 12px 24px;
+                font-size: 1rem;
+            }
         }
     </style>
 </head>
@@ -125,75 +202,75 @@
 
         <div class="user-menu">
             {% if user.is_authenticated %}
-                <!-- Botón GALERÍA (Nuevo) -->
-                <a href="{% url 'gallery' %}" class="action-btn gallery-btn desktop-nav-btn" style="padding: 8px 16px; font-size: 0.85rem; text-decoration: none;">
+                <!-- Botón GALERÍA -->
+                <a href="{% url 'gallery' %}" class="action-btn gallery-btn desktop-nav-btn">
                     <i class="fas fa-images"></i> Gallery
                 </a>
 
-                <!-- Botón MI ENTORNO -->
-                <a href="{% url 'workspace' %}" class="action-btn desktop-nav-btn" style="padding: 8px 16px; font-size: 0.85rem; text-decoration: none; background: linear-gradient(135deg, #3b82f6, #2563eb); box-shadow: 0 4px 10px rgba(59, 130, 246, 0.3);">
-                    <i class="fas fa-rocket"></i> MY WORKSPACE
-                </a>
+                <!-- Botón CUPONES (NUEVO) -->
+                <button onclick="document.getElementById('modal-coupon').style.display='block'" class="action-btn desktop-nav-btn" style="background: rgba(251, 191, 36, 0.1); color: #fbbf24; border: 1px solid rgba(251, 191, 36, 0.3); cursor: pointer;">
+                    <i class="fas fa-ticket-alt"></i> Coupons
+                </button>
 
-                <!-- NUEVO: Contador de Tokens -->
+                <!-- Contador de Tokens -->
                 {% if user.is_authenticated and not user.is_staff %}
                 <div class="token-badge">
                     <i class="fas fa-coins"></i>
-                    <span>{{ user.clientprofile.tokens_remaining }} / {{ user.clientprofile.token_allowance }} Tokens</span>
+                    <span>{{ user.clientprofile.tokens_remaining }} Tokens</span>
                 </div>
                 {% endif %}
 
-                <div class="user-info">
-                    <span>{{ user.username }}</span>
-                    <div class="user-avatar">{{ user.username|slice:":1"|upper }}</div>
-                </div>
-                <div class="auth-links">
-                    <a href="{% url 'account_logout' %}" title="Logout"><i class="fas fa-sign-out-alt"></i></a>
-                </div>
+                <!-- AVATAR CLICABLE (PERFIL) -->
+                <a href="{% url 'profile' %}" class="user-avatar" style="text-decoration: none;">
+                    {{ user.username|slice:":1"|upper }}
+                </a>
+
             {% else %}
                 <div class="auth-links">
                     <a href="{% url 'account_login' %}">Login</a>
-                    <a href="{% url 'account_signup' %}">Sign Up</a>
+                    <a href="{% url 'account_signup' %}" style="color: var(--primary-color);">Sign Up</a>
                 </div>
             {% endif %}
         </div>
     </header>
 
-    <!-- Barra de Oferta (AHORA DINÁMICA) -->
+    <!-- Barra de Oferta -->
     {% if company.offer_bar_text %}
     <div class="oferta-bar">
         {{ company.offer_bar_text }}
     </div>
     {% endif %}
 
-    <!-- Sección Principal (Hero Compacto con Carrusel DOBLE) -->
+    <!-- Sección Principal (Hero) -->
     <section class="hero-section">
         <div class="hero-text">
-            <!-- Título y Descripción Dinámicos desde Admin -->
             <h1>{% if company.app_hero_title %}{{ company.app_hero_title }}{% else %}Anime - Realistic Generator{% endif %}</h1>
+
+            <!-- SUBTÍTULO (MEJORADO) -->
+            {% if company.app_hero_subtitle %}
+                <h2 style="font-size: 2rem; font-weight: 800; margin: 15px 0; color: #e2e8f0; text-shadow: 0 2px 10px rgba(0,0,0,0.5); letter-spacing: 0.5px;">
+                    {{ company.app_hero_subtitle }}
+                </h2>
+            {% endif %}
+
             <p>{% if company.app_hero_description %}{{ company.app_hero_description }}{% else %}Transform your ideas into art with our powerful AI engine. Create unique characters in seconds.{% endif %}</p>
-            <button onclick="document.querySelector('.personajes-section').scrollIntoView({behavior: 'smooth'})" class="cta-button">Start Creating</button>
+
+            <!-- BOTÓN HERO (ID agregado para JS) -->
+            <!-- CAMBIO: Ahora redirige al Workspace -->
+            <a href="{% url 'workspace' %}" id="hero-cta-btn" class="cta-button">Start Creating</a>
         </div>
 
-        <!-- Carrusel Automático Hero (Doble Imagen) -->
+        <!-- Carrusel Hero -->
         <div class="hero-carousel-wrapper" id="hero-carousel">
             {% for item in hero_items %}
-                {% if forloop.counter0|divisibleby:2 %}
                 <div class="hero-slide {% if forloop.first %}active{% endif %}">
-                {% endif %}
-
                     <div class="hero-image-half">
                         <img src="{{ item.image_url }}" alt="{{ item.name }}">
                         <div class="hero-caption">{{ item.name }}</div>
                     </div>
-
-                {% if forloop.counter|divisibleby:2 or forloop.last %}
                 </div>
-                {% endif %}
-
             {% empty %}
-                <!-- Fallback si no hay imágenes configuradas -->
-                <div class="hero-slide active" style="display: flex; justify-content: center; align-items: center; background: #1e293b; color: #64748b; font-size: 1.2rem;">
+                <div class="hero-slide active" style="display: flex; justify-content: center; align-items: center; background: #1e293b; color: #64748b;">
                     <div style="text-align: center;">
                         <i class="fas fa-image" style="font-size: 3rem; margin-bottom: 15px; display: block;"></i>
                         <span>No images available</span>
@@ -205,8 +282,8 @@
 
     <!-- Sección Personajes -->
     <section class="personajes-section" id="personajes-list">
-        <!-- FILTROS DE CATEGORÍA DINÁMICOS -->
-        <div class="filter-buttons-container" style="overflow-x: auto; white-space: nowrap; padding-bottom: 10px; margin-bottom: 10px;">
+        <!-- FILTROS DE CATEGORÍA -->
+        <div class="filter-buttons-container">
             <button class="filter-btn active" onclick="filterCategory('ALL', this)">All</button>
             {% for cat in all_categories %}
                 <button class="filter-btn" onclick="filterCategory('{{ cat.id }}', this)">{{ cat.name }}</button>
@@ -214,53 +291,73 @@
         </div>
 
         <!-- FILTROS DE SUBCATEGORÍAS (TAGS) -->
-        <div class="sub-filter-container" style="display:flex; flex-wrap:wrap; justify-content:center; margin-bottom:20px;">
+        <div class="sub-filter-container" style="display:flex; flex-wrap:wrap; justify-content:center; margin-bottom:30px; gap: 8px;">
             {% for sub in all_subcategories %}
-                <button class="tag-btn" onclick="toggleSubCategory('{{ sub.id }}', this)">#{{ sub.name }}</button>
+                <button class="filter-btn" style="font-size: 0.8rem; padding: 6px 16px; border-style: dashed;" onclick="toggleSubCategory('{{ sub.id }}', this)">#{{ sub.name }}</button>
             {% endfor %}
         </div>
 
         <div class="album-container">
             {% for character in characters %}
-            <!-- CAMBIO: Añadimos data-category-id y data-subcategory-id -->
             <a href="{% url 'workspace' %}?character_id={{ character.id }}" class="character-card"
                data-character-id="{{ character.id }}"
                data-category-id="{{ character.category.id|default:'NONE' }}"
-               data-subcategory-id="{{ character.subcategory.id|default:'NONE' }}"
-               style="text-decoration: none;">
-                <h2>{{ character.name }}</h2>
+               data-subcategory-id="{{ character.subcategory.id|default:'NONE' }}">
 
-                <!-- NUEVO: Descripción en la tarjeta -->
-                {% if character.description %}
-                <p style="padding: 0 15px 15px; margin: 0; color: var(--text-muted); font-size: 0.9rem; line-height: 1.4;">
-                    {{ character.description|truncatechars:80 }}
-                </p>
-                {% endif %}
-
+                <!-- Carrusel de Imágenes (Fondo) -->
                 <div class="carousel">
-                    <!-- CAMBIO: Usamos catalog_images_set.all -->
                     {% if character.catalog_images_set.all %}
                         {% for image in character.catalog_images_set.all %}
-                        <img src="{{ image.image.url }}" class="carousel-image {% if forloop.first %}active{% endif %}" alt="{{ image.description }}">
+                        <img src="{{ image.image.url }}" class="carousel-image {% if forloop.first %}active{% endif %}" alt="{{ character.name }}">
                         {% endfor %}
+
+                        <!-- Indicadores de Progreso (Arriba a la derecha) -->
                         <div class="carousel-progress-bar">
                             {% for image in character.catalog_images_set.all %}
                             <div class="progress-segment {% if forloop.first %}active{% endif %}"></div>
                             {% endfor %}
                         </div>
                     {% else %}
-                        <div class="carousel-image active" style="display: flex; justify-content: center; align-items: center; background: #1e293b; color: #64748b; height: 100%;">
-                            <div style="text-align: center;">
-                                <i class="fas fa-image" style="font-size: 2rem; margin-bottom: 10px; display: block;"></i>
-                                <span style="font-size: 0.8rem;">No images</span>
-                            </div>
+                        <div class="carousel-image active" style="display: flex; justify-content: center; align-items: center; background: #1e293b; color: #64748b;">
+                            <i class="fas fa-image" style="font-size: 2rem;"></i>
                         </div>
                     {% endif %}
+                </div>
+
+                <!-- Overlay de Información (Sobre la imagen) -->
+                <div class="card-overlay">
+                    <h2>{{ character.name }}</h2>
+                    {% if character.description %}
+                    <p>{{ character.description|truncatechars:80 }}</p>
+                    {% endif %}
+
+                    <div class="chat-badge">
+                        <i class="fas fa-comment-dots"></i> Chat Now
+                    </div>
                 </div>
             </a>
             {% endfor %}
         </div>
     </section>
+
+    <!-- BOTÓN FLOTANTE (FAB) CON ESTRELLAS IA -->
+    {% if user.is_authenticated %}
+    <a href="{% url 'workspace' %}" class="fab-create" id="fab-create-btn">
+        <!-- SVG Grupo de Estrellas 4 Puntas -->
+        <svg class="star-icon" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+            <!-- Estrella Grande -->
+            <path d="M12 2L14 9L21 11L14 13L12 20L10 13L3 11L10 9L12 2Z" />
+            <!-- Estrella Mediana (Arriba Derecha) -->
+            <path d="M19 2L20 5L23 6L20 7L19 10L18 7L15 6L18 5L19 2Z" />
+            <!-- Estrella Pequeña (Abajo Izquierda) -->
+            <path d="M5 16L6 18L9 19L6 20L5 23L4 20L1 19L4 18L5 16Z" />
+        </svg>
+        Create
+    </a>
+    {% endif %}
+
+    <!-- Elemento para la animación de la estrella viajera -->
+    <div id="star-particle" class="traveling-star"></div>
 
     <!-- Footer -->
     <footer>
@@ -298,7 +395,12 @@
             <span>Home</span>
         </a>
         <a href="{% url 'workspace' %}" class="bottom-nav-item">
-            <i class="fas fa-rocket"></i>
+            <!-- SVG Estrellas (Pequeño) -->
+            <svg class="star-icon-sm" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                <path d="M12 2L14 9L21 11L14 13L12 20L10 13L3 11L10 9L12 2Z" />
+                <path d="M19 2L20 5L23 6L20 7L19 10L18 7L15 6L18 5L19 2Z" />
+                <path d="M5 16L6 18L9 19L6 20L5 23L4 20L1 19L4 18L5 16Z" />
+            </svg>
             <span>Workspace</span>
         </a>
         <a href="{% url 'gallery' %}" class="bottom-nav-item">
@@ -306,6 +408,32 @@
             <span>Gallery</span>
         </a>
     </nav>
+
+    <!-- MODAL DE CANJE DE CUPÓN (NUEVO EN GENERATE) -->
+    <div id="modal-coupon" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 style="margin:0; color:white;">Redeem Coupon</h3>
+                <span onclick="document.getElementById('modal-coupon').style.display='none'" style="cursor:pointer; color:white;">&times;</span>
+            </div>
+            <div class="modal-body">
+                <div id="coupon-input-container">
+                    <p style="color:var(--text-muted); margin-bottom:15px;">Enter your coupon code to receive extra tokens.</p>
+                    <input type="text" id="coupon-code" placeholder="Enter code here..." style="width:100%; padding:10px; background:#0f172a; border:1px solid var(--border-subtle); color:white; border-radius:8px; margin-bottom:15px; box-sizing:border-box;">
+                    <div id="coupon-message" style="margin-top:10px; font-size:0.9rem;"></div>
+                </div>
+
+                <div id="coupon-success-container" class="success-animation-container" style="display:none;">
+                    <i class="fas fa-check-circle success-icon"></i>
+                    <div id="success-text" class="success-text"></div>
+                </div>
+            </div>
+            <div class="modal-footer" id="coupon-footer">
+                <button class="modal-btn modal-btn-secondary" onclick="document.getElementById('modal-coupon').style.display='none'">Cancel</button>
+                <button class="modal-btn" style="background-color:var(--primary-blue); color:white;" onclick="redeemCoupon()">Redeem</button>
+            </div>
+        </div>
+    </div>
 
     <!-- Scripts -->
     <script>
@@ -316,23 +444,20 @@
             csrfToken: "{{ csrf_token }}"
         };
 
-        // --- LÓGICA DE FILTRADO (NUEVA) ---
+        // URL para canjear cupones (necesaria para el script)
+        const redeemCouponUrl = "{% url 'redeem_coupon' %}";
+        const csrfToken = "{{ csrf_token }}";
+
+        // --- LÓGICA DE FILTRADO ---
         function filterCategory(categoryId, btn) {
-            // Actualizar botones de categoría
-            document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+            document.querySelectorAll('.filter-buttons-container .filter-btn').forEach(b => b.classList.remove('active'));
             btn.classList.add('active');
-
-            // Guardar el ID activo en el contenedor
             document.getElementById('personajes-list').dataset.activeCategory = categoryId;
-
             applyFilters();
         }
 
         function toggleSubCategory(subId, btn) {
-            // Toggle clase active
             btn.classList.toggle('active');
-
-            // Actualizar lista de subcategorías activas
             const list = document.getElementById('personajes-list');
             let activeSubs = list.dataset.activeSubs ? list.dataset.activeSubs.split(',') : [];
 
@@ -341,9 +466,7 @@
             } else {
                 activeSubs = activeSubs.filter(id => id !== subId);
             }
-
             list.dataset.activeSubs = activeSubs.join(',');
-
             applyFilters();
         }
 
@@ -357,18 +480,160 @@
                 const itemCategoryId = card.getAttribute('data-category-id');
                 const itemSubCategoryId = card.getAttribute('data-subcategory-id');
 
-                // 1. Filtro de Categoría (Obligatorio)
                 const matchesCategory = activeCategoryId === 'ALL' || itemCategoryId === activeCategoryId;
-
-                // 2. Filtro de SubCategoría (Opcional - OR)
                 const matchesSub = activeSubs.length === 0 || activeSubs.includes(itemSubCategoryId);
 
                 if (matchesCategory && matchesSub) {
-                    card.style.display = 'block';
+                    card.style.display = 'block'; // Flex para mantener layout
+                    // Pequeña animación de entrada
+                    card.style.opacity = '0';
+                    card.style.transform = 'scale(0.95)';
+                    setTimeout(() => {
+                        card.style.opacity = '1';
+                        card.style.transform = 'scale(1)';
+                    }, 50);
                 } else {
                     card.style.display = 'none';
                 }
             });
+        }
+
+        // --- ANIMACIÓN ESTELAR DEL BOTÓN ---
+        document.addEventListener('DOMContentLoaded', function() {
+            const heroBtn = document.getElementById('hero-cta-btn');
+            const fabBtn = document.getElementById('fab-create-btn');
+            const starParticle = document.getElementById('star-particle');
+
+            if (!heroBtn || !fabBtn) return;
+
+            let isFabVisible = false;
+            let isAnimating = false;
+
+            // NUEVA LÓGICA DE SCROLL
+            function checkScroll() {
+                const rect = heroBtn.getBoundingClientRect();
+
+                // Si el botón está subiendo y ya pasó la parte superior (o está muy cerca)
+                // Ajustamos el umbral a 150px desde el top (cerca del header)
+                if (rect.top < 150) {
+                    if (!isFabVisible && !isAnimating) {
+                        // Ocultar botón original
+                        heroBtn.classList.add('hidden-hero');
+                        animateStarTransition();
+                    }
+                } else {
+                    // Si el usuario vuelve a subir y el botón baja a una posición visible
+                    if (isFabVisible && rect.top > 300) {
+                        hideFab();
+                        // Mostrar botón original
+                        heroBtn.classList.remove('hidden-hero');
+                    }
+                }
+            }
+
+            // Escuchar el evento scroll
+            window.addEventListener('scroll', checkScroll);
+            // Chequear al inicio por si ya está scrolleado
+            checkScroll();
+
+            function animateStarTransition() {
+                isAnimating = true;
+
+                // 1. Obtener posiciones
+                const heroRect = heroBtn.getBoundingClientRect();
+                const fabRect = fabBtn.getBoundingClientRect();
+
+                // 2. Posicionar la estrella en el botón del Hero
+                // (Usamos coordenadas fijas relativas a la ventana)
+                const startX = heroRect.left + heroRect.width / 2;
+                const startY = heroRect.top + heroRect.height / 2;
+
+                // Destino: centro del FAB
+                // Si el FAB está oculto (scale 0), getBoundingClientRect puede dar valores raros,
+                // así que calculamos basándonos en su posición CSS fija (bottom: 30px, right: 30px)
+                const endX = window.innerWidth - 30 - (fabRect.width / 2 || 60);
+                const endY = window.innerHeight - 30 - (fabRect.height / 2 || 25);
+
+                // 3. Configurar estado inicial de la estrella
+                starParticle.style.left = `${startX}px`;
+                starParticle.style.top = `${startY}px`;
+                starParticle.style.opacity = '1';
+                starParticle.style.transition = 'none'; // Resetear transición
+
+                // Calcular ángulo para la cola de la estrella
+                const deltaX = endX - startX;
+                const deltaY = endY - startY;
+                const angle = Math.atan2(deltaY, deltaX) * 180 / Math.PI;
+                starParticle.style.transform = `translate(-50%, -50%) rotate(${angle}deg)`;
+
+                // Forzar reflow
+                void starParticle.offsetWidth;
+
+                // 4. Iniciar animación de viaje
+                starParticle.style.transition = 'all 0.6s cubic-bezier(0.5, 0, 0, 1)'; // Aceleración tipo cohete
+                starParticle.style.left = `${endX}px`;
+                starParticle.style.top = `${endY}px`;
+
+                // 5. Al terminar el viaje
+                setTimeout(() => {
+                    // Ocultar estrella
+                    starParticle.style.opacity = '0';
+
+                    // Mostrar FAB con efecto POP
+                    fabBtn.classList.add('visible');
+                    isFabVisible = true;
+                    isAnimating = false;
+                }, 600); // Duración coincidente con la transición CSS
+            }
+
+            function hideFab() {
+                fabBtn.classList.remove('visible');
+                isFabVisible = false;
+            }
+        });
+
+        // --- LÓGICA DE CUPONES (COPIADA DE WORKSPACE) ---
+        function redeemCoupon() {
+            const code = document.getElementById('coupon-code').value.trim();
+            const messageDiv = document.getElementById('coupon-message');
+            if (!code) {
+                messageDiv.style.color = '#ef4444';
+                messageDiv.textContent = 'Please enter a code.';
+                return;
+            }
+            const formData = new FormData();
+            formData.append('code', code);
+            fetch(redeemCouponUrl, {
+                method: 'POST',
+                headers: { 'X-CSRFToken': csrfToken, 'X-Requested-With': 'XMLHttpRequest' },
+                body: new URLSearchParams(formData)
+            })
+            .then(res => res.json())
+            .then(data => {
+                if (data.status === 'success') {
+                    document.getElementById('coupon-input-container').style.display = 'none';
+                    document.getElementById('coupon-footer').style.display = 'none';
+                    const successContainer = document.getElementById('coupon-success-container');
+                    successContainer.style.display = 'flex';
+                    document.getElementById('success-text').textContent = data.message;
+                    // Animación de estrellas (simplificada)
+                    setTimeout(() => window.location.reload(), 2000);
+                } else {
+                    messageDiv.style.color = '#ef4444';
+                    messageDiv.textContent = data.message;
+                }
+            })
+            .catch(() => {
+                messageDiv.style.color = '#ef4444';
+                messageDiv.textContent = 'Connection error.';
+            });
+        }
+
+        // Cerrar modal al hacer clic fuera
+        window.onclick = function(event) {
+            if (event.target.classList.contains('modal')) {
+                event.target.style.display = 'none';
+            }
         }
     </script>
     <script src="{% static 'myapp/js/scripts.js' %}"></script>

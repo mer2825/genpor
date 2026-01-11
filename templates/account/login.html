@@ -4,45 +4,62 @@
 
 {% block title %}{% trans "Iniciar Sesión" %}{% endblock %}
 
+{% block navbar %}{% endblock %}
+{% block footer %}{% endblock %}
+
 {% block content %}
 <!-- Contenedor Full Screen - MODO OSCURO -->
 <div class="fixed inset-0 z-50 bg-black flex overflow-hidden font-sans">
 
-    <!-- LADO IZQUIERDO: Imagen Carrusel + Branding -->
-    <div class="hidden lg:flex lg:w-1/2 relative bg-gray-900 items-end justify-start overflow-hidden">
-        <!-- Imagen de fondo: Usa la del carrusel si existe -->
-        {% if hero_bg %}
-            <div class="absolute inset-0 bg-cover bg-center transition-transform duration-10000 hover:scale-110"
-                 style="background-image: url('{{ hero_bg.image.url }}');"></div>
+    <!-- LADO IZQUIERDO: Imagen Carrusel + Branding (50% del ancho) -->
+    <div class="hidden lg:flex lg:w-1/2 relative bg-gray-900 items-end justify-start overflow-hidden group">
+        <!-- Slideshow de imágenes -->
+        {% if hero_images %}
+            {% for img in hero_images %}
+                <div class="hero-slide absolute inset-0 bg-cover bg-center transition-opacity duration-1000 ease-in-out {% if not forloop.first %}opacity-0{% endif %}"
+                     style="background-image: url('{{ img.image.url }}');">
+                </div>
+            {% endfor %}
         {% else %}
             <!-- Fallback si no hay imagen -->
             <div class="absolute inset-0 bg-cover bg-center"
                  style="background-image: url('https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?q=80&w=2564&auto=format&fit=crop');"></div>
         {% endif %}
 
-        <!-- Degradado Negro desde abajo para que el texto se lea SIEMPRE -->
-        <div class="absolute inset-0 bg-gradient-to-t from-black via-black/50 to-transparent opacity-90"></div>
+        <!-- Overlay MUY sutil solo para legibilidad mínima -->
+        <div class="absolute inset-0 bg-black/10"></div>
 
         <!-- Contenido Texto (Abajo a la izquierda) -->
-        <div class="relative z-10 p-12 w-full">
+        <div class="relative z-10 p-16 w-full max-w-4xl">
             {% if company_settings.logo %}
-                <img src="{{ company_settings.logo.url }}" alt="Logo" class="h-16 mb-6 object-contain">
+                <img src="{{ company_settings.logo.url }}" alt="Logo" class="h-24 mb-8 object-contain drop-shadow-[0_0_10px_rgba(255,255,255,0.5)]">
             {% endif %}
 
-            <h2 class="text-5xl font-extrabold text-white mb-4 tracking-tight">
-                {{ company_settings.name|default:"Mi App" }}
+            <!-- Título: Morado Fosforescente con Glow Rojo -->
+            <h2 class="text-7xl font-black mb-2 tracking-tighter" style="text-shadow: 0 0 20px rgba(220, 38, 38, 0.9), 0 0 40px rgba(220, 38, 38, 0.6);">
+                <span class="text-[#d946ef]"> <!-- Morado Fosforescente (Fuchsia-500 aprox) -->
+                    {{ company_settings.name|default:"Mi App" }}
+                </span>
             </h2>
 
-            <div class="h-1 w-20 bg-gradient-to-r from-orange-500 to-red-600 mb-6"></div>
+            <!-- Subtítulo (Nuevo) -->
+            {% if company_settings.app_hero_subtitle %}
+                <h3 class="text-3xl font-bold text-white mb-6 drop-shadow-[0_2px_4px_rgba(0,0,0,0.8)]">
+                    {{ company_settings.app_hero_subtitle }}
+                </h3>
+            {% endif %}
 
-            <p class="text-gray-300 text-lg font-light leading-relaxed max-w-lg">
+            <!-- Línea decorativa -->
+            <div class="h-2 w-32 bg-[#d946ef] mb-8 rounded-full shadow-[0_0_15px_rgba(220,38,38,0.8)]"></div>
+
+            <p class="text-white text-xl font-bold leading-relaxed max-w-2xl drop-shadow-[0_2px_4px_rgba(0,0,0,0.8)]">
                 {{ company_settings.app_hero_description|default:"Tu estudio de generación de arte con IA." }}
             </p>
         </div>
     </div>
 
-    <!-- LADO DERECHO: Formulario -->
-    <div class="w-full lg:w-1/2 flex flex-col justify-center items-center bg-[#0a0a0a] px-8 sm:px-12 lg:px-24 relative border-l border-gray-900">
+    <!-- LADO DERECHO: Formulario (50% del ancho) -->
+    <div class="w-full lg:w-1/2 flex flex-col justify-center items-center bg-[#0a0a0a] px-8 sm:px-12 relative border-l border-gray-900 shadow-2xl">
 
         <!-- Botón Volver -->
         <a href="/" class="absolute top-8 right-8 text-gray-500 hover:text-orange-500 transition-colors flex items-center gap-2 text-sm font-medium">
@@ -130,4 +147,18 @@
         </div>
     </div>
 </div>
+
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const slides = document.querySelectorAll('.hero-slide');
+        if (slides.length > 1) {
+            let currentSlide = 0;
+            setInterval(() => {
+                slides[currentSlide].classList.add('opacity-0');
+                currentSlide = (currentSlide + 1) % slides.length;
+                slides[currentSlide].classList.remove('opacity-0');
+            }, 5000); // Cambia cada 5 segundos
+        }
+    });
+</script>
 {% endblock %}

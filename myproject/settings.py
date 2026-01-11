@@ -188,6 +188,12 @@ ACCOUNT_EMAIL_REQUIRED = True
 ACCOUNT_USERNAME_REQUIRED = False
 ACCOUNT_SESSION_REMEMBER = True # Recordar sesión por defecto
 
+# --- CONFIGURACIÓN SOCIALACCOUNT ---
+# Esto evita que pida confirmación o registro adicional si el email ya existe o es confiable
+SOCIALACCOUNT_AUTO_SIGNUP = True
+SOCIALACCOUNT_EMAIL_VERIFICATION = "none"
+SOCIALACCOUNT_ADAPTER = "allauth.socialaccount.adapter.DefaultSocialAccountAdapter"
+
 # Configuración de Proveedores Sociales (Google)
 SOCIALACCOUNT_PROVIDERS = {
     'google': {

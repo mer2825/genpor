@@ -18,6 +18,9 @@ import io
 import httpx
 import websockets
 from django.core.cache import cache # IMPORTANTE: Para Rate Limiting Real
+from allauth.socialaccount.models import SocialAccount # IMPORTANTE: Para verificar cuentas vinculadas
+from allauth.account.models import EmailAddress # IMPORTANTE: Para limpiar emails antiguos
+import random # IMPORTANTE: Para seleccionar imágenes aleatorias
 
 # --- SECURE MEDIA SERVING VIEW ---
 def serve_private_media(request, path):
@@ -108,6 +111,145 @@ def get_user_from_request(request):
     if user.is_authenticated:
         pass 
     return user
+
+# --- PROFILE VIEW ---
+async def profile_view(request):
+    user = await get_user_from_request(request)
+    if not user.is_authenticated:
+        return redirect('account_login')
+    
+    company_settings = await get_company_settings()
+    
+    # Get profile data (tokens, etc.)
+    try:
+        profile = await sync_to_async(lambda: user.clientprofile)()
+        tokens = await profile.get_tokens_remaining_async()
+    except ClientProfile.DoesNotExist:
+        tokens = 0
+        
+    # Get stats (e.g., total images generated)
+    total_images = await sync_to_async(CharacterImage.objects.filter(user=user).count)()
+
+    # --- NEW: Check Social Accounts (Google) ---
+    # Obtenemos TODAS las cuentas de Google ordenadas por last_login (la más reciente primero)
+    google_accounts = await sync_to_async(list)(
+        SocialAccount.objects.filter(user=user, provider='google').order_by('-last_login')
+    )
+    
+    active_google_account = None
+
+    # --- LOGICA DE SUSTITUCIÓN DE CUENTA ---
+    if google_accounts:
+        latest_account = google_accounts[0] # La que acabamos de conectar/usar
+        active_google_account = latest_account
+        
+        # 1. Actualizar email del usuario si es diferente
+        google_email = latest_account.extra_data.get('email')
+        if google_email and google_email != user.email:
+            # Guardamos el email antiguo para borrarlo de Allauth después
+            old_email = user.email
+            
+            user.email = google_email
+            
+            # --- NUEVO: Actualizar Username Automáticamente ---
+            base_username = google_email.split('@')[0]
+            new_username = base_username
+            
+            @sync_to_async
+            def check_username_exists(uname):
+                return User.objects.filter(username=uname).exclude(pk=user.pk).exists()
+            
+            counter = 1
+            while await check_username_exists(new_username):
+                new_username = f"{base_username}{counter}"
+                counter += 1
+            
+            user.username = new_username
+            # --------------------------------------------------
+
+            await sync_to_async(user.save)()
+            
+            # --- LIMPIEZA PROFUNDA DE EMAILS (ALLAUTH) ---
+            # Borramos el email antiguo de la tabla de EmailAddress para liberar la cuenta
+            if old_email:
+                @sync_to_async
+                def clean_old_email_address(email_to_remove):
+                    EmailAddress.objects.filter(email=email_to_remove).delete()
+                await clean_old_email_address(old_email)
+            
+            # Creamos/Actualizamos el nuevo email en EmailAddress como verificado y primario
+            @sync_to_async
+            def update_new_email_address(user_obj, new_email):
+                # Borramos cualquier registro previo de este nuevo email (por si acaso)
+                EmailAddress.objects.filter(email=new_email).delete()
+                # Creamos el nuevo registro limpio
+                EmailAddress.objects.create(
+                    user=user_obj,
+                    email=new_email,
+                    verified=True,
+                    primary=True
+                )
+            await update_new_email_address(user, google_email)
+            # ---------------------------------------------
+            
+        # 2. Eliminar cuentas antiguas (si hay más de una)
+        if len(google_accounts) > 1:
+            # Definimos una función síncrona para borrar
+            @sync_to_async
+            def delete_old_accounts(accounts_list, keep_id):
+                for acc in accounts_list:
+                    if acc.id != keep_id:
+                        acc.delete()
+            
+            # Ejecutamos el borrado de las antiguas
+            await delete_old_accounts(google_accounts, latest_account.id)
+    
+    context = {
+        'company': company_settings,
+        'tokens': tokens,
+        'total_images': total_images,
+        'google_account': active_google_account, # Pasamos UN SOLO objeto (o None)
+        'is_google_linked': active_google_account is not None
+    }
+    return await sync_to_async(render)(request, 'myapp/profile.html', context)
+
+# --- UPDATE USERNAME VIEW ---
+async def update_username_view(request):
+    user = await get_user_from_request(request)
+    if not user.is_authenticated:
+        return JsonResponse({'status': 'error', 'message': 'Unauthorized'}, status=401)
+    
+    if request.method == 'POST':
+        new_username = request.POST.get('username')
+        if not new_username:
+            return JsonResponse({'status': 'error', 'message': 'Username cannot be empty'})
+        
+        # Basic validation
+        if len(new_username) < 3:
+            return JsonResponse({'status': 'error', 'message': 'Username must be at least 3 characters long'})
+            
+        try:
+            @sync_to_async
+            def perform_update(user_obj, username):
+                # Check if username exists (excluding current user)
+                if User.objects.filter(username=username).exclude(pk=user_obj.pk).exists():
+                    return {"success": False, "message": "Username already taken."}
+                
+                user_obj.username = username
+                user_obj.save()
+                return {"success": True}
+
+            result = await perform_update(user, new_username)
+            
+            if result["success"]:
+                return JsonResponse({'status': 'success', 'message': 'Username updated successfully'})
+            else:
+                return JsonResponse({'status': 'error', 'message': result["message"]})
+
+        except Exception as e:
+            return JsonResponse({'status': 'error', 'message': str(e)}, status=500)
+            
+    return JsonResponse({'status': 'error', 'message': 'Method not allowed'}, status=405)
 
 # --- GALLERY VIEW ---
 async def gallery_view(request):
@@ -253,7 +395,7 @@ async def clear_chat_history_view(request):
             
     return JsonResponse({'status': 'error', 'message': 'Method not allowed'}, status=405)
 
-# --- WORKSPACE VIEW (UPDATED) ---
+# --- WORKSPACE VIEW ---
 async def workspace_view(request):
     user = await get_user_from_request(request)
     if not user.is_authenticated:
@@ -317,6 +459,26 @@ async def workspace_view(request):
         return ordered_chars
 
     recent_chats = await get_recent_chats_list()
+
+    # --- NEW: Random Preview Images for Welcome Screen ---
+    random_preview_images = []
+    if not character_id:
+        # Select 3 random characters that have images
+        chars_with_imgs = [c for c in all_characters if c.catalog_images_set.all()]
+        if len(chars_with_imgs) >= 3:
+            random_chars = random.sample(chars_with_imgs, 3)
+        else:
+            random_chars = chars_with_imgs # Take all if less than 3
+            
+        for char in random_chars:
+            # Get the first image of the character
+            img = char.catalog_images_set.first()
+            if img:
+                random_preview_images.append({
+                    'character_id': char.id,
+                    'character_name': char.name,
+                    'image_url': img.image.url
+                })
 
     if character_id:
         try:
@@ -421,10 +583,12 @@ async def workspace_view(request):
         'default_seed': default_seed, # Pass seed to context
         'chat_history': chat_history, # Pass chat history
         'recent_chats': recent_chats, # Pass recent chats list
-        'workflow_capabilities': workflow_capabilities # Pass capabilities
+        'workflow_capabilities': workflow_capabilities, # Pass capabilities
+        'random_preview_images': random_preview_images # Pass random images
     }
     return await sync_to_async(render)(request, 'myapp/workspace.html', context)
 
+# --- GENERATE IMAGE VIEW (RESTORED) ---
 async def generate_image_view(request):
     is_ajax = request.headers.get('X-Requested-With') == 'XMLHttpRequest'
     user = await get_user_from_request(request)

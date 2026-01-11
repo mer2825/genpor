@@ -1,0 +1,689 @@
+{% load static %}
+{% load socialaccount %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>My Profile - Nayelina AI</title>
+
+    <!-- Favicon -->
+    {% if company.favicon %}
+        <link rel="icon" href="{{ company.favicon.url }}">
+    {% else %}
+        <link rel="icon" href="data:,">
+    {% endif %}
+
+    <!-- Estilos -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="{% static 'myapp/css/styles.css' %}">
+
+    <!-- INYECCIÓN DINÁMICA DE COLORES DESDE EL ADMIN -->
+    {% if company %}
+    <style>
+        :root {
+            /* Colores Base con !important para asegurar prioridad */
+            --primary-start: {{ company.primary_color_start|default:"#a855f7" }};
+            --primary-mid: {{ company.primary_color_mid|default:"#ef4444" }};
+            --primary-end: {{ company.primary_color_end|default:"#ff9068" }};
+            --accent-glow: {{ company.accent_glow_color|default:"#ef4444" }};
+
+            /* Variables derivadas para usar en styles.css */
+            --primary-color: var(--primary-mid);
+            --primary-gradient: linear-gradient(135deg, var(--primary-start) 0%, var(--primary-mid) 50%, var(--primary-end) 100%);
+
+            /* Glows dinámicos (con opacidad) */
+            --primary-glow: color-mix(in srgb, var(--accent-glow), transparent 50%);
+
+            /* Fondo dinámico (usando los colores elegidos) */
+            --bg-gradient:
+                radial-gradient(circle at 50% -20%, color-mix(in srgb, var(--primary-start), transparent 85%) 0%, transparent 50%),
+                radial-gradient(circle at 0% 30%, color-mix(in srgb, var(--primary-mid), transparent 90%) 0%, transparent 40%),
+                radial-gradient(circle at 100% 70%, color-mix(in srgb, var(--primary-start), transparent 92%) 0%, transparent 40%),
+                linear-gradient(to bottom, #0f0505 0%, #020202 100%);
+        }
+    </style>
+    {% endif %}
+
+    <style>
+        /* Icono SVG Estrella Pequeño (Para menús) */
+        .star-icon-sm {
+            width: 18px;
+            height: 18px;
+            fill: currentColor; /* Hereda el color del texto */
+        }
+    </style>
+
+    <style>
+        .profile-container {
+            max-width: 950px; /* COMPACTO */
+            margin: 30px auto;
+            padding: 0 20px;
+            display: grid;
+            grid-template-columns: 260px 1fr; /* Sidebar más estrecha */
+            gap: 20px; /* Menos espacio entre columnas */
+        }
+
+        /* Tarjeta Izquierda (Resumen) */
+        .profile-sidebar {
+            background-color: var(--card-bg);
+            border: 1px solid var(--card-border);
+            border-radius: 20px;
+            padding: 25px 20px; /* Padding reducido */
+            text-align: center;
+            height: fit-content;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .profile-avatar {
+            width: 90px; /* Avatar más pequeño */
+            height: 90px;
+            border-radius: 50%;
+            background: var(--primary-gradient);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 2.2rem;
+            font-weight: 700;
+            color: white;
+            margin: 0 auto 15px;
+            box-shadow: 0 8px 25px var(--primary-glow);
+            border: 3px solid rgba(255,255,255,0.1);
+        }
+
+        .profile-name {
+            font-size: 1.3rem;
+            font-weight: 700;
+            margin: 0 0 5px;
+            color: white;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .profile-role {
+            display: inline-block;
+            background: rgba(255, 255, 255, 0.1);
+            padding: 3px 10px;
+            border-radius: 15px;
+            font-size: 0.75rem;
+            color: var(--text-muted);
+            margin-bottom: 20px;
+        }
+
+        .logout-btn {
+            background: transparent;
+            border: 1px solid var(--danger-color);
+            color: var(--danger-color);
+            padding: 8px 20px;
+            border-radius: 10px;
+            font-size: 0.9rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+            text-decoration: none;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            width: 100%;
+            box-sizing: border-box;
+        }
+        .logout-btn:hover {
+            background: var(--danger-color);
+            color: white;
+        }
+
+        /* Tarjeta Derecha (Detalles) */
+        .profile-content {
+            display: flex;
+            flex-direction: column;
+            gap: 15px; /* Menos espacio vertical */
+            min-width: 0;
+        }
+
+        .info-card {
+            background-color: var(--card-bg);
+            border: 1px solid var(--card-border);
+            border-radius: 20px;
+            padding: 20px 25px; /* Padding compacto */
+        }
+
+        .info-header {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 15px;
+            padding-bottom: 10px;
+            border-bottom: 1px solid var(--card-border);
+        }
+        .info-header h3 { margin: 0; font-size: 1.1rem; color: var(--text-main); }
+        .info-header i { color: var(--primary-color); font-size: 1.1rem; }
+
+        .info-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 20px;
+        }
+
+        .info-item {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+            min-width: 0;
+        }
+
+        .info-item.full-width {
+            grid-column: 1 / -1;
+        }
+
+        .info-label { font-size: 0.8rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px; }
+
+        .info-value {
+            font-size: 0.95rem;
+            color: white;
+            font-weight: 500;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+
+        #email-text {
+            word-break: break-all;
+        }
+
+        .toggle-email-btn, .edit-btn {
+            background: rgba(255,255,255,0.1);
+            border: none;
+            color: var(--text-muted);
+            cursor: pointer;
+            font-size: 0.8rem;
+            padding: 5px;
+            border-radius: 5px;
+            transition: all 0.2s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .toggle-email-btn:hover, .edit-btn:hover { color: white; background: rgba(255,255,255,0.2); }
+
+        /* Stats Cards */
+        .stats-row {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 15px;
+        }
+        .stat-box {
+            background: rgba(255,255,255,0.03);
+            border: 1px solid var(--card-border);
+            border-radius: 16px;
+            padding: 15px;
+            text-align: center;
+        }
+        .stat-number {
+            font-size: 1.5rem; /* Números más pequeños */
+            font-weight: 700;
+            color: var(--primary-color);
+            margin-bottom: 3px;
+        }
+        .stat-desc { font-size: 0.75rem; color: var(--text-muted); }
+
+        /* Estilos para Cuentas Vinculadas */
+        .linked-account {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            background: rgba(255,255,255,0.03);
+            padding: 12px 15px;
+            border-radius: 12px;
+            border: 1px solid var(--card-border);
+        }
+        .provider-info {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .provider-icon { font-size: 1.2rem; }
+        .google-icon { color: #DB4437; }
+
+        .link-btn {
+            background: transparent;
+            border: 1px solid var(--primary-color);
+            color: var(--primary-color);
+            padding: 6px 12px;
+            border-radius: 20px;
+            font-size: 0.8rem;
+            cursor: pointer;
+            text-decoration: none;
+            transition: all 0.2s;
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+        .link-btn:hover { background: var(--primary-color); color: white; }
+
+        .linked-badge {
+            color: var(--success-color);
+            font-size: 0.85rem;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+
+        /* Modal Styles */
+        .modal-overlay {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.7);
+            z-index: 1000;
+            align-items: center;
+            justify-content: center;
+        }
+        .modal-content {
+            background: var(--card-bg);
+            border: 1px solid var(--card-border);
+            padding: 25px;
+            border-radius: 16px;
+            width: 90%;
+            max-width: 400px;
+            position: relative;
+        }
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+        .modal-title {
+            font-size: 1.2rem;
+            font-weight: 700;
+            color: white;
+            margin: 0;
+        }
+        .close-modal {
+            background: none;
+            border: none;
+            color: var(--text-muted);
+            font-size: 1.2rem;
+            cursor: pointer;
+        }
+        .modal-input {
+            width: 100%;
+            padding: 10px;
+            border-radius: 8px;
+            border: 1px solid var(--card-border);
+            background: rgba(255,255,255,0.05);
+            color: white;
+            margin-bottom: 15px;
+            box-sizing: border-box;
+        }
+        .modal-btn {
+            width: 100%;
+            padding: 10px;
+            border-radius: 8px;
+            border: none;
+            background: var(--primary-gradient);
+            color: white;
+            font-weight: 600;
+            cursor: pointer;
+        }
+
+        /* Responsive */
+        @media (max-width: 900px) {
+            .profile-container { grid-template-columns: 1fr; margin: 20px auto; }
+            .stats-row { grid-template-columns: 1fr; }
+            .info-grid { grid-template-columns: 1fr; }
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Header -->
+    <header>
+        <a href="/" class="logo-container">
+            <div class="logo-wrapper">
+                {% if company.logo %}
+                    <img src="{{ company.logo.url }}" alt="Logo" class="logo">
+                {% else %}
+                    <div style="width:100%;height:100%;background:var(--primary-gradient);"></div>
+                {% endif %}
+            </div>
+            <h1>Nayelina AI</h1>
+        </a>
+
+        <div class="user-menu">
+            <!-- Botón HOME -->
+            <a href="{% url 'generate_image' %}" class="action-btn gallery-btn desktop-nav-btn">
+                <i class="fas fa-home"></i> Home
+            </a>
+
+            <!-- Botón GALERÍA (AÑADIDO) -->
+            <a href="{% url 'gallery' %}" class="action-btn gallery-btn desktop-nav-btn">
+                <i class="fas fa-images"></i> Gallery
+            </a>
+
+            <!-- Botón WORKSPACE -->
+            <a href="{% url 'workspace' %}" class="action-btn desktop-nav-btn" style="background: var(--primary-gradient); color: white; border: none; box-shadow: 0 4px 15px var(--primary-glow);">
+                <!-- SVG Estrellas (Pequeño) -->
+                <svg class="star-icon-sm" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" style="margin-right: 5px;">
+                    <path d="M12 2L14 9L21 11L14 13L12 20L10 13L3 11L10 9L12 2Z" />
+                    <path d="M19 2L20 5L23 6L20 7L19 10L18 7L15 6L18 5L19 2Z" />
+                    <path d="M5 16L6 18L9 19L6 20L5 23L4 20L1 19L4 18L5 16Z" />
+                </svg>
+                Workspace
+            </a>
+        </div>
+    </header>
+
+    <div class="profile-container">
+        <!-- Sidebar Izquierda -->
+        <div class="profile-sidebar">
+            <div class="profile-avatar">
+                {{ user.username|slice:":1"|upper }}
+            </div>
+            <h2 class="profile-name" title="{{ user.username }}">{{ user.username }}</h2>
+            <span class="profile-role">{% if user.is_staff %}Administrator{% else %}Member{% endif %}</span>
+
+            <div style="margin-top: 20px;">
+                <a href="{% url 'account_logout' %}" class="logout-btn">
+                    <i class="fas fa-sign-out-alt"></i> Log Out
+                </a>
+            </div>
+        </div>
+
+        <!-- Contenido Derecha -->
+        <div class="profile-content">
+
+            <!-- Estadísticas -->
+            <div class="stats-row">
+                <div class="stat-box">
+                    <div class="stat-number">{{ tokens }}</div>
+                    <div class="stat-desc">Tokens Available</div>
+                </div>
+                <div class="stat-box">
+                    <div class="stat-number">{{ total_images }}</div>
+                    <div class="stat-desc">Images Created</div>
+                </div>
+                <div class="stat-box">
+                    <div class="stat-number">{{ user.date_joined|date:"M Y" }}</div>
+                    <div class="stat-desc">Member Since</div>
+                </div>
+            </div>
+
+            <!-- Información de Cuenta -->
+            <div class="info-card">
+                <div class="info-header">
+                    <i class="fas fa-user-circle"></i>
+                    <h3>Account Details</h3>
+                </div>
+                <div class="info-grid">
+                    <div class="info-item">
+                        <span class="info-label">Username</span>
+                        <span class="info-value" title="{{ user.username }}">
+                            {{ user.username }}
+                            <button class="edit-btn" onclick="openEditUsernameModal()" title="Edit Username">
+                                <i class="fas fa-pencil-alt"></i>
+                            </button>
+                        </span>
+                    </div>
+
+                    <div class="info-item">
+                        <span class="info-label">Last Login</span>
+                        <span class="info-value">{{ user.last_login|date:"F j, Y, g:i a" }}</span>
+                    </div>
+
+                    <!-- EMAIL FULL WIDTH (SOLO LECTURA) -->
+                    <div class="info-item full-width">
+                        <span class="info-label">Email Address</span>
+                        <div class="info-value">
+                            <span id="email-text" data-full-email="{{ user.email|default:'No email registered' }}">
+                                <!-- Se llenará con JS -->
+                            </span>
+                            <button class="toggle-email-btn" onclick="toggleEmail()" title="Show/Hide Email">
+                                <i class="fas fa-eye" id="email-icon"></i>
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="info-item">
+                        <span class="info-label">Status</span>
+                        <span class="info-value" style="color: var(--success-color);">Active</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Cuentas Vinculadas (SOLO VISUALIZACIÓN) -->
+            <div class="info-card">
+                <div class="info-header">
+                    <i class="fas fa-link"></i>
+                    <h3>Linked Accounts</h3>
+                </div>
+
+                <div class="linked-account">
+                    <div class="provider-info">
+                        <i class="fab fa-google google-icon provider-icon"></i>
+                        <div style="display: flex; flex-direction: column;">
+                            <span style="font-weight: 500; color: white;">Google</span>
+                            {% if is_google_linked %}
+                                <span style="font-size: 0.75rem; color: var(--text-muted);">{{ google_account.extra_data.email }}</span>
+                            {% else %}
+                                <span style="font-size: 0.75rem; color: var(--text-muted);">Not connected</span>
+                            {% endif %}
+                        </div>
+                    </div>
+
+                    <!-- Botón Único: Conectar o Cambiar (FORMULARIO POST) -->
+                    {% get_providers as socialaccount_providers %}
+                    {% for provider in socialaccount_providers %}
+                        {% if provider.id == "google" %}
+                        <form action="{% provider_login_url provider.id process='connect' scope=scope auth_params=auth_params next=request.path %}" method="post">
+                            {% csrf_token %}
+                            <button type="submit" class="link-btn">
+                                {% if is_google_linked %}
+                                    <i class="fas fa-sync-alt"></i> Change
+                                {% else %}
+                                    <i class="fas fa-link"></i> Connect
+                                {% endif %}
+                            </button>
+                        </form>
+                        {% endif %}
+                    {% endfor %}
+                </div>
+            </div>
+
+            <!-- Plan -->
+            <div class="info-card">
+                <div class="info-header">
+                    <i class="fas fa-crown"></i>
+                    <h3>Subscription Plan</h3>
+                </div>
+                <div style="display: flex; justify-content: space-between; align-items: center;">
+                    <div>
+                        <span style="font-size: 1.1rem; font-weight: 700; color: white;">Free Plan</span>
+                        <p style="margin: 3px 0 0; color: var(--text-muted); font-size: 0.85rem;">Basic features included.</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Coupon Redemption -->
+            <div class="info-card">
+                <div class="info-header">
+                    <i class="fas fa-ticket-alt"></i>
+                    <h3>Redeem Coupon</h3>
+                </div>
+                <div style="display: flex; gap: 10px; align-items: center;">
+                    <input type="text" id="coupon-code" placeholder="Enter coupon code" style="flex: 1; padding: 10px; border-radius: 8px; border: 1px solid var(--card-border); background: rgba(255,255,255,0.05); color: white;">
+                    <button onclick="redeemCoupon()" style="background: var(--primary-gradient); color: white; border: none; padding: 10px 20px; border-radius: 8px; cursor: pointer; font-weight: 600;">Redeem</button>
+                </div>
+                <p id="coupon-message" style="margin-top: 10px; font-size: 0.9rem;"></p>
+            </div>
+
+        </div>
+    </div>
+
+    <!-- Bottom Nav -->
+    <nav class="bottom-nav">
+        <a href="{% url 'generate_image' %}" class="bottom-nav-item">
+            <i class="fas fa-home"></i>
+            <span>Home</span>
+        </a>
+        <a href="{% url 'workspace' %}" class="bottom-nav-item">
+            <!-- SVG Estrellas (Pequeño) -->
+            <svg class="star-icon-sm" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" style="width: 24px; height: 24px; fill: currentColor;">
+                <path d="M12 2L14 9L21 11L14 13L12 20L10 13L3 11L10 9L12 2Z" />
+                <path d="M19 2L20 5L23 6L20 7L19 10L18 7L15 6L18 5L19 2Z" />
+                <path d="M5 16L6 18L9 19L6 20L5 23L4 20L1 19L4 18L5 16Z" />
+            </svg>
+            <span>Workspace</span>
+        </a>
+        <a href="{% url 'gallery' %}" class="bottom-nav-item">
+            <i class="fas fa-images"></i>
+            <span>Gallery</span>
+        </a>
+    </nav>
+
+    <!-- Edit Username Modal -->
+    <div id="editUsernameModal" class="modal-overlay">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 class="modal-title">Edit Username</h3>
+                <button class="close-modal" onclick="closeEditUsernameModal()">&times;</button>
+            </div>
+            <form id="editUsernameForm" onsubmit="updateUsername(event)">
+                <input type="text" id="new-username" class="modal-input" placeholder="New Username" value="{{ user.username }}" required>
+                <button type="submit" class="modal-btn">Save Changes</button>
+                <p id="username-message" style="margin-top: 10px; font-size: 0.9rem; text-align: center;"></p>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        function maskEmail(email) {
+            if (!email || email === 'No email registered') return email;
+            const parts = email.split('@');
+            if (parts.length < 2) return email;
+            const name = parts[0];
+            const domain = parts[1];
+            const visibleName = name.substring(0, 3);
+            return `${visibleName}***@${domain}`;
+        }
+
+        let isEmailVisible = false;
+        const emailSpan = document.getElementById('email-text');
+        const emailIcon = document.getElementById('email-icon');
+        let currentEmail = emailSpan.getAttribute('data-full-email');
+
+        emailSpan.textContent = maskEmail(currentEmail);
+
+        function toggleEmail() {
+            isEmailVisible = !isEmailVisible;
+            if (isEmailVisible) {
+                emailSpan.textContent = currentEmail;
+                emailIcon.className = 'fas fa-eye-slash';
+            } else {
+                emailSpan.textContent = maskEmail(currentEmail);
+                emailIcon.className = 'fas fa-eye';
+            }
+        }
+
+        function redeemCoupon() {
+            const code = document.getElementById('coupon-code').value;
+            const messageEl = document.getElementById('coupon-message');
+
+            if (!code) {
+                messageEl.textContent = "Please enter a code.";
+                messageEl.style.color = "var(--danger-color)";
+                return;
+            }
+
+            fetch("{% url 'redeem_coupon' %}", {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/x-www-form-urlencoded",
+                    "X-CSRFToken": "{{ csrf_token }}"
+                },
+                body: "code=" + encodeURIComponent(code)
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.status === 'success') {
+                    messageEl.textContent = data.message;
+                    messageEl.style.color = "var(--success-color)";
+                    document.getElementById('coupon-code').value = "";
+                    // Optionally reload to update token count
+                    setTimeout(() => location.reload(), 2000);
+                } else {
+                    messageEl.textContent = data.message;
+                    messageEl.style.color = "var(--danger-color)";
+                }
+            })
+            .catch(error => {
+                messageEl.textContent = "An error occurred.";
+                messageEl.style.color = "var(--danger-color)";
+            });
+        }
+
+        // --- Username Edit Logic ---
+        function openEditUsernameModal() {
+            document.getElementById('editUsernameModal').style.display = 'flex';
+        }
+
+        function closeEditUsernameModal() {
+            document.getElementById('editUsernameModal').style.display = 'none';
+            document.getElementById('username-message').textContent = '';
+        }
+
+        function updateUsername(event) {
+            event.preventDefault();
+            const newUsername = document.getElementById('new-username').value;
+            const messageEl = document.getElementById('username-message');
+
+            if (!newUsername) {
+                messageEl.textContent = "Username cannot be empty.";
+                messageEl.style.color = "var(--danger-color)";
+                return;
+            }
+
+            fetch("{% url 'update_username' %}", {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/x-www-form-urlencoded",
+                    "X-CSRFToken": "{{ csrf_token }}"
+                },
+                body: "username=" + encodeURIComponent(newUsername)
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.status === 'success') {
+                    messageEl.textContent = "Username updated successfully!";
+                    messageEl.style.color = "var(--success-color)";
+                    setTimeout(() => location.reload(), 1000);
+                } else {
+                    messageEl.textContent = data.message;
+                    messageEl.style.color = "var(--danger-color)";
+                }
+            })
+            .catch(error => {
+                messageEl.textContent = "An error occurred.";
+                messageEl.style.color = "var(--danger-color)";
+            });
+        }
+
+        // Close modal if clicking outside
+        window.onclick = function(event) {
+            const modal = document.getElementById('editUsernameModal');
+            if (event.target == modal) {
+                closeEditUsernameModal();
+            }
+        }
+    </script>
+
+</body>
+</html>

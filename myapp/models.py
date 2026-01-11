@@ -231,13 +231,29 @@ class CompanySettings(models.Model):
     logo = models.ImageField(upload_to='company_logos/', verbose_name="Logo", blank=True, null=True)
     favicon = models.ImageField(upload_to='company_logos/', verbose_name="Favicon", blank=True, null=True, help_text="Upload a small square image (e.g., 32x32 or 192x192 png/ico) for the browser tab.")
     offer_bar_text = models.CharField(max_length=255, verbose_name="Offer Bar Text", blank=True, null=True, help_text="Text appearing in the top bar (e.g., '🎉 Special Offer!'). Leave empty to hide.")
+    
+    # --- NEW: OFFER BAR COLOR ---
+    offer_bar_color = models.CharField(max_length=7, default="#10b981", verbose_name="Offer Bar Color", help_text="Hex code (e.g., #10b981). Base color for the offer bar.")
+
     app_hero_title = models.CharField(max_length=200, verbose_name="Main Title (Hero)", default="Anime - Realistic Generator", help_text="The large title appearing on the main page.")
+    
+    # --- NEW FIELD: SUBTITLE ---
+    app_hero_subtitle = models.CharField(max_length=255, verbose_name="Main Subtitle (Hero)", blank=True, null=True, help_text="A smaller title below the main one, but above the description.")
+    
     app_hero_description = models.TextField(verbose_name="Main Description (Hero)", blank=True, default="Transform your ideas into art with our powerful AI engine. Create unique characters in seconds.", help_text="The descriptive text below the main title.")
     description = models.TextField(verbose_name="Description (Footer)", blank=True)
     phone = models.CharField(max_length=50, verbose_name="Phone", blank=True)
     email = models.EmailField(verbose_name="Email", blank=True)
     facebook = models.URLField(verbose_name="Facebook", blank=True)
     discord = models.URLField(verbose_name="Discord", blank=True)
+
+    # --- NEW: COLOR CUSTOMIZATION FIELDS ---
+    primary_color_start = models.CharField(max_length=7, default="#a855f7", verbose_name="Gradient Start Color", help_text="Hex code (e.g., #a855f7). Starts the gradient (Top-Left).")
+    primary_color_mid = models.CharField(max_length=7, default="#ef4444", verbose_name="Gradient Middle Color", help_text="Hex code (e.g., #ef4444). Middle of the gradient.")
+    primary_color_end = models.CharField(max_length=7, default="#ff9068", verbose_name="Gradient End Color", help_text="Hex code (e.g., #ff9068). Ends the gradient (Bottom-Right).")
+    
+    accent_glow_color = models.CharField(max_length=7, default="#ef4444", verbose_name="Accent Glow Color", help_text="Hex code (e.g., #ef4444). Used for shadows and glows.")
+
     class Meta:
         verbose_name = "Company Settings"
         verbose_name_plural = "Company Settings"

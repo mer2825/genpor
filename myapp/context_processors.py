@@ -14,4 +14,14 @@ def user_tokens(request):
 def company_data(request):
     # Carga la primera (y única) instancia de CompanySettings
     settings = CompanySettings.objects.first()
-    return {'company': settings}
+    
+    # Cargar imágenes del carrusel si existen
+    hero_images = []
+    if settings:
+        hero_images = list(settings.hero_images.all())
+
+    # Devolvemos 'company_settings' y 'hero_images' para las plantillas
+    return {
+        'company_settings': settings,
+        'hero_images': hero_images
+    }
