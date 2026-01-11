@@ -55,36 +55,44 @@ document.addEventListener('DOMContentLoaded', function() {
         };
 
         // Eventos de Mouse (siempre se registran, pero su efecto depende del modo)
-        carousel.addEventListener('mouseenter', () => {
-            const state = carouselStates.get(carousel);
-            state.isHovering = true;
+        // CORRECCIÓN: Asegurar que el evento se adjunte al contenedor padre (.character-card) para mejor UX
+        const card = carousel.closest('.character-card');
 
-            // Solo activar hover rápido si NO estamos en modo móvil
-            if (window.innerWidth > 768) {
-                if (state.hoverInterval) clearInterval(state.hoverInterval);
-                state.hoverInterval = setInterval(() => {
-                    state.currentIndex = (state.currentIndex + 1) % state.images.length;
+        if (card) {
+            card.addEventListener('mouseenter', () => {
+                const state = carouselStates.get(carousel);
+                state.isHovering = true;
+
+                // Solo activar hover rápido si NO estamos en modo móvil
+                if (window.innerWidth > 768) {
+                    // Limpiar cualquier intervalo previo por seguridad
+                    if (state.hoverInterval) clearInterval(state.hoverInterval);
+
+                    // Iniciar rotación rápida
+                    state.hoverInterval = setInterval(() => {
+                        state.currentIndex = (state.currentIndex + 1) % state.images.length;
+                        updateView(state);
+                    }, 800); // Velocidad de rotación al pasar el mouse
+                }
+            });
+
+            card.addEventListener('mouseleave', () => {
+                const state = carouselStates.get(carousel);
+                state.isHovering = false;
+
+                // Limpiar hover interval
+                if (state.hoverInterval) {
+                    clearInterval(state.hoverInterval);
+                    state.hoverInterval = null;
+                }
+
+                // Si es escritorio, resetear al salir para que siempre empiece desde la 1ra
+                if (window.innerWidth > 768) {
+                    state.currentIndex = 0;
                     updateView(state);
-                }, 700);
-            }
-        });
-
-        carousel.addEventListener('mouseleave', () => {
-            const state = carouselStates.get(carousel);
-            state.isHovering = false;
-
-            // Limpiar hover interval
-            if (state.hoverInterval) {
-                clearInterval(state.hoverInterval);
-                state.hoverInterval = null;
-            }
-
-            // Si es escritorio, resetear al salir
-            if (window.innerWidth > 768) {
-                state.currentIndex = 0;
-                updateView(state);
-            }
-        });
+                }
+            });
+        }
     });
 
     // Función para gestionar el comportamiento según el tamaño de pantalla
