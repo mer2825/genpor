@@ -205,6 +205,7 @@ html, body {
     justify-content: center;
     align-items: center;
     background-color: rgba(0,0,0,0.3);
+    cursor: pointer; /* Indicar que es clicable */
 }
 
 .result-card:hover { transform: scale(1.01); border-color: var(--primary-color); }
@@ -597,6 +598,123 @@ textarea:focus { outline: none; }
     font-size: 0.8rem;
 }
 
+/* --- IMAGE VIEWER (LIGHTBOX) --- */
+.image-viewer-modal {
+    display: none;
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.95);
+    z-index: 2000;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    overflow: hidden;
+}
+
+.viewer-container {
+    position: relative;
+    width: 100%;
+    height: 100%;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    overflow: hidden; /* Para el zoom */
+}
+
+.viewer-image {
+    max-width: 100%;
+    max-height: 100%;
+    object-fit: contain;
+    transition: transform 0.1s ease-out; /* Suavidad para el pan/zoom */
+    cursor: grab;
+    user-select: none;
+}
+
+.viewer-image:active {
+    cursor: grabbing;
+}
+
+.close-viewer {
+    position: absolute;
+    top: 20px;
+    right: 30px;
+    color: white;
+    font-size: 40px;
+    font-weight: bold;
+    cursor: pointer;
+    z-index: 2001;
+    text-shadow: 0 0 10px rgba(0,0,0,0.5);
+}
+
+.nav-arrow {
+    position: absolute;
+    top: 50%;
+    transform: translateY(-50%);
+    background: rgba(255, 255, 255, 0.1);
+    color: white;
+    border: none;
+    padding: 20px;
+    font-size: 24px;
+    cursor: pointer;
+    border-radius: 50%;
+    transition: all 0.3s;
+    z-index: 2001;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 60px;
+    height: 60px;
+}
+
+.nav-arrow:hover {
+    background: rgba(255, 255, 255, 0.3);
+}
+
+.nav-arrow.left { left: 20px; }
+.nav-arrow.right { right: 20px; }
+
+/* Ocultar flechas en móvil si se prefiere swipe, pero dejémoslas por usabilidad */
+@media (max-width: 768px) {
+    .nav-arrow {
+        padding: 10px;
+        width: 40px;
+        height: 40px;
+        font-size: 18px;
+        background: rgba(0,0,0,0.3);
+    }
+    .nav-arrow.left { left: 10px; }
+    .nav-arrow.right { right: 10px; }
+}
+
+/* --- BOTÓN SCROLL TO BOTTOM --- */
+.scroll-bottom-btn {
+    position: absolute; /* En desktop es relativo al main-content */
+    bottom: 90px;
+    right: 30px;
+    width: 45px;
+    height: 45px;
+    border-radius: 50%;
+    background: var(--primary-gradient);
+    color: white;
+    border: none;
+    box-shadow: 0 5px 15px rgba(0,0,0,0.3);
+    cursor: pointer;
+    z-index: 95;
+    display: none; /* Oculto por defecto */
+    align-items: center;
+    justify-content: center;
+    font-size: 1.2rem;
+    transition: transform 0.2s, opacity 0.2s;
+    animation: fadeIn 0.3s;
+}
+
+.scroll-bottom-btn:hover {
+    transform: scale(1.1);
+}
+
 /* --- RESPONSIVE (TABLET Y MÓVIL < 1024px) --- */
 @media (max-width: 1024px) {
     /* Cambiamos Grid por Flex Vertical */
@@ -644,7 +762,9 @@ textarea:focus { outline: none; }
 
     .main-content {
         flex: 1;
-        height: auto;
+        height: 100%;
+        min-height: 0;
+        overflow: hidden;
     }
 
     .input-container {
@@ -664,4 +784,69 @@ textarea:focus { outline: none; }
     /* Ajustar posición para que no se salga */
     .message.user .delete-msg-btn { left: -30px; }
     .message.ai .delete-msg-btn { right: -30px; }
+}
+
+/* --- RESPONSIVE EXTRA (MÓVIL PEQUEÑO) --- */
+@media (max-width: 768px) {
+    .message {
+        max-width: 92%;
+        padding: 12px 14px;
+        font-size: 0.9rem;
+    }
+
+    .chat-area {
+        padding: 10px;
+        padding-bottom: 300px !important; /* AUMENTADO: Espacio extra generoso para que el último mensaje suba */
+        display: block; /* Asegurar comportamiento de bloque para el scroll */
+    }
+
+    .result-grid {
+        grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); /* Imágenes más pequeñas en móvil */
+        gap: 8px;
+    }
+
+    .result-badge {
+        font-size: 0.6rem;
+        padding: 3px 6px;
+    }
+
+    /* CORRECCIÓN: Asegurar que el input no se tape */
+    .input-container {
+        position: fixed;
+        bottom: 65px; /* Altura del bottom nav */
+        left: 0;
+        width: 100%;
+        margin-bottom: 0;
+        background: rgba(5, 5, 5, 0.95); /* Fondo sólido para que no se vea lo de atrás */
+        backdrop-filter: blur(10px);
+        padding: 10px 15px;
+        box-sizing: border-box;
+        border-top: 1px solid var(--card-border);
+        z-index: 100; /* Asegurar que esté encima */
+    }
+
+    /* Ajustar el contenido principal para que no quede tapado por el input fijo */
+    .main-content {
+        padding-bottom: 0 !important; /* Quitar padding del contenedor padre */
+        height: auto;
+        min-height: 100vh;
+        overflow-y: auto;
+    }
+
+    /* Ajustar chat area para que ocupe todo y el scroll sea en main-content o body */
+    .chat-area {
+        overflow: visible;
+        height: auto;
+        flex: none;
+    }
+
+    /* Ajuste del botón scroll en móvil */
+    .scroll-bottom-btn {
+        position: fixed; /* Fijo en móvil */
+        bottom: 150px; /* Encima del input container */
+        right: 20px;
+        width: 40px;
+        height: 40px;
+        font-size: 1rem;
+    }
 }

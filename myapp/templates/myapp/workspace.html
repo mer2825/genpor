@@ -151,6 +151,30 @@
             transform: translateY(-3px);
             box-shadow: 0 15px 40px -5px var(--primary-glow);
         }
+
+        /* Responsive adjustments for Welcome Screen */
+        @media (max-width: 768px) {
+            .welcome-title {
+                font-size: 1.5rem;
+            }
+            .welcome-subtitle {
+                font-size: 0.9rem;
+                padding: 0 20px;
+            }
+            .suggestion-grid {
+                gap: 10px;
+            }
+            .suggestion-card {
+                width: 45%;
+                max-width: 150px;
+                height: 200px;
+            }
+            .start-btn-large {
+                width: 90%;
+                justify-content: center;
+                padding: 12px 20px;
+            }
+        }
     </style>
 </head>
 <body>
@@ -323,7 +347,7 @@
                                                     <span class="resolution-badge">{{ img.width }}x{{ img.height }}</span>
                                                 {% endif %}
 
-                                                <img src="{{ img.url }}" onclick="window.open('{{ img.url }}')">
+                                                <img src="{{ img.url }}" class="chat-image" onclick="openImageViewer(this.src)">
                                             {% endif %}
                                         </div>
                                     {% endfor %}
@@ -332,6 +356,11 @@
                         </div>
                     {% endfor %}
                 </div>
+
+                <!-- BOTÓN SCROLL TO BOTTOM -->
+                <button id="scroll-bottom-btn" class="scroll-bottom-btn" onclick="scrollToBottomSmooth()">
+                    <i class="fas fa-arrow-down"></i>
+                </button>
 
                 <div class="input-container">
                     <div class="input-box">
@@ -538,6 +567,16 @@
         </div>
     </div>
 
+    <!-- VISOR DE IMÁGENES (LIGHTBOX) -->
+    <div id="image-viewer" class="image-viewer-modal">
+        <span class="close-viewer" onclick="closeImageViewer()">&times;</span>
+        <button class="nav-arrow left" onclick="navigateImage(-1)"><i class="fas fa-chevron-left"></i></button>
+        <button class="nav-arrow right" onclick="navigateImage(1)"><i class="fas fa-chevron-right"></i></button>
+        <div class="viewer-container" id="viewer-container">
+            <img id="viewer-img" class="viewer-image" src="">
+        </div>
+    </div>
+
     <script>
         const generateUrl = "{% url 'generate_image' %}";
         const deleteMsgUrl = "{% url 'delete_message' %}";
@@ -551,6 +590,7 @@
         const chatArea = document.getElementById('chat-area');
         const bottomNav = document.querySelector('.bottom-nav');
         const inputContainer = document.querySelector('.input-container');
+        const scrollBottomBtn = document.getElementById('scroll-bottom-btn');
 
         // Auto-resize Textarea
         textarea.addEventListener('input', function() {
@@ -564,20 +604,61 @@
         // Mobile Keyboard Handling
         if (window.innerWidth <= 768) {
             textarea.addEventListener('focus', () => {
-                bottomNav.style.transform = 'translateY(100%)';
-                inputContainer.style.marginBottom = '0';
                 setTimeout(() => scrollToBottom(), 300);
-            });
-
-            textarea.addEventListener('blur', () => {
-                bottomNav.style.transform = 'translateY(0)';
-                inputContainer.style.marginBottom = 'var(--nav-height)';
             });
         }
 
         function scrollToBottom() {
-            chatArea.scrollTop = chatArea.scrollHeight;
+            // En móvil, el scroll es del body/main-content, no de chatArea
+            if (window.innerWidth <= 768) {
+                window.scrollTo(0, document.body.scrollHeight);
+                const mainContent = document.querySelector('.main-content');
+                if(mainContent) mainContent.scrollTop = mainContent.scrollHeight;
+            } else {
+                chatArea.scrollTop = chatArea.scrollHeight;
+            }
         }
+
+        function scrollToBottomSmooth() {
+            if (window.innerWidth <= 768) {
+                window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' });
+                const mainContent = document.querySelector('.main-content');
+                if(mainContent) mainContent.scrollTo({ top: mainContent.scrollHeight, behavior: 'smooth' });
+            } else {
+                chatArea.scrollTo({ top: chatArea.scrollHeight, behavior: 'smooth' });
+            }
+        }
+
+        // Detectar scroll para mostrar/ocultar botón
+        function handleScroll() {
+            let scrollTop, scrollHeight, clientHeight;
+
+            if (window.innerWidth <= 768) {
+                // En móvil, el scroll principal suele ser window o main-content
+                const mainContent = document.querySelector('.main-content');
+                scrollTop = mainContent.scrollTop || window.scrollY;
+                scrollHeight = mainContent.scrollHeight || document.body.scrollHeight;
+                clientHeight = mainContent.clientHeight || window.innerHeight;
+            } else {
+                scrollTop = chatArea.scrollTop;
+                scrollHeight = chatArea.scrollHeight;
+                clientHeight = chatArea.clientHeight;
+            }
+
+            // Si estamos a más de 300px del final, mostrar botón
+            if (scrollHeight - scrollTop - clientHeight > 300) {
+                scrollBottomBtn.style.display = 'flex';
+            } else {
+                scrollBottomBtn.style.display = 'none';
+            }
+        }
+
+        // Asignar listeners de scroll
+        chatArea.addEventListener('scroll', handleScroll);
+        window.addEventListener('scroll', handleScroll);
+        const mainContent = document.querySelector('.main-content');
+        if(mainContent) mainContent.addEventListener('scroll', handleScroll);
+
 
         // Sidebars
         function toggleSidebar(side) {
@@ -661,9 +742,19 @@
         }
 
         // --- GENERATION LOGIC ---
+        let isGenerating = false; // Flag para evitar múltiples envíos
+
         function sendPrompt() {
+            if (isGenerating) return; // Si ya está generando, no hacer nada
+
             const prompt = textarea.value.trim();
             if (!prompt || !characterId) return;
+
+            isGenerating = true; // Activar flag
+            const sendBtn = document.getElementById('send-btn');
+            sendBtn.disabled = true;
+            sendBtn.style.opacity = '0.5';
+            textarea.disabled = true; // Deshabilitar textarea
 
             const userMsg = document.createElement('div');
             userMsg.className = 'message user';
@@ -721,7 +812,7 @@
                         else if (item.type === "Gen_FaceDetailer") { badgeText = "FACEDETAILER"; badgeClass = "badge-face"; }
                         let resBadge = '';
                         if (item.width && item.height) { resBadge = `<span class="resolution-badge">${item.width}x${item.height}</span>`; }
-                        html += `<div class="result-card"><span class="result-badge ${badgeClass}">${badgeText}</span>${resBadge}<img src="${item.url}" onclick="window.open('${item.url}')"></div>`;
+                        html += `<div class="result-card"><span class="result-badge ${badgeClass}">${badgeText}</span>${resBadge}<img src="${item.url}" class="chat-image" onclick="openImageViewer('${item.url}')"></div>`;
                     });
                     html += '</div>';
                     resultMsg.innerHTML = html;
@@ -741,6 +832,13 @@
                 err.className = 'message ai';
                 err.textContent = 'Connection error.';
                 chatArea.appendChild(err);
+            })
+            .finally(() => {
+                isGenerating = false; // Desactivar flag
+                sendBtn.disabled = false;
+                sendBtn.style.opacity = '1';
+                textarea.disabled = false; // Habilitar textarea
+                textarea.focus();
             });
         }
 
@@ -917,6 +1015,176 @@
                 messageDiv.textContent = 'Connection error.';
             });
         }
+
+        // --- IMAGE VIEWER LOGIC (LIGHTBOX) ---
+        const viewerModal = document.getElementById('image-viewer');
+        const viewerImg = document.getElementById('viewer-img');
+        const viewerContainer = document.getElementById('viewer-container');
+        const prevArrow = document.querySelector('.nav-arrow.left');
+        const nextArrow = document.querySelector('.nav-arrow.right');
+        let currentImageIndex = 0;
+        let allImages = [];
+        let zoomLevel = 1;
+        let isDragging = false;
+        let startX, startY, translateX = 0, translateY = 0;
+
+        function openImageViewer(src) {
+            // Recopilar todas las imágenes visibles en el chat
+            const images = document.querySelectorAll('.chat-image');
+            allImages = Array.from(images).map(img => img.src);
+            currentImageIndex = allImages.indexOf(src);
+
+            if (currentImageIndex === -1) return; // Error de seguridad
+
+            updateViewerImage();
+            viewerModal.style.display = 'flex';
+            resetZoom();
+        }
+
+        function closeImageViewer() {
+            viewerModal.style.display = 'none';
+        }
+
+        function updateViewerImage() {
+            viewerImg.src = allImages[currentImageIndex];
+            resetZoom();
+            updateNavButtons();
+        }
+
+        function updateNavButtons() {
+            // Ocultar flecha izquierda si estamos en el inicio
+            if (currentImageIndex <= 0) {
+                prevArrow.style.display = 'none';
+            } else {
+                prevArrow.style.display = 'flex';
+            }
+
+            // Ocultar flecha derecha si estamos en el final
+            if (currentImageIndex >= allImages.length - 1) {
+                nextArrow.style.display = 'none';
+            } else {
+                nextArrow.style.display = 'flex';
+            }
+        }
+
+        function navigateImage(direction) {
+            const newIndex = currentImageIndex + direction;
+            // Verificar límites estrictos (sin bucle)
+            if (newIndex >= 0 && newIndex < allImages.length) {
+                currentImageIndex = newIndex;
+                updateViewerImage();
+            }
+        }
+
+        function resetZoom() {
+            zoomLevel = 1;
+            translateX = 0;
+            translateY = 0;
+            updateTransform();
+        }
+
+        function updateTransform() {
+            viewerImg.style.transform = `translate(${translateX}px, ${translateY}px) scale(${zoomLevel})`;
+        }
+
+        // Zoom con rueda del ratón
+        viewerContainer.addEventListener('wheel', (e) => {
+            e.preventDefault();
+            const delta = e.deltaY > 0 ? -0.1 : 0.1;
+            zoomLevel = Math.min(Math.max(1, zoomLevel + delta), 4); // Zoom entre 1x y 4x
+            updateTransform();
+        });
+
+        // Arrastrar imagen (Pan)
+        viewerImg.addEventListener('mousedown', (e) => {
+            if (zoomLevel > 1) {
+                isDragging = true;
+                startX = e.clientX - translateX;
+                startY = e.clientY - translateY;
+                viewerImg.style.cursor = 'grabbing';
+            }
+        });
+
+        window.addEventListener('mouseup', () => {
+            isDragging = false;
+            if(viewerImg) viewerImg.style.cursor = 'grab';
+        });
+
+        window.addEventListener('mousemove', (e) => {
+            if (!isDragging) return;
+            e.preventDefault();
+            translateX = e.clientX - startX;
+            translateY = e.clientY - startY;
+            updateTransform();
+        });
+
+        // --- SOPORTE TÁCTIL (SWIPE Y PINCH ZOOM) ---
+        let touchStartX = 0;
+        let touchEndX = 0;
+        let initialDistance = 0;
+
+        viewerContainer.addEventListener('touchstart', (e) => {
+            if (e.touches.length === 1) {
+                touchStartX = e.changedTouches[0].screenX;
+                if (zoomLevel > 1) {
+                    isDragging = true;
+                    startX = e.touches[0].clientX - translateX;
+                    startY = e.touches[0].clientY - translateY;
+                }
+            } else if (e.touches.length === 2) {
+                initialDistance = Math.hypot(
+                    e.touches[0].pageX - e.touches[1].pageX,
+                    e.touches[0].pageY - e.touches[1].pageY
+                );
+            }
+        });
+
+        viewerContainer.addEventListener('touchmove', (e) => {
+            e.preventDefault(); // Prevenir scroll de página
+            if (e.touches.length === 1 && zoomLevel > 1 && isDragging) {
+                translateX = e.touches[0].clientX - startX;
+                translateY = e.touches[0].clientY - startY;
+                updateTransform();
+            } else if (e.touches.length === 2) {
+                const currentDistance = Math.hypot(
+                    e.touches[0].pageX - e.touches[1].pageX,
+                    e.touches[0].pageY - e.touches[1].pageY
+                );
+                const delta = currentDistance / initialDistance;
+                zoomLevel = Math.min(Math.max(1, zoomLevel * delta), 4);
+                initialDistance = currentDistance; // Actualizar para suavidad
+                updateTransform();
+            }
+        });
+
+        viewerContainer.addEventListener('touchend', (e) => {
+            if (e.changedTouches.length === 1 && zoomLevel === 1) {
+                touchEndX = e.changedTouches[0].screenX;
+                handleSwipe();
+            }
+            isDragging = false;
+        });
+
+        function handleSwipe() {
+            const threshold = 50;
+            // Swipe Izquierda -> Siguiente (solo si no es el último)
+            if (touchEndX < touchStartX - threshold) {
+                if (currentImageIndex < allImages.length - 1) navigateImage(1);
+            }
+            // Swipe Derecha -> Anterior (solo si no es el primero)
+            if (touchEndX > touchStartX + threshold) {
+                if (currentImageIndex > 0) navigateImage(-1);
+            }
+        }
+
+        // Teclas de flecha
+        document.addEventListener('keydown', (e) => {
+            if (viewerModal.style.display === 'flex') {
+                if (e.key === 'ArrowLeft') navigateImage(-1);
+                if (e.key === 'ArrowRight') navigateImage(1);
+                if (e.key === 'Escape') closeImageViewer();
+            }
+        });
 
         // Cerrar modal al hacer clic fuera
         window.onclick = function(event) {
