@@ -194,6 +194,9 @@ SOCIALACCOUNT_AUTO_SIGNUP = True
 SOCIALACCOUNT_EMAIL_VERIFICATION = "none"
 SOCIALACCOUNT_ADAPTER = "allauth.socialaccount.adapter.DefaultSocialAccountAdapter"
 
+# Forzar HTTPS en las URLs de callback de Allauth (CRUCIAL PARA GOOGLE OAUTH EN PROD)
+ACCOUNT_DEFAULT_HTTP_PROTOCOL = "https"
+
 # Configuración de Proveedores Sociales (Google)
 SOCIALACCOUNT_PROVIDERS = {
     'google': {
