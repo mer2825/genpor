@@ -88,8 +88,8 @@
         }
 
         .suggestion-card {
-            width: 160px;
-            height: 220px;
+            width: 240px; /* Aumentado */
+            height: 330px; /* Aumentado */
             border-radius: 16px;
             overflow: hidden;
             position: relative;
@@ -154,6 +154,12 @@
 
         /* Responsive adjustments for Welcome Screen */
         @media (max-width: 768px) {
+            .welcome-container {
+                justify-content: flex-start; /* Alinea el contenido arriba */
+                padding-top: 20px; /* Espacio desde el header */
+                padding-bottom: 100px; /* Mantiene el espacio para que el último elemento no quede pegado al nav inferior */
+                box-sizing: border-box;
+            }
             .welcome-title {
                 font-size: 1.5rem;
             }
@@ -166,14 +172,44 @@
             }
             .suggestion-card {
                 width: 45%;
-                max-width: 150px;
-                height: 200px;
+                max-width: 180px;
+                height: 250px;
             }
             .start-btn-large {
                 width: 90%;
                 justify-content: center;
                 padding: 12px 20px;
             }
+        }
+    </style>
+
+    <!-- Ajustes para el modal de selección de personajes -->
+    <style>
+        /* 1. Nombres largos: Trunca el texto para que no rompa el modal */
+        .char-list-item {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            overflow: hidden;
+        }
+
+        .char-list-item span {
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            min-width: 0;
+        }
+
+        /* 2. Estandarizar estilos de imagen de la lista */
+        .char-list-item img, .char-list-item .char-list-placeholder {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            object-fit: cover;
+            flex-shrink: 0;
+        }
+        .char-list-placeholder {
+            background: #334155;
         }
     </style>
 </head>
@@ -238,6 +274,10 @@
 
         <!-- Sidebar Izquierda -->
         <aside class="sidebar" id="sidebar-left">
+            <div class="sidebar-title">
+                <span>Settings</span>
+                <button class="close-sidebar-btn" onclick="closeAllSidebars()"><i class="fas fa-times"></i></button>
+            </div>
             <!-- CAMBIO: Solo mostrar si hay un personaje seleccionado -->
             {% if selected_character %}
             <button onclick="document.getElementById('modal-characters').style.display='block'" class="resource-btn" style="background: var(--primary-gradient); border:none; color:white; justify-content:center; font-weight:600; margin-bottom: 25px;">
@@ -383,12 +423,9 @@
 
                     <div class="suggestion-grid">
                         {% for item in random_preview_images %}
-                        <a href="?character_id={{ item.character_id }}" class="suggestion-card">
-                            <img src="{{ item.image_url }}" alt="{{ item.character_name }}">
-                            <div class="suggestion-overlay">
-                                {{ item.character_name }}
-                            </div>
-                        </a>
+                        <div class="suggestion-card">
+                            <img src="{{ item.image_url }}" alt="Random character preview">
+                        </div>
                         {% endfor %}
                     </div>
                 </div>
@@ -396,9 +433,12 @@
         </main>
 
         <!-- Sidebar Derecha -->
-        <aside class="sidebar sidebar-right" id="sidebar-right">
+        <aside class="sidebar" id="sidebar-right">
+            <div class="sidebar-title">
+                <span>Resources</span>
+                <button class="close-sidebar-btn" onclick="closeAllSidebars()"><i class="fas fa-times"></i></button>
+            </div>
             {% if selected_character %}
-                <div class="sidebar-title">Resources</div>
                 <button id="btn-show-reference" class="resource-btn">
                     <i class="fas fa-images" style="color:#60a5fa;"></i> References
                 </button>
@@ -455,7 +495,7 @@
                 <span class="close-btn" onclick="document.getElementById('modal-characters').style.display='none'" style="color:white; cursor:pointer;">&times;</span>
             </div>
             <div class="modal-body">
-                <input type="text" id="char-search" placeholder="Search..." style="width:100%; padding:12px; background:rgba(0,0,0,0.3); border:1px solid var(--border-subtle); color:white; border-radius:12px; margin-bottom:20px;" onkeyup="filterCharacters()">
+                <input type="text" id="char-search" placeholder="Search..." style="width:100%; padding:12px; background:rgba(0,0,0,0.3); border:1px solid var(--border-subtle); color:white; border-radius:12px; margin-bottom:20px; box-sizing: border-box;" onkeyup="filterCharacters()">
 
                 <!-- FILTROS DE CATEGORÍA -->
                 <div style="display:flex; gap:10px; margin-bottom:15px; overflow-x:auto; padding-bottom:5px;">
@@ -479,9 +519,9 @@
                        data-subcategory-id="{{ char.subcategory.id|default:'NONE' }}">
 
                         {% if char.catalog_images_set.all %}
-                            <img src="{{ char.catalog_images_set.all.0.image.url }}" style="width:40px; height:40px; border-radius:50%; object-fit:cover;">
+                            <img src="{{ char.catalog_images_set.all.0.image.url }}">
                         {% else %}
-                            <div style="width:40px; height:40px; border-radius:50%; background:#334155;"></div>
+                            <div class="char-list-placeholder"></div>
                         {% endif %}
                         <span>{{ char.name }}</span>
                     </a>
@@ -812,7 +852,7 @@
                         else if (item.type === "Gen_FaceDetailer") { badgeText = "FACEDETAILER"; badgeClass = "badge-face"; }
                         let resBadge = '';
                         if (item.width && item.height) { resBadge = `<span class="resolution-badge">${item.width}x${item.height}</span>`; }
-                        html += `<div class="result-card"><span class="result-badge ${badgeClass}">${badgeText}</span>${resBadge}<img src="${item.url}" class="chat-image" onclick="openImageViewer('${item.url}')"></div>`;
+                        html += `<div class="result-card"><span class="result-badge ${badgeClass}">${badgeText}</span>${resBadge}<img src="${item.url}" class="chat-image" onclick="openImageViewer(this.src)"></div>`;
                     });
                     html += '</div>';
                     resultMsg.innerHTML = html;

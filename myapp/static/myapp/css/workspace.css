@@ -4,6 +4,7 @@
     --sidebar-width: 280px;
     --header-height: 70px;
     --bottom-nav-height: 65px;
+    --mobile-header-height: 60px;
 }
 
 /* --- LAYOUT PRINCIPAL --- */
@@ -82,6 +83,9 @@ html, body {
     text-transform: uppercase;
     letter-spacing: 1px;
     margin: 25px 0 10px 0;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
 }
 .sidebar-title:first-child { margin-top: 0; }
 
@@ -149,6 +153,7 @@ html, body {
     flex: 1;
     padding: 20px;
     overflow-y: auto;
+    overflow-x: hidden; /* EVITAR SCROLL HORIZONTAL */
     display: flex;
     flex-direction: column;
     gap: 20px;
@@ -166,6 +171,7 @@ html, body {
     position: relative;
     word-wrap: break-word;
     box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+    box-sizing: border-box; /* Asegurar padding incluido */
 }
 
 .message.user {
@@ -186,7 +192,8 @@ html, body {
 /* Resultados de Imagen (CORREGIDO TAMAÑO) */
 .result-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    /* Ajuste dinámico más flexible para evitar desbordes */
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
     gap: 12px;
     margin-top: 15px;
     width: 100%;
@@ -201,6 +208,7 @@ html, body {
     position: relative;
     transition: transform 0.3s;
     width: 100%;
+    aspect-ratio: 1 / 1; /* Mantener proporción cuadrada por defecto en grid */
     display: flex; /* Centrar imagen */
     justify-content: center;
     align-items: center;
@@ -211,13 +219,9 @@ html, body {
 .result-card:hover { transform: scale(1.01); border-color: var(--primary-color); }
 
 .result-card img {
-    display: block;
-    max-width: 100%;      /* No más ancho que el contenedor */
-    max-height: 60vh;     /* MÁXIMO 60% del alto de la pantalla (CLAVE) */
-    width: auto;          /* Ancho automático */
-    height: auto;         /* Alto automático */
-    margin: 0 auto;       /* Centrar */
-    object-fit: contain;  /* Asegurar que se vea entera */
+    width: 100%;
+    height: 100%;
+    object-fit: cover; /* Llenar el cuadro */
 }
 
 /* ETIQUETAS DE TIPO DE IMAGEN */
@@ -260,10 +264,9 @@ html, body {
 /* PLACEHOLDER ELIMINADO (COMPACTO) */
 .deleted-placeholder {
     width: 100%;
-    height: auto;
-    aspect-ratio: auto; /* Resetear ratio vertical */
+    height: 100%; /* Llenar card */
     display: flex;
-    flex-direction: row; /* Horizontal */
+    flex-direction: column;
     align-items: center;
     justify-content: center;
     gap: 10px;
@@ -271,12 +274,10 @@ html, body {
     color: #64748b;
     padding: 12px;
     box-sizing: border-box;
-    border: 1px dashed var(--card-border);
-    border-radius: 8px;
 }
 
 .deleted-placeholder i {
-    font-size: 1.2rem;
+    font-size: 1.5rem;
     margin-bottom: 0;
     color: #ef4444;
 }
@@ -284,6 +285,7 @@ html, body {
 .deleted-placeholder span {
     font-size: 0.8rem;
     font-weight: 500;
+    text-align: center;
 }
 
 /* Botón de Borrar Mensaje */
@@ -715,19 +717,49 @@ textarea:focus { outline: none; }
     transform: scale(1.1);
 }
 
+/* --- BOTÓN CERRAR SIDEBAR --- */
+.close-sidebar-btn {
+    display: none; /* Oculto por defecto en desktop */
+    background: none;
+    border: none;
+    color: var(--text-muted);
+    font-size: 1.2rem;
+    cursor: pointer;
+}
+
 /* --- RESPONSIVE (TABLET Y MÓVIL < 1024px) --- */
 @media (max-width: 1024px) {
-    /* Cambiamos Grid por Flex Vertical */
+    html, body {
+        overflow-x: hidden;
+        overflow-y: auto;
+    }
+
     .layout-grid {
-        display: flex;
-        flex-direction: column;
-        grid-template-areas: none;
+        display: block;
+        height: auto;
     }
 
     .workspace-header {
-        height: 60px;
+        position: fixed; /* Header fijo */
+        top: 0;
+        width: 100%;
+        z-index: 101;
+        height: var(--mobile-header-height);
         padding: 0 15px;
-        flex-shrink: 0;
+        box-sizing: border-box;
+    }
+
+    .character-header {
+        position: fixed; /* Sub-header fijo */
+        top: var(--mobile-header-height);
+        width: 100%;
+        z-index: 100;
+        box-sizing: border-box;
+    }
+
+    .main-content {
+        padding-top: 130px; /* Espacio para los dos headers fijos */
+        padding-bottom: 150px; /* Espacio para el input y nav fijos */
     }
 
     /* MOSTRAR BOTONES TOGGLE */
@@ -745,13 +777,14 @@ textarea:focus { outline: none; }
         position: fixed;
         top: 0;
         height: 100%;
-        width: 85%;
-        max-width: 320px;
+        width: 80%;
+        max-width: 280px;
         z-index: 200;
         transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
         background-color: #080808;
         box-shadow: 0 0 50px rgba(0,0,0,0.8);
-        padding-top: 20px;
+        padding: 20px;
+        box-sizing: border-box;
     }
 
     #sidebar-left { left: 0; transform: translateX(-100%); border-right: 1px solid var(--card-border); }
@@ -760,30 +793,51 @@ textarea:focus { outline: none; }
     #sidebar-left.open { transform: translateX(0); }
     #sidebar-right.open { transform: translateX(0); }
 
-    .main-content {
-        flex: 1;
-        height: 100%;
-        min-height: 0;
-        overflow: hidden;
+    .input-container {
+        position: fixed;
+        bottom: var(--bottom-nav-height);
+        left: 0;
+        width: 100%;
+        margin-bottom: 0;
+        background: rgba(5, 5, 5, 0.95);
+        backdrop-filter: blur(10px);
+        padding: 10px 15px;
+        box-sizing: border-box;
+        border-top: 1px solid var(--card-border);
+        z-index: 99;
     }
 
-    .input-container {
-        margin-bottom: 65px; /* Espacio para bottom nav */
+    .chat-area {
+        padding-bottom: 20px;
     }
 
     .mobile-toggle-btn { display: block; font-size: 1.2rem; color: white; background: none; border: none; padding: 5px; }
 
-    /* --- BOTÓN BORRAR EN MÓVIL (SIEMPRE VISIBLE) --- */
     .delete-msg-btn {
-        opacity: 1 !important; /* Forzar visibilidad */
+        opacity: 1 !important;
         width: 24px;
         height: 24px;
         font-size: 0.7rem;
     }
 
-    /* Ajustar posición para que no se salga */
     .message.user .delete-msg-btn { left: -30px; }
     .message.ai .delete-msg-btn { right: -30px; }
+
+    .aspect-ratio-grid {
+        grid-template-columns: repeat(auto-fit, minmax(60px, 1fr));
+        gap: 5px;
+    }
+    .aspect-ratio-btn {
+        padding: 8px;
+        font-size: 0.75rem;
+    }
+    .aspect-ratio-btn .silhouette {
+        transform: scale(0.9);
+    }
+
+    .close-sidebar-btn {
+        display: block; /* Mostrar botón en móvil */
+    }
 }
 
 /* --- RESPONSIVE EXTRA (MÓVIL PEQUEÑO) --- */
@@ -796,12 +850,11 @@ textarea:focus { outline: none; }
 
     .chat-area {
         padding: 10px;
-        padding-bottom: 300px !important; /* AUMENTADO: Espacio extra generoso para que el último mensaje suba */
-        display: block; /* Asegurar comportamiento de bloque para el scroll */
     }
 
     .result-grid {
-        grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); /* Imágenes más pequeñas en móvil */
+        /* Ajuste para móviles pequeños: columnas más estrechas */
+        grid-template-columns: repeat(auto-fit, minmax(100px, 1fr));
         gap: 8px;
     }
 
@@ -810,40 +863,9 @@ textarea:focus { outline: none; }
         padding: 3px 6px;
     }
 
-    /* CORRECCIÓN: Asegurar que el input no se tape */
-    .input-container {
-        position: fixed;
-        bottom: 65px; /* Altura del bottom nav */
-        left: 0;
-        width: 100%;
-        margin-bottom: 0;
-        background: rgba(5, 5, 5, 0.95); /* Fondo sólido para que no se vea lo de atrás */
-        backdrop-filter: blur(10px);
-        padding: 10px 15px;
-        box-sizing: border-box;
-        border-top: 1px solid var(--card-border);
-        z-index: 100; /* Asegurar que esté encima */
-    }
-
-    /* Ajustar el contenido principal para que no quede tapado por el input fijo */
-    .main-content {
-        padding-bottom: 0 !important; /* Quitar padding del contenedor padre */
-        height: auto;
-        min-height: 100vh;
-        overflow-y: auto;
-    }
-
-    /* Ajustar chat area para que ocupe todo y el scroll sea en main-content o body */
-    .chat-area {
-        overflow: visible;
-        height: auto;
-        flex: none;
-    }
-
-    /* Ajuste del botón scroll en móvil */
     .scroll-bottom-btn {
-        position: fixed; /* Fijo en móvil */
-        bottom: 150px; /* Encima del input container */
+        position: fixed;
+        bottom: 150px;
         right: 20px;
         width: 40px;
         height: 40px;

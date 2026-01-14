@@ -177,6 +177,11 @@
             cursor: pointer;
             transition: all 0.2s;
             background: #1e293b;
+
+            /* IMPORTANTE PARA LONG PRESS: Evitar menú contextual nativo */
+            -webkit-touch-callout: none;
+            -webkit-user-select: none;
+            user-select: none;
         }
         .image-item:hover {
             border-color: var(--primary-color);
@@ -193,6 +198,7 @@
             height: 100%;
             object-fit: cover;
             transition: transform 0.3s;
+            pointer-events: none; /* Evitar arrastre fantasma de imagen */
         }
         .image-item:hover img { transform: scale(1.05); }
 
@@ -215,11 +221,14 @@
             transition: all 0.2s;
             backdrop-filter: blur(4px);
         }
+        /* Mostrar siempre en móvil para facilitar selección, o al hover en desktop */
         .image-item:hover .select-check, .image-item.selected .select-check { opacity: 1; }
+
         .image-item.selected .select-check {
             background: var(--primary-color);
             border-color: var(--primary-color);
             transform: scale(1.1);
+            opacity: 1;
         }
         .select-check i { color: white; font-size: 14px; display: none; }
         .image-item.selected .select-check i { display: block; }
@@ -311,6 +320,123 @@
         }
         .btn-confirm-delete:hover { transform: translateY(-2px); box-shadow: 0 8px 20px rgba(239, 68, 68, 0.4); }
 
+        /* --- ESTILOS DEL VISOR (LIGHTBOX) --- */
+        .image-viewer-modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.95);
+            z-index: 2000;
+            flex-direction: column;
+            justify-content: flex-start; /* Alinear contenido arriba */
+            align-items: center;
+            overflow: hidden;
+        }
+
+        /* CONTROLES SUPERIORES (BARRA DE HERRAMIENTAS) */
+        .viewer-controls-top {
+            position: relative;
+            width: 100%;
+            padding: 15px 20px;
+            box-sizing: border-box;
+            display: flex;
+            justify-content: flex-end; /* Alinear a la derecha */
+            align-items: center;
+            z-index: 2005;
+            background-color: rgba(0, 0, 0, 0.6); /* Fondo semi-transparente */
+            backdrop-filter: blur(10px);
+            border-bottom: 1px solid rgba(255,255,255,0.1);
+            flex-shrink: 0;
+        }
+
+        .viewer-actions-group {
+            display: flex;
+            gap: 15px;
+            align-items: center;
+        }
+
+        .viewer-btn {
+            background: transparent;
+            border: none;
+            color: rgba(255, 255, 255, 0.8);
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            cursor: pointer;
+            font-size: 1.2rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.2s;
+        }
+
+        .viewer-btn:hover {
+            background: rgba(255, 255, 255, 0.15);
+            color: white;
+            transform: scale(1.1);
+        }
+
+        .viewer-btn.delete-btn:hover {
+            color: #ef4444;
+            background: rgba(239, 68, 68, 0.2);
+        }
+
+        .viewer-btn.close-btn:hover {
+            color: white;
+            background: rgba(255, 255, 255, 0.2);
+        }
+
+        /* Contenedor de Imagen (Ajustado para dejar espacio) */
+        .viewer-container {
+            position: relative;
+            width: 100%;
+            flex: 1; /* Ocupar el resto del espacio vertical */
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            overflow: hidden;
+            padding: 30px; /* Espacio para que la imagen se vea más pequeña/centrada */
+            box-sizing: border-box;
+        }
+
+        .viewer-image {
+            max-width: 100%;
+            max-height: 100%;
+            object-fit: contain;
+            transition: transform 0.1s ease-out;
+            cursor: grab;
+            user-select: none;
+            box-shadow: 0 0 30px rgba(0,0,0,0.5); /* Sombra para resaltar */
+        }
+        .viewer-image:active { cursor: grabbing; }
+
+        /* Flechas de Navegación */
+        .nav-arrow {
+            position: absolute;
+            top: 50%;
+            transform: translateY(-50%);
+            background: rgba(255, 255, 255, 0.1);
+            color: white;
+            border: none;
+            padding: 20px;
+            font-size: 24px;
+            cursor: pointer;
+            border-radius: 50%;
+            transition: all 0.3s;
+            z-index: 2001;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            width: 60px;
+            height: 60px;
+        }
+        .nav-arrow:hover { background: rgba(255, 255, 255, 0.3); }
+        .nav-arrow.left { left: 20px; }
+        .nav-arrow.right { right: 20px; }
+
         /* Responsive Adjustments */
         @media (max-width: 768px) {
             .gallery-header h1 { font-size: 2rem; }
@@ -326,6 +452,29 @@
             .tool-btn { padding: 8px 12px; font-size: 0.8rem; flex: 1; justify-content: center; }
 
             body:not(.no-pad-bottom) { padding-bottom: 70px; }
+
+            .nav-arrow {
+                padding: 10px;
+                width: 40px;
+                height: 40px;
+                font-size: 18px;
+                background: rgba(0,0,0,0.3);
+            }
+            .nav-arrow.left { left: 10px; }
+            .nav-arrow.right { right: 10px; }
+
+            /* Ajustes Visor Móvil */
+            .viewer-controls-top {
+                padding: 10px 15px;
+            }
+            .viewer-btn {
+                width: 36px;
+                height: 36px;
+                font-size: 1rem;
+            }
+            .viewer-container {
+                padding: 10px; /* Menos padding en móvil para aprovechar espacio */
+            }
         }
     </style>
 </head>
@@ -436,7 +585,7 @@
     </div>
 
     <!-- Modal de Confirmación de Borrado -->
-    <div id="modal-confirm" class="modal" style="display: none;"> <!-- AÑADIDO: style="display: none;" -->
+    <div id="modal-confirm" class="modal" style="display: none; z-index: 2100;">
         <div class="modal-content confirm-content">
             <div class="modal-body">
                 <div class="confirm-icon">
@@ -450,6 +599,33 @@
                     <button class="btn-confirm-delete" onclick="executeDelete()">Yes, delete</button>
                 </div>
             </div>
+        </div>
+    </div>
+
+    <!-- VISOR DE IMÁGENES (LIGHTBOX) -->
+    <div id="image-viewer" class="image-viewer-modal">
+
+        <!-- Controles Superiores Unificados -->
+        <div class="viewer-controls-top">
+            <div class="viewer-actions-group">
+                <button class="viewer-btn download-btn" onclick="downloadCurrentImage()" title="Download">
+                    <i class="fas fa-download"></i>
+                </button>
+                <button class="viewer-btn delete-btn" onclick="confirmDeleteFromViewer()" title="Delete">
+                    <i class="fas fa-trash-alt"></i>
+                </button>
+                <div style="width: 1px; height: 24px; background: rgba(255,255,255,0.2); margin: 0 5px;"></div>
+                <button class="viewer-btn close-btn" onclick="closeImageViewer()" title="Close">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+        </div>
+
+        <button class="nav-arrow left" onclick="navigateImage(-1)"><i class="fas fa-chevron-left"></i></button>
+        <button class="nav-arrow right" onclick="navigateImage(1)"><i class="fas fa-chevron-right"></i></button>
+
+        <div class="viewer-container" id="viewer-container">
+            <img id="viewer-img" class="viewer-image" src="">
         </div>
     </div>
 
@@ -495,6 +671,7 @@
 
         let currentCharacterId = null;
         let selectedImages = new Set();
+        let imageToDeleteFromViewerId = null; // Variable para borrado individual desde visor
 
         function showImages(charId) {
             const data = galleryData[charId];
@@ -541,14 +718,50 @@
             data.images.forEach((img, index) => {
                 const div = document.createElement('div');
                 div.className = `image-item ${selectedImages.has(img.id) ? 'selected' : ''}`;
-                div.onclick = (e) => toggleSelection(img.id, e);
+                div.id = `img-card-${img.id}`; // ID para acceso directo
+
+                // --- LÓGICA DE LONG PRESS (MANTENER PRESIONADO) ---
+                let pressTimer;
+
+                div.addEventListener('touchstart', () => {
+                    pressTimer = setTimeout(() => {
+                        // Long press detectado
+                        if (navigator.vibrate) navigator.vibrate(40); // Vibración
+                        toggleSelection(img.id);
+                        div.dataset.longPressed = "true"; // Marcar para evitar clic posterior
+                    }, 500); // 500ms para long press
+                }, {passive: true});
+
+                div.addEventListener('touchend', () => {
+                    clearTimeout(pressTimer);
+                    // Limpiar flag después de un momento
+                    setTimeout(() => { div.dataset.longPressed = "false"; }, 200);
+                });
+
+                div.addEventListener('touchmove', () => {
+                    clearTimeout(pressTimer); // Si mueve el dedo, cancela long press
+                });
+
+                // --- LÓGICA DE CLIC INTELIGENTE ---
+                div.onclick = (e) => {
+                    // Si fue un long press, no hacer nada más
+                    if (div.dataset.longPressed === "true") return;
+
+                    // Si estamos en "Modo Selección" (hay items seleccionados), el clic selecciona
+                    if (selectedImages.size > 0) {
+                        toggleSelection(img.id, e);
+                    } else {
+                        // Si NO hay selección, abre el visor
+                        openGalleryViewer(index);
+                    }
+                };
 
                 // Animación escalonada
                 div.style.animation = `fadeInUp 0.4s ease-out ${index * 0.05}s backwards`;
 
                 div.innerHTML = `
                     <img src="${img.url}" loading="lazy">
-                    <div class="select-check">
+                    <div class="select-check" onclick="toggleSelection('${img.id}', event)">
                         <i class="fas fa-check"></i>
                     </div>
                 `;
@@ -568,15 +781,24 @@
             }, 200);
         }
 
-        // --- LÓGICA DE SELECCIÓN ---
+        // --- LÓGICA DE SELECCIÓN (OPTIMIZADA) ---
 
         function toggleSelection(imgId, event) {
+            if (event) event.stopPropagation(); // EVITAR QUE SE ABRA EL VISOR
+
             if (selectedImages.has(imgId)) {
                 selectedImages.delete(imgId);
             } else {
                 selectedImages.add(imgId);
             }
-            renderGrid();
+
+            // Actualizar solo el elemento específico (más rápido que renderGrid)
+            const el = document.getElementById(`img-card-${imgId}`);
+            if (el) {
+                if (selectedImages.has(imgId)) el.classList.add('selected');
+                else el.classList.remove('selected');
+            }
+
             updateToolbar();
         }
 
@@ -589,7 +811,7 @@
             } else {
                 data.images.forEach(img => selectedImages.add(img.id));
             }
-            renderGrid();
+            renderGrid(); // Aquí sí redibujamos todo
             updateToolbar();
         }
 
@@ -609,20 +831,31 @@
 
         function askDeleteConfirmation() {
             if (selectedImages.size === 0) return;
+            imageToDeleteFromViewerId = null; // Asegurar que no es borrado individual
             document.getElementById('confirm-count-text').textContent = selectedImages.size;
             document.getElementById('modal-confirm').style.display = 'block';
         }
 
         function closeConfirm() {
             document.getElementById('modal-confirm').style.display = 'none';
+            imageToDeleteFromViewerId = null;
         }
 
         function executeDelete() {
-            const idsToDelete = Array.from(selectedImages);
+            let idsToDelete = [];
+
+            if (imageToDeleteFromViewerId) {
+                idsToDelete = [imageToDeleteFromViewerId];
+            } else {
+                idsToDelete = Array.from(selectedImages);
+            }
+
             const formData = new FormData();
             idsToDelete.forEach(id => formData.append('image_ids[]', id));
 
-            closeConfirm();
+            // No cerrar modal inmediatamente para evitar parpadeo si falla, pero UX standard es cerrar y mostrar loading o cerrar y esperar.
+            // Cerraremos y si falla alertamos.
+            document.getElementById('modal-confirm').style.display = 'none';
 
             fetch(deleteUrl, {
                 method: 'POST',
@@ -633,13 +866,30 @@
             .then(data => {
                 if (data.status === 'success') {
                     const charData = galleryData[currentCharacterId];
-                    charData.images = charData.images.filter(img => !selectedImages.has(img.id));
 
-                    selectedImages.clear();
-                    updateToolbar();
+                    // Filtrar imágenes borradas
+                    charData.images = charData.images.filter(img => !idsToDelete.includes(img.id));
+
+                    if (imageToDeleteFromViewerId) {
+                        // Lógica post-borrado desde visor
+                        currentViewerImages = charData.images;
+
+                        if (currentViewerImages.length === 0) {
+                            closeImageViewer();
+                        } else {
+                            // Ajustar índice
+                            if (currentViewerIndex >= currentViewerImages.length) {
+                                currentViewerIndex = currentViewerImages.length - 1;
+                            }
+                            updateViewerImage();
+                        }
+                        imageToDeleteFromViewerId = null;
+                    } else {
+                        selectedImages.clear();
+                        updateToolbar();
+                    }
+
                     renderGrid();
-
-                    // Actualizar contador en la tarjeta de carpeta (opcional, requeriría recarga o manipulación DOM compleja)
                 } else {
                     alert('Error deleting: ' + data.message);
                 }
@@ -653,6 +903,183 @@
                 closeConfirm();
             }
         };
+
+        // --- LÓGICA DEL VISOR (LIGHTBOX) ---
+        let currentViewerIndex = 0;
+        let currentViewerImages = [];
+        let zoomLevel = 1;
+        let isDragging = false;
+        let startX, startY, translateX = 0, translateY = 0;
+
+        function openGalleryViewer(index) {
+            const data = galleryData[currentCharacterId];
+            if (!data || !data.images) return;
+
+            currentViewerImages = data.images;
+            currentViewerIndex = index;
+
+            updateViewerImage();
+            document.getElementById('image-viewer').style.display = 'flex';
+            resetZoom();
+        }
+
+        function closeImageViewer() {
+            document.getElementById('image-viewer').style.display = 'none';
+        }
+
+        function navigateImage(direction) {
+            let newIndex = currentViewerIndex + direction;
+            if (newIndex >= 0 && newIndex < currentViewerImages.length) {
+                currentViewerIndex = newIndex;
+                updateViewerImage();
+            }
+        }
+
+        function updateViewerImage() {
+            if (currentViewerImages.length === 0) return;
+
+            const imgObj = currentViewerImages[currentViewerIndex];
+            const viewerImg = document.getElementById('viewer-img');
+            viewerImg.src = imgObj.url;
+
+            resetZoom();
+
+            // Actualizar flechas
+            document.querySelector('.nav-arrow.left').style.display = currentViewerIndex > 0 ? 'flex' : 'none';
+            document.querySelector('.nav-arrow.right').style.display = currentViewerIndex < currentViewerImages.length - 1 ? 'flex' : 'none';
+        }
+
+        function resetZoom() {
+            zoomLevel = 1;
+            translateX = 0;
+            translateY = 0;
+            updateTransform();
+        }
+
+        function updateTransform() {
+            const viewerImg = document.getElementById('viewer-img');
+            viewerImg.style.transform = `translate(${translateX}px, ${translateY}px) scale(${zoomLevel})`;
+        }
+
+        // Funciones de Acción en Visor
+        function downloadCurrentImage() {
+            const imgObj = currentViewerImages[currentViewerIndex];
+            const link = document.createElement('a');
+            link.href = imgObj.url;
+            link.download = `image-${imgObj.id}.png`;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+        }
+
+        function confirmDeleteFromViewer() {
+            const imgObj = currentViewerImages[currentViewerIndex];
+            imageToDeleteFromViewerId = imgObj.id;
+
+            document.getElementById('confirm-count-text').textContent = "1";
+            document.getElementById('modal-confirm').style.display = 'block';
+        }
+
+        // Zoom y Pan (Reutilizado del workspace)
+        const viewerContainer = document.getElementById('viewer-container');
+        const viewerImg = document.getElementById('viewer-img');
+
+        viewerContainer.addEventListener('wheel', (e) => {
+            e.preventDefault();
+            const delta = e.deltaY > 0 ? -0.1 : 0.1;
+            zoomLevel = Math.min(Math.max(1, zoomLevel + delta), 4);
+            updateTransform();
+        });
+
+        viewerImg.addEventListener('mousedown', (e) => {
+            if (zoomLevel > 1) {
+                isDragging = true;
+                startX = e.clientX - translateX;
+                startY = e.clientY - translateY;
+                viewerImg.style.cursor = 'grabbing';
+            }
+        });
+
+        window.addEventListener('mouseup', () => {
+            isDragging = false;
+            if(viewerImg) viewerImg.style.cursor = 'grab';
+        });
+
+        window.addEventListener('mousemove', (e) => {
+            if (!isDragging) return;
+            e.preventDefault();
+            translateX = e.clientX - startX;
+            translateY = e.clientY - startY;
+            updateTransform();
+        });
+
+        // --- SOPORTE TÁCTIL (SWIPE Y PINCH ZOOM) ---
+        let touchStartX = 0;
+        let touchEndX = 0;
+        let initialDistance = 0;
+
+        viewerContainer.addEventListener('touchstart', (e) => {
+            if (e.touches.length === 1) {
+                touchStartX = e.changedTouches[0].screenX;
+                if (zoomLevel > 1) {
+                    isDragging = true;
+                    startX = e.touches[0].clientX - translateX;
+                    startY = e.touches[0].clientY - translateY;
+                }
+            } else if (e.touches.length === 2) {
+                initialDistance = Math.hypot(
+                    e.touches[0].pageX - e.touches[1].pageX,
+                    e.touches[0].pageY - e.touches[1].pageY
+                );
+            }
+        });
+
+        viewerContainer.addEventListener('touchmove', (e) => {
+            e.preventDefault(); // Prevenir scroll de página
+            if (e.touches.length === 1 && zoomLevel > 1 && isDragging) {
+                translateX = e.touches[0].clientX - startX;
+                translateY = e.touches[0].clientY - startY;
+                updateTransform();
+            } else if (e.touches.length === 2) {
+                const currentDistance = Math.hypot(
+                    e.touches[0].pageX - e.touches[1].pageX,
+                    e.touches[0].pageY - e.touches[1].pageY
+                );
+                const delta = currentDistance / initialDistance;
+                zoomLevel = Math.min(Math.max(1, zoomLevel * delta), 4);
+                initialDistance = currentDistance; // Actualizar para suavidad
+                updateTransform();
+            }
+        });
+
+        viewerContainer.addEventListener('touchend', (e) => {
+            if (e.changedTouches.length === 1 && zoomLevel === 1) {
+                touchEndX = e.changedTouches[0].screenX;
+                handleSwipe();
+            }
+            isDragging = false;
+        });
+
+        function handleSwipe() {
+            const threshold = 50;
+            // Swipe Izquierda -> Siguiente (solo si no es el último)
+            if (touchEndX < touchStartX - threshold) {
+                navigateImage(1);
+            }
+            // Swipe Derecha -> Anterior (solo si no es el primero)
+            if (touchEndX > touchStartX + threshold) {
+                navigateImage(-1);
+            }
+        }
+
+        // Teclas
+        document.addEventListener('keydown', (e) => {
+            if (document.getElementById('image-viewer').style.display === 'flex') {
+                if (e.key === 'ArrowLeft') navigateImage(-1);
+                if (e.key === 'ArrowRight') navigateImage(1);
+                if (e.key === 'Escape') closeImageViewer();
+            }
+        });
 
         // Inicializar estado del botón borrar
         updateToolbar();

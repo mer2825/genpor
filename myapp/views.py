@@ -460,25 +460,31 @@ async def workspace_view(request):
 
     recent_chats = await get_recent_chats_list()
 
-    # --- NEW: Random Preview Images for Welcome Screen ---
+    # --- FIXED: Random Preview Images for Welcome Screen ---
     random_preview_images = []
     if not character_id:
-        # Select 3 random characters that have images
-        chars_with_imgs = [c for c in all_characters if c.catalog_images_set.all()]
-        if len(chars_with_imgs) >= 3:
-            random_chars = random.sample(chars_with_imgs, 3)
+        # 1. Get all active characters with their catalog images prefetched
+        all_active_chars = await sync_to_async(list)(
+            Character.objects.filter(is_active=True).prefetch_related('catalog_images_set')
+        )
+        
+        # 2. Collect all catalog images into a single list
+        all_catalog_images = []
+        for char in all_active_chars:
+            all_catalog_images.extend(list(char.catalog_images_set.all()))
+
+        # 3. Shuffle and pick 2 if available
+        if len(all_catalog_images) >= 2:
+            random_images = random.sample(all_catalog_images, 2)
         else:
-            random_chars = chars_with_imgs # Take all if less than 3
+            random_images = all_catalog_images # Take all if less than 2
             
-        for char in random_chars:
-            # Get the first image of the character
-            img = char.catalog_images_set.first()
-            if img:
-                random_preview_images.append({
-                    'character_id': char.id,
-                    'character_name': char.name,
-                    'image_url': img.image.url
-                })
+        # 4. Format for the template
+        for img in random_images:
+            random_preview_images.append({
+                'character_id': img.character.id, # An image object should have a character attribute
+                'image_url': img.image.url
+            })
 
     if character_id:
         try:
