@@ -28,9 +28,12 @@ async def check_gpu_load(client, config):
     address = config.base_url.rstrip('/')
     protocol, _ = get_protocols(address)
     
+    # Headers para evitar bloqueo de ngrok
+    headers = {"ngrok-skip-browser-warning": "true", "User-Agent": "MyApp/1.0"}
+
     try:
         # Timeout corto (2s) para no ralentizar al usuario si una GPU está caída
-        response = await client.get(f"{protocol}://{address}/queue", timeout=2.0)
+        response = await client.get(f"{protocol}://{address}/queue", headers=headers, timeout=2.0)
         if response.status_code == 200:
             data = response.json()
             # Sumamos los que se están ejecutando + los pendientes
@@ -78,9 +81,12 @@ async def get_active_comfyui_address():
 
 async def get_comfyui_object_info(address):
     protocol, _ = get_protocols(address)
+    # Headers para evitar bloqueo de ngrok
+    headers = {"ngrok-skip-browser-warning": "true", "User-Agent": "MyApp/1.0"}
+    
     try:
         async with httpx.AsyncClient() as client:
-            response = await client.get(f"{protocol}://{address}/object_info")
+            response = await client.get(f"{protocol}://{address}/object_info", headers=headers)
             response.raise_for_status()
             data = response.json()
             return {
@@ -96,6 +102,9 @@ async def get_comfyui_object_info(address):
 async def queue_prompt(client, prompt_workflow, client_id, address):
     protocol, _ = get_protocols(address)
     p = {"prompt": prompt_workflow, "client_id": client_id}
+    # Headers para evitar bloqueo de ngrok (aunque en POST suele ser menos estricto, mejor prevenir)
+    # Nota: httpx client ya puede traer headers si se configura al crearlo, pero aquí lo pasamos explícito si es necesario
+    # Sin embargo, client se pasa como argumento. Lo ideal es configurar los headers al crear el client en generate_image_from_character
     
     try:
         response = await client.post(f"{protocol}://{address}/prompt", json=p)
@@ -109,6 +118,8 @@ async def queue_prompt(client, prompt_workflow, client_id, address):
 
 async def get_image(client, filename, subfolder, folder_type, address):
     protocol, _ = get_protocols(address)
+    # Headers ya deberían venir en el client, pero por seguridad:
+    # (El client se crea en el bloque principal, ahí añadiremos los headers)
     response = await client.get(f"{protocol}://{address}/view?filename={filename}&subfolder={subfolder}&type={folder_type}")
     response.raise_for_status()
     return response.content
@@ -522,9 +533,13 @@ async def generate_image_from_character(character, user_prompt, width=None, heig
     uri = f"{ws_protocol}://{address}/ws?clientId={client_id}"
 
     images_data = []
+    
+    # --- HEADERS PARA NGROK ---
+    headers = {"ngrok-skip-browser-warning": "true", "User-Agent": "MyApp/1.0"}
 
     async with websockets.connect(uri) as websocket:
-        async with httpx.AsyncClient(timeout=300.0) as client:
+        # Pasamos headers al cliente principal
+        async with httpx.AsyncClient(timeout=300.0, headers=headers) as client:
             queued_prompt = await queue_prompt(client, updated_workflow, client_id, address)
             prompt_id = queued_prompt['prompt_id']
             
