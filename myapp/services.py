@@ -115,10 +115,25 @@ async def queue_prompt(client, prompt_workflow, client_id, address):
 
 async def get_image(client, filename, subfolder, folder_type, address):
     protocol, _ = get_protocols(address)
-    # Usamos el mismo cliente que ya tiene headers y timeout configurado
-    response = await client.get(f"{protocol}://{address}/view?filename={filename}&subfolder={subfolder}&type={folder_type}")
-    response.raise_for_status()
-    return response.content
+    
+    # --- CORRECCIÓN: Usar params para codificación automática de URL ---
+    params = {
+        "filename": filename,
+        "subfolder": subfolder,
+        "type": folder_type
+    }
+    
+    try:
+        response = await client.get(f"{protocol}://{address}/view", params=params)
+        response.raise_for_status()
+        return response.content
+    except httpx.HTTPStatusError as e:
+        print(f"ERROR DESCARGANDO IMAGEN: {e.response.status_code} - {e.response.text}")
+        print(f"URL INTENTADA: {e.request.url}")
+        return None # Retornar None para que el bucle principal lo maneje
+    except Exception as e:
+        print(f"ERROR DE CONEXIÓN AL DESCARGAR IMAGEN: {e}")
+        return None
 
 async def get_history(client, prompt_id, address):
     protocol, _ = get_protocols(address)
