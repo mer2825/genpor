@@ -67,14 +67,22 @@ class Character(models.Model):
     base_workflow = models.ForeignKey(Workflow, on_delete=models.CASCADE, related_name="characters")
     character_config = models.TextField(blank=True, null=True, help_text="Specific JSON configuration for this character.")
     
-    # --- NEW FIELD ---
+    # --- NEW FIELDS ---
     is_active = models.BooleanField(default=True, verbose_name="Active", help_text="If unchecked, this character will be hidden from the workspace.")
+    is_private = models.BooleanField(default=False, verbose_name="Private Character", help_text="If checked, this character will NOT appear in the public list. Users need a code to access it.")
 
     prompt_prefix = models.TextField(blank=True, null=True, verbose_name="Prompt Prefix (Character)", default="", help_text="PREFIX: Goes BEFORE the user prompt. Use to describe the character (hair, eyes, body).")
     prompt_suffix = models.TextField(blank=True, null=True, verbose_name="Prompt Suffix (Quality)", default="masterpiece, best quality, newest, absurdres, highres, anime coloring,", help_text="SUFFIX: Goes AFTER the user prompt. Use for Quality Tags (score_9...) and style.")
     negative_prompt = models.TextField(blank=True, null=True, verbose_name="Negative Prompt", default="bad anatomy, bad hands, multiple views, abstract, signature, furry, anthro, 2koma, 4koma, comic, (text, watermark), logo, artist signature, patreon logo, patreon username, twitter username, blurred, unfocused, foggy, poorly drawn hands, poorly drawn fingers, bad quality, worst quality, worst detail,", help_text="NEGATIVE: Things you DO NOT want in the image.")
     def __str__(self):
         return self.name
+
+# --- PROXY MODEL FOR ADMIN SEPARATION ---
+class PrivateCharacter(Character):
+    class Meta:
+        proxy = True
+        verbose_name = "Private Character"
+        verbose_name_plural = "Private Characters"
 
 class CharacterCatalogImage(models.Model):
     character = models.ForeignKey(Character, related_name='catalog_images_set', on_delete=models.CASCADE)
@@ -219,8 +227,9 @@ class ConnectionConfig(models.Model):
         verbose_name = "Connection Configuration"
         verbose_name_plural = "Connection Configurations"
     def save(self, *args, **kwargs):
-        if self.is_active:
-            ConnectionConfig.objects.filter(is_active=True).exclude(pk=self.pk).update(is_active=False)
+        # REMOVED: Logic that forced only one active connection
+        # if self.is_active:
+        #     ConnectionConfig.objects.filter(is_active=True).exclude(pk=self.pk).update(is_active=False)
         super().save(*args, **kwargs)
     def __str__(self):
         status = " (ACTIVE)" if self.is_active else ""
@@ -319,13 +328,110 @@ class ChatMessage(models.Model):
 def generate_coupon_code():
     return ''.join(secrets.choice(string.ascii_uppercase + string.digits) for _ in range(12))
 
+# --- UPDATED COUPON SYSTEM ---
 class Coupon(models.Model):
-    code = models.CharField(max_length=20, unique=True, default=generate_coupon_code, editable=False)
+    code = models.CharField(max_length=20, unique=True, default=generate_coupon_code, editable=True) # Editable to allow custom codes
     tokens = models.PositiveIntegerField(verbose_name="Tokens to Grant")
-    is_redeemed = models.BooleanField(default=False)
-    redeemed_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='redeemed_coupons')
+    
+    # --- NEW FIELDS FOR MULTI-USER ---
+    max_redemptions = models.PositiveIntegerField(null=True, blank=True, verbose_name="Max Users", help_text="Maximum number of users who can redeem this coupon. Leave empty for infinite.")
+    times_redeemed = models.PositiveIntegerField(default=0, verbose_name="Redeemed Count", editable=False)
+    
     created_at = models.DateTimeField(auto_now_add=True)
-    redeemed_at = models.DateTimeField(null=True, blank=True)
 
     def __str__(self):
-        return f"{self.code} - {self.tokens} Tokens"
+        limit_str = f"{self.times_redeemed}/{self.max_redemptions}" if self.max_redemptions else f"{self.times_redeemed}/∞"
+        return f"{self.code} - {self.tokens} Tokens (Users: {limit_str})"
+
+class CouponRedemption(models.Model):
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='coupon_redemptions')
+    coupon = models.ForeignKey(Coupon, on_delete=models.CASCADE, related_name='redemptions')
+    redeemed_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        unique_together = ('user', 'coupon') # Prevent double redemption by same user
+        verbose_name = "Coupon Redemption"
+        verbose_name_plural = "Coupon Redemptions"
+
+    def __str__(self):
+        return f"{self.user.username} redeemed {self.coupon.code}"
+
+# --- NEW: PRIVATE CHARACTER ACCESS SYSTEM ---
+
+class CharacterAccessCode(models.Model):
+    INTERVAL_CHOICES = [('DAILY', 'Daily'), ('WEEKLY', 'Weekly'), ('MONTHLY', 'Monthly'), ('NEVER', 'Lifetime/One-time')]
+    
+    # CHANGE: Removed default=generate_coupon_code to handle it in save() properly
+    code = models.CharField(max_length=20, unique=True, blank=True, help_text="Code to unlock the character. Leave empty to auto-generate.")
+    
+    # CHANGE: ForeignKey -> OneToOneField to enforce 1 key per character
+    character = models.OneToOneField(Character, on_delete=models.CASCADE, related_name='access_code', limit_choices_to={'is_private': True})
+    
+    limit_amount = models.PositiveIntegerField(default=50, help_text="How many images can be generated per interval.")
+    reset_interval = models.CharField(max_length=10, choices=INTERVAL_CHOICES, default='MONTHLY', help_text="How often the limit resets.")
+    
+    # --- NEW FIELDS FOR GLOBAL LIMIT ---
+    max_redemptions = models.PositiveIntegerField(null=True, blank=True, verbose_name="Max Users", help_text="Maximum number of users who can redeem this code. Leave empty for infinite.")
+    times_redeemed = models.PositiveIntegerField(default=0, verbose_name="Redeemed Count", editable=False)
+
+    is_active = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        limit_str = f"{self.times_redeemed}/{self.max_redemptions}" if self.max_redemptions else f"{self.times_redeemed}/∞"
+        return f"{self.code} - {self.character.name} (Users: {limit_str})"
+
+    def save(self, *args, **kwargs):
+        # AUTO-FILL LOGIC
+        if not self.code:
+            while True:
+                new_code = generate_coupon_code()
+                if not CharacterAccessCode.objects.filter(code=new_code).exists():
+                    self.code = new_code
+                    break
+        super().save(*args, **kwargs)
+
+class UserCharacterAccess(models.Model):
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='private_characters')
+    character = models.ForeignKey(Character, on_delete=models.CASCADE)
+    source_code = models.ForeignKey(CharacterAccessCode, on_delete=models.SET_NULL, null=True, blank=True)
+    
+    # Quota Logic
+    images_generated_current_period = models.PositiveIntegerField(default=0)
+    limit_amount = models.PositiveIntegerField(default=50)
+    reset_interval = models.CharField(max_length=10, choices=CharacterAccessCode.INTERVAL_CHOICES, default='MONTHLY')
+    last_reset_date = models.DateTimeField(default=timezone.now)
+    
+    unlocked_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        unique_together = ('user', 'character')
+        verbose_name = "User Private Character Access"
+        verbose_name_plural = "User Private Character Accesses"
+
+    def __str__(self):
+        return f"{self.user.username} -> {self.character.name}"
+
+    @sync_to_async
+    def check_and_reset_quota(self):
+        now = timezone.now()
+        should_reset = False
+        
+        if self.reset_interval == 'NEVER':
+            return # No reset logic for lifetime, just a hard cap
+
+        if self.reset_interval == 'DAILY':
+            if (now - self.last_reset_date).days >= 1: should_reset = True
+        elif self.reset_interval == 'WEEKLY':
+            if (now - self.last_reset_date).days >= 7: should_reset = True
+        elif self.reset_interval == 'MONTHLY':
+            if (now - self.last_reset_date).days >= 30: should_reset = True
+        
+        if should_reset:
+            self.images_generated_current_period = 0
+            self.last_reset_date = now
+            self.save()
+
+    @property
+    def remaining_generations(self):
+        return max(0, self.limit_amount - self.images_generated_current_period)

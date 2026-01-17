@@ -152,6 +152,46 @@
             box-shadow: 0 15px 40px -5px var(--primary-glow);
         }
 
+        /* --- ESTILOS BOTÓN PRIVATE (GOLD) --- */
+        .filter-btn.private-btn {
+            background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+            color: white;
+            border: 1px solid rgba(251, 191, 36, 0.5);
+            box-shadow: 0 4px 15px rgba(245, 158, 11, 0.3);
+            font-weight: 700;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+        .filter-btn.private-btn:hover, .filter-btn.private-btn.active {
+            background: linear-gradient(135deg, #fbbf24 0%, #b45309 100%);
+            box-shadow: 0 6px 20px rgba(245, 158, 11, 0.5);
+            transform: translateY(-2px);
+        }
+
+        /* --- ANIMACIÓN DE ESTRELLAS MEJORADA (CONFETTI EXPLOSION) --- */
+        .unlock-particle {
+            position: fixed; /* CAMBIO: Fixed para que sea relativo a la pantalla */
+            pointer-events: none;
+            z-index: 10000; /* Muy alto para estar encima del modal */
+            text-shadow: 0 0 5px rgba(255, 255, 255, 0.8); /* Brillo */
+        }
+
+        @keyframes confetti-explosion {
+            0% {
+                transform: translate(-50%, -50%) scale(0.5) rotate(0deg);
+                opacity: 1;
+            }
+            20% {
+                transform: translate(calc(-50% + (var(--tx) * 0.2)), calc(-50% + (var(--ty) * 0.2))) scale(1.2) rotate(45deg);
+                opacity: 1;
+            }
+            100% {
+                transform: translate(calc(-50% + var(--tx)), calc(-50% + var(--ty))) scale(0) rotate(var(--rot));
+                opacity: 0;
+            }
+        }
+
         /* Responsive adjustments for Welcome Screen */
         @media (max-width: 768px) {
             .welcome-container {
@@ -198,6 +238,9 @@
             overflow: hidden;
             text-overflow: ellipsis;
             min-width: 0;
+            display: flex;
+            align-items: center;
+            gap: 8px;
         }
 
         /* 2. Estandarizar estilos de imagen de la lista */
@@ -346,7 +389,12 @@
                     {% endif %}
 
                     <div class="char-info">
-                        <h2>{{ selected_character.name }}</h2>
+                        <h2>
+                            {{ selected_character.name }}
+                            {% if selected_character.is_private %}
+                                <i class="fas fa-unlock" style="color: #fbbf24; font-size: 0.8rem; margin-left: 5px;" title="Private Character"></i>
+                            {% endif %}
+                        </h2>
                         <span>{{ selected_character.description|default:"AI Assistant" }}</span>
                     </div>
 
@@ -458,7 +506,12 @@
                     {% else %}
                         <div style="width:24px; height:24px; border-radius:50%; background:#334155;"></div>
                     {% endif %}
-                    <span>{{ chat.name }}</span>
+                    <span>
+                        {{ chat.name }}
+                        {% if chat.is_private %}
+                            <i class="fas fa-unlock" style="color: #fbbf24; font-size: 0.7rem; margin-left: 4px;"></i>
+                        {% endif %}
+                    </span>
                 </a>
             {% empty %}
                 <p style="font-size:0.8rem; color:var(--text-muted); text-align:center;">No chats yet.</p>
@@ -498,11 +551,16 @@
                 <input type="text" id="char-search" placeholder="Search..." style="width:100%; padding:12px; background:rgba(0,0,0,0.3); border:1px solid var(--border-subtle); color:white; border-radius:12px; margin-bottom:20px; box-sizing: border-box;" onkeyup="filterCharacters()">
 
                 <!-- FILTROS DE CATEGORÍA -->
-                <div style="display:flex; gap:10px; margin-bottom:15px; overflow-x:auto; padding-bottom:5px;">
+                <div class="filter-buttons-container" style="display:flex; gap:10px; margin-bottom:15px; overflow-x:auto; padding-bottom:5px;">
                     <button class="filter-btn active" onclick="filterCategory('ALL', this)">All</button>
                     {% for cat in all_categories %}
                         <button class="filter-btn" onclick="filterCategory('{{ cat.id }}', this)">{{ cat.name }}</button>
                     {% endfor %}
+
+                    <!-- BOTÓN PRIVATE (NUEVO) -->
+                    <button class="filter-btn private-btn" onclick="filterCategory('PRIVATE', this)">
+                        <i class="fas fa-lock"></i> Private
+                    </button>
                 </div>
 
                 <!-- FILTROS DE SUBCATEGORÍAS -->
@@ -516,14 +574,20 @@
                     {% for char in all_characters %}
                     <a href="?character_id={{ char.id }}" class="char-list-item"
                        data-category-id="{{ char.category.id|default:'NONE' }}"
-                       data-subcategory-id="{{ char.subcategory.id|default:'NONE' }}">
+                       data-subcategory-id="{{ char.subcategory.id|default:'NONE' }}"
+                       data-is-private="{{ char.is_private|yesno:'true,false' }}"> <!-- NUEVO ATRIBUTO -->
 
                         {% if char.catalog_images_set.all %}
                             <img src="{{ char.catalog_images_set.all.0.image.url }}">
                         {% else %}
                             <div class="char-list-placeholder"></div>
                         {% endif %}
-                        <span>{{ char.name }}</span>
+                        <span>
+                            {{ char.name }}
+                            {% if char.is_private %}
+                                <i class="fas fa-unlock" style="color: #fbbf24; font-size: 0.8rem;"></i>
+                            {% endif %}
+                        </span>
                     </a>
                     {% endfor %}
                 </div>
@@ -581,7 +645,7 @@
         </div>
     </div>
 
-    <!-- MODAL DE CANJE DE CUPÓN -->
+    <!-- MODAL DE CANJE DE CUPÓN (ACTUALIZADO) -->
     <div id="modal-coupon" class="modal">
         <div class="modal-content">
             <div class="modal-header">
@@ -996,13 +1060,26 @@
             const activeCategoryId = list.dataset.activeCategory || 'ALL';
             const activeSubs = list.dataset.activeSubs ? list.dataset.activeSubs.split(',').filter(Boolean) : [];
             const items = document.getElementsByClassName('char-list-item');
+
             Array.from(items).forEach(item => {
                 const name = item.textContent.toLowerCase();
                 const itemCategoryId = item.getAttribute('data-category-id');
                 const itemSubCategoryId = item.getAttribute('data-subcategory-id');
+                const isPrivate = item.getAttribute('data-is-private') === 'true';
+
                 const matchesSearch = name.includes(searchVal);
-                const matchesCategory = activeCategoryId === 'ALL' || itemCategoryId === activeCategoryId;
+
+                let matchesCategory = false;
+                if (activeCategoryId === 'PRIVATE') {
+                    matchesCategory = isPrivate;
+                } else if (activeCategoryId === 'ALL') {
+                    matchesCategory = true;
+                } else {
+                    matchesCategory = itemCategoryId === activeCategoryId;
+                }
+
                 const matchesSub = activeSubs.length === 0 || activeSubs.includes(itemSubCategoryId);
+
                 item.style.display = (matchesSearch && matchesCategory && matchesSub) ? 'flex' : 'none';
             });
         }
@@ -1030,20 +1107,49 @@
                     const successContainer = document.getElementById('coupon-success-container');
                     successContainer.style.display = 'flex';
                     document.getElementById('success-text').textContent = data.message;
-                    for(let i=0; i<20; i++) {
+
+                    // --- ANIMACIÓN DE ESTRELLAS MEJORADA (CONFETTI) ---
+                    const colors = ['#fbbf24', '#f59e0b', '#fb923c', '#ffffff', '#fcd34d'];
+
+                    for(let i=0; i<50; i++) {
                         const star = document.createElement('i');
-                        star.className = 'fas fa-star mini-star';
+                        star.classList.add('fas', 'fa-star', 'unlock-particle');
+
+                        // Random Position (Explosion)
                         const angle = Math.random() * Math.PI * 2;
-                        const distance = 30 + Math.random() * 100;
-                        const tx = Math.cos(angle) * distance;
-                        const ty = Math.sin(angle) * distance;
+                        const velocity = 50 + Math.random() * 150; // Varying distance
+                        const tx = Math.cos(angle) * velocity;
+                        const ty = Math.sin(angle) * velocity;
+
+                        // Random Rotation
+                        const rot = -200 + Math.random() * 400;
+
+                        // Random Size
+                        const scale = 0.5 + Math.random() * 1.0;
+
+                        // Random Color
+                        star.style.color = colors[Math.floor(Math.random() * colors.length)];
+                        star.style.fontSize = `${10 * scale}px`;
+
+                        // Set CSS Variables
                         star.style.setProperty('--tx', `${tx}px`);
                         star.style.setProperty('--ty', `${ty}px`);
+                        star.style.setProperty('--rot', `${rot}deg`);
+
+                        // Position relative to center of container
                         star.style.left = '50%';
                         star.style.top = '50%';
-                        star.style.animation = `sparkle 0.8s ease-out forwards ${Math.random() * 0.5}s`;
-                        successContainer.appendChild(star);
+
+                        // Animation
+                        star.style.animation = `confetti-explosion ${0.8 + Math.random() * 0.5}s ease-out forwards`;
+
+                        // CAMBIO: Añadir al BODY para evitar recortes
+                        document.body.appendChild(star);
+
+                        // Limpieza
+                        setTimeout(() => star.remove(), 1500);
                     }
+
                     setTimeout(() => window.location.reload(), 2500);
                 } else {
                     messageDiv.style.color = '#ef4444';

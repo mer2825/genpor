@@ -189,6 +189,76 @@
                 font-size: 1rem;
             }
         }
+
+        /* --- ESTILOS BOTÓN PRIVATE (GOLD) --- */
+        .filter-btn.private-btn {
+            background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+            color: white;
+            border: 1px solid rgba(251, 191, 36, 0.5);
+            box-shadow: 0 4px 15px rgba(245, 158, 11, 0.3);
+            font-weight: 700;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+        .filter-btn.private-btn:hover, .filter-btn.private-btn.active {
+            background: linear-gradient(135deg, #fbbf24 0%, #b45309 100%);
+            box-shadow: 0 6px 20px rgba(245, 158, 11, 0.5);
+            transform: translateY(-2px);
+        }
+
+        /* --- ESTILOS BOTÓN UNLOCK --- */
+        .unlock-container {
+            width: 100%;
+            display: flex;
+            justify-content: center;
+            margin-top: 40px;
+            display: none; /* Oculto por defecto */
+        }
+        .unlock-btn {
+            background: transparent;
+            border: 2px dashed #fbbf24;
+            color: #fbbf24;
+            padding: 15px 30px;
+            border-radius: 12px;
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .unlock-btn:hover {
+            background: rgba(251, 191, 36, 0.1);
+            transform: scale(1.02);
+        }
+
+        /* --- ANIMACIÓN DE ESTRELLAS MEJORADA (CONFETTI EXPLOSION) --- */
+        .unlock-particle {
+            position: fixed; /* CAMBIO: Fixed para que sea relativo a la pantalla */
+            pointer-events: none;
+            z-index: 10000; /* Muy alto para estar encima del modal */
+            text-shadow: 0 0 5px rgba(255, 255, 255, 0.8); /* Brillo */
+        }
+
+        @keyframes confetti-explosion {
+            0% {
+                /* Empezar pequeño pero visible */
+                transform: translate(-50%, -50%) scale(0.5) rotate(0deg);
+                opacity: 1;
+            }
+            20% {
+                /* Explotar a tamaño completo rápidamente */
+                transform: translate(calc(-50% + (var(--tx) * 0.2)), calc(-50% + (var(--ty) * 0.2))) scale(1.2) rotate(45deg);
+                opacity: 1;
+            }
+            100% {
+                /* Desvanecerse y moverse al destino final */
+                transform: translate(calc(-50% + var(--tx)), calc(-50% + var(--ty))) scale(0) rotate(var(--rot));
+                opacity: 0;
+            }
+        }
     </style>
 </head>
 <body>
@@ -292,6 +362,11 @@
             {% for cat in all_categories %}
                 <button class="filter-btn" onclick="filterCategory('{{ cat.id }}', this)">{{ cat.name }}</button>
             {% endfor %}
+
+            <!-- BOTÓN PRIVATE (NUEVO) -->
+            <button class="filter-btn private-btn" onclick="filterCategory('PRIVATE', this)">
+                <i class="fas fa-lock"></i> Private
+            </button>
         </div>
 
         <!-- FILTROS DE SUBCATEGORÍAS (TAGS) -->
@@ -306,7 +381,8 @@
             <a href="{% url 'workspace' %}?character_id={{ character.id }}" class="character-card"
                data-character-id="{{ character.id }}"
                data-category-id="{{ character.category.id|default:'NONE' }}"
-               data-subcategory-id="{{ character.subcategory.id|default:'NONE' }}">
+               data-subcategory-id="{{ character.subcategory.id|default:'NONE' }}"
+               data-is-private="{{ character.is_private|yesno:'true,false' }}"> <!-- NUEVO ATRIBUTO -->
 
                 <!-- Carrusel de Imágenes (Fondo) -->
                 <div class="carousel">
@@ -330,7 +406,13 @@
 
                 <!-- Overlay de Información (Sobre la imagen) -->
                 <div class="card-overlay">
-                    <h2>{{ character.name }}</h2>
+                    <h2>
+                        {{ character.name }}
+                        {% if character.is_private %}
+                            <!-- CAMBIO: ICONO DE CANDADO ABIERTO -->
+                            <i class="fas fa-unlock" style="font-size: 0.8rem; color: #fbbf24; margin-left: 5px;"></i>
+                        {% endif %}
+                    </h2>
                     {% if character.description %}
                     <p>{{ character.description|truncatechars:80 }}</p>
                     {% endif %}
@@ -341,6 +423,13 @@
                 </div>
             </a>
             {% endfor %}
+        </div>
+
+        <!-- BOTÓN DESBLOQUEAR PERSONAJE (NUEVO) -->
+        <div id="unlock-section" class="unlock-container">
+            <button class="unlock-btn" onclick="document.getElementById('modal-unlock').style.display='block'">
+                <i class="fas fa-key"></i> UNLOCK CHARACTER
+            </button>
         </div>
     </section>
 
@@ -413,7 +502,7 @@
         </a>
     </nav>
 
-    <!-- MODAL DE CANJE DE CUPÓN (NUEVO EN GENERATE) -->
+    <!-- MODAL DE CANJE DE CUPÓN (TOKENS) -->
     <div id="modal-coupon" class="modal">
         <div class="modal-content">
             <div class="modal-header">
@@ -435,6 +524,32 @@
             <div class="modal-footer" id="coupon-footer">
                 <button class="modal-btn modal-btn-secondary" onclick="document.getElementById('modal-coupon').style.display='none'">Cancel</button>
                 <button class="modal-btn" style="background-color:var(--primary-blue); color:white;" onclick="redeemCoupon()">Redeem</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL DE DESBLOQUEO DE PERSONAJE (NUEVO) -->
+    <div id="modal-unlock" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 style="margin:0; color:white;">Unlock Character</h3>
+                <span onclick="document.getElementById('modal-unlock').style.display='none'" style="cursor:pointer; color:white;">&times;</span>
+            </div>
+            <div class="modal-body">
+                <div id="unlock-input-container">
+                    <p style="color:var(--text-muted); margin-bottom:15px;">Enter your access key to unlock a private character.</p>
+                    <input type="text" id="unlock-code" placeholder="Enter key here..." style="width:100%; padding:10px; background:#0f172a; border:1px solid var(--border-subtle); color:white; border-radius:8px; margin-bottom:15px; box-sizing:border-box;">
+                    <div id="unlock-message" style="margin-top:10px; font-size:0.9rem;"></div>
+                </div>
+
+                <div id="unlock-success-container" class="success-animation-container" style="display:none;">
+                    <i class="fas fa-unlock-alt success-icon" style="color: #fbbf24;"></i>
+                    <div id="unlock-success-text" class="success-text"></div>
+                </div>
+            </div>
+            <div class="modal-footer" id="unlock-footer">
+                <button class="modal-btn modal-btn-secondary" onclick="document.getElementById('modal-unlock').style.display='none'">Cancel</button>
+                <button class="modal-btn" style="background-color: #fbbf24; color: black; font-weight: bold;" onclick="unlockCharacter()">Unlock</button>
             </div>
         </div>
     </div>
@@ -478,27 +593,134 @@
             const list = document.getElementById('personajes-list');
             const activeCategoryId = list.dataset.activeCategory || 'ALL';
             const activeSubs = list.dataset.activeSubs ? list.dataset.activeSubs.split(',').filter(Boolean) : [];
+            const unlockSection = document.getElementById('unlock-section');
 
             const cards = document.querySelectorAll('.character-card');
+            let visibleCount = 0;
+
             cards.forEach(card => {
                 const itemCategoryId = card.getAttribute('data-category-id');
                 const itemSubCategoryId = card.getAttribute('data-subcategory-id');
+                const isPrivate = card.getAttribute('data-is-private') === 'true';
 
-                const matchesCategory = activeCategoryId === 'ALL' || itemCategoryId === activeCategoryId;
+                let matchesCategory = false;
+
+                if (activeCategoryId === 'PRIVATE') {
+                    // Si estamos en la pestaña PRIVATE, solo mostrar privados
+                    matchesCategory = isPrivate;
+                    // Mostrar botón de desbloqueo
+                    unlockSection.style.display = 'flex';
+                } else {
+                    // Si estamos en ALL o una categoría normal
+                    if (activeCategoryId === 'ALL') {
+                        // Mostrar TODO (Públicos + Privados desbloqueados)
+                        matchesCategory = true;
+                    } else {
+                        // Filtrar por categoría específica
+                        matchesCategory = itemCategoryId === activeCategoryId;
+                    }
+                    // Ocultar botón de desbloqueo (solo visible en pestaña Private)
+                    unlockSection.style.display = 'none';
+                }
+
                 const matchesSub = activeSubs.length === 0 || activeSubs.includes(itemSubCategoryId);
 
                 if (matchesCategory && matchesSub) {
-                    card.style.display = 'block'; // Flex para mantener layout
-                    // Pequeña animación de entrada
+                    card.style.display = 'block';
                     card.style.opacity = '0';
                     card.style.transform = 'scale(0.95)';
                     setTimeout(() => {
                         card.style.opacity = '1';
                         card.style.transform = 'scale(1)';
                     }, 50);
+                    visibleCount++;
                 } else {
                     card.style.display = 'none';
                 }
+            });
+        }
+
+        // --- LÓGICA DE DESBLOQUEO DE PERSONAJE ---
+        function unlockCharacter() {
+            const code = document.getElementById('unlock-code').value.trim();
+            const messageDiv = document.getElementById('unlock-message');
+
+            if (!code) {
+                messageDiv.style.color = '#ef4444';
+                messageDiv.textContent = 'Please enter a key.';
+                return;
+            }
+
+            const formData = new FormData();
+            formData.append('code', code);
+
+            // Reutilizamos el endpoint de cupones que ya actualizamos para manejar ambos tipos
+            fetch(redeemCouponUrl, {
+                method: 'POST',
+                headers: { 'X-CSRFToken': csrfToken, 'X-Requested-With': 'XMLHttpRequest' },
+                body: new URLSearchParams(formData)
+            })
+            .then(res => res.json())
+            .then(data => {
+                if (data.status === 'success') {
+                    document.getElementById('unlock-input-container').style.display = 'none';
+                    document.getElementById('unlock-footer').style.display = 'none';
+                    const successContainer = document.getElementById('unlock-success-container');
+                    successContainer.style.display = 'flex';
+                    document.getElementById('unlock-success-text').textContent = data.message;
+
+                    // --- ANIMACIÓN DE ESTRELLAS MEJORADA (CONFETTI) ---
+                    const colors = ['#fbbf24', '#f59e0b', '#fb923c', '#ffffff', '#fcd34d'];
+
+                    for(let i=0; i<50; i++) {
+                        const star = document.createElement('i');
+                        star.classList.add('fas', 'fa-star', 'unlock-particle');
+
+                        // Random Position (Explosion)
+                        const angle = Math.random() * Math.PI * 2;
+                        const velocity = 50 + Math.random() * 150; // Varying distance
+                        const tx = Math.cos(angle) * velocity;
+                        const ty = Math.sin(angle) * velocity;
+
+                        // Random Rotation
+                        const rot = -200 + Math.random() * 400;
+
+                        // Random Size
+                        const scale = 0.5 + Math.random() * 1.0;
+
+                        // Random Color
+                        star.style.color = colors[Math.floor(Math.random() * colors.length)];
+                        star.style.fontSize = `${10 * scale}px`;
+
+                        // Set CSS Variables
+                        star.style.setProperty('--tx', `${tx}px`);
+                        star.style.setProperty('--ty', `${ty}px`);
+                        star.style.setProperty('--rot', `${rot}deg`);
+
+                        // Position relative to center of container
+                        star.style.left = '50%';
+                        star.style.top = '50%';
+
+                        // Animation
+                        star.style.animation = `confetti-explosion ${0.8 + Math.random() * 0.5}s ease-out forwards`;
+
+                        // CAMBIO: Añadir al BODY para evitar recortes
+                        document.body.appendChild(star);
+
+                        // Limpieza
+                        setTimeout(() => star.remove(), 1500);
+                    }
+
+                    // Recargar para mostrar el nuevo personaje
+                    setTimeout(() => window.location.reload(), 2500);
+                } else {
+                    messageDiv.style.color = '#ef4444';
+                    messageDiv.textContent = data.message;
+                }
+            })
+            .catch(() => {
+                messageDiv.style.color = '#ef4444';
+                messageDiv.textContent = 'Connection error.';
             });
         }
 
@@ -620,7 +842,49 @@
                     const successContainer = document.getElementById('coupon-success-container');
                     successContainer.style.display = 'flex';
                     document.getElementById('success-text').textContent = data.message;
-                    // Animación de estrellas (simplificada)
+
+                    // --- ANIMACIÓN DE ESTRELLAS MEJORADA (CONFETTI) ---
+                    const colors = ['#fbbf24', '#f59e0b', '#fb923c', '#ffffff', '#fcd34d'];
+
+                    for(let i=0; i<50; i++) {
+                        const star = document.createElement('i');
+                        star.classList.add('fas', 'fa-star', 'unlock-particle');
+
+                        // Random Position (Explosion)
+                        const angle = Math.random() * Math.PI * 2;
+                        const velocity = 50 + Math.random() * 150; // Varying distance
+                        const tx = Math.cos(angle) * velocity;
+                        const ty = Math.sin(angle) * velocity;
+
+                        // Random Rotation
+                        const rot = -200 + Math.random() * 400;
+
+                        // Random Size
+                        const scale = 0.5 + Math.random() * 1.0;
+
+                        // Random Color
+                        star.style.color = colors[Math.floor(Math.random() * colors.length)];
+                        star.style.fontSize = `${10 * scale}px`;
+
+                        // Set CSS Variables
+                        star.style.setProperty('--tx', `${tx}px`);
+                        star.style.setProperty('--ty', `${ty}px`);
+                        star.style.setProperty('--rot', `${rot}deg`);
+
+                        // Position relative to center of container
+                        star.style.left = '50%';
+                        star.style.top = '50%';
+
+                        // Animation
+                        star.style.animation = `confetti-explosion ${0.8 + Math.random() * 0.5}s ease-out forwards`;
+
+                        // CAMBIO: Añadir al BODY para evitar recortes
+                        document.body.appendChild(star);
+
+                        // Limpieza
+                        setTimeout(() => star.remove(), 1500);
+                    }
+
                     setTimeout(() => window.location.reload(), 2000);
                 } else {
                     messageDiv.style.color = '#ef4444';

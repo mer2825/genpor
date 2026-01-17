@@ -3,25 +3,76 @@ import uuid
 import random
 import httpx
 import websockets
+import asyncio
 from asgiref.sync import sync_to_async
 from .models import ConnectionConfig
 
 # --- FUNCIONES DE CONFIGURACIÓN Y RED ---
-
-@sync_to_async
-def get_active_comfyui_address():
-    """Obtiene la URL base de la conexión activa desde la base de datos."""
-    try:
-        active_config = ConnectionConfig.objects.get(is_active=True)
-        return active_config.base_url
-    except ConnectionConfig.DoesNotExist:
-        return "127.0.0.1:8188"
 
 def get_protocols(address):
     """Determina si usar HTTP/WS o HTTPS/WSS basado en la dirección."""
     if "runpod.net" in address or "cloudflare" in address or "ngrok" in address:
         return "https", "wss"
     return "http", "ws"
+
+def get_active_configs_sync():
+    """Helper síncrono para obtener configs de la DB."""
+    return list(ConnectionConfig.objects.filter(is_active=True))
+
+async def check_gpu_load(client, config):
+    """
+    Consulta la API de ComfyUI para ver cuántos trabajos tiene en cola.
+    Retorna: (address, total_jobs)
+    Si falla la conexión, retorna (address, 9999) para que sea la última opción.
+    """
+    address = config.base_url.rstrip('/')
+    protocol, _ = get_protocols(address)
+    
+    try:
+        # Timeout corto (2s) para no ralentizar al usuario si una GPU está caída
+        response = await client.get(f"{protocol}://{address}/queue", timeout=2.0)
+        if response.status_code == 200:
+            data = response.json()
+            # Sumamos los que se están ejecutando + los pendientes
+            running = len(data.get('queue_running', []))
+            pending = len(data.get('queue_pending', []))
+            total_load = running + pending
+            return (address, total_load)
+    except Exception:
+        pass
+    
+    return (address, 9999) # Penalización máxima si falla
+
+async def get_active_comfyui_address():
+    """
+    Obtiene la dirección de ComfyUI más libre (Smart Load Balancing).
+    Consulta en tiempo real la cola de todas las instancias activas.
+    """
+    configs = await sync_to_async(get_active_configs_sync)()
+    
+    if not configs:
+        return "127.0.0.1:8188"
+    
+    # Si solo hay uno, no perdemos tiempo chequeando
+    if len(configs) == 1:
+        return configs[0].base_url.rstrip('/')
+
+    # Chequeo en paralelo de todas las GPUs
+    async with httpx.AsyncClient() as client:
+        tasks = [check_gpu_load(client, config) for config in configs]
+        results = await asyncio.gather(*tasks)
+    
+    # Ordenamos por carga (menor a mayor)
+    # results es una lista de tuplas: [('url1', 0), ('url2', 5), ('url3', 9999)]
+    results.sort(key=lambda x: x[1])
+    
+    best_address, load = results[0]
+    
+    # Si incluso el mejor tiene error (9999), devolvemos el primero de la DB por defecto
+    if load == 9999:
+        return configs[0].base_url.rstrip('/')
+        
+    return best_address
 
 # --- FUNCIONES DE API COMFYUI ---
 
@@ -244,7 +295,7 @@ def update_workflow(prompt_workflow, new_values, lora_names=None, lora_strengths
         title = details.get("_meta", {}).get("title", "").upper() # Convertir a mayúsculas para ser consistente
         
         # Actualizar Prompts (Soporte para Primitives y Stylers)
-        candidates = ["text", "text_g", "text_l", "prompt", "text_positive", "positive_prompt", "value"]
+        candidates = ["text", "text_g", "text_l", "prompt", "text_positive", "positive_prompt", "text_negative", "negative_prompt", "value"]
         
         if node_id in positive_nodes and "prompt" in new_values:
             for k in candidates:
@@ -460,7 +511,10 @@ async def generate_image_from_character(character, user_prompt, width=None, heig
     
     # 4. Conectar y Generar
     client_id = str(uuid.uuid4())
+    
+    # --- AQUÍ SE USA EL BALANCEADOR INTELIGENTE ---
     address = await get_active_comfyui_address()
+
     _, ws_protocol = get_protocols(address)
     uri = f"{ws_protocol}://{address}/ws?clientId={client_id}"
 

@@ -1,6 +1,6 @@
 from django.shortcuts import render, redirect, get_object_or_404
 from django.db import models
-from .models import Workflow, Character, CharacterImage, ConnectionConfig, CompanySettings, ChatMessage, CharacterCategory, CharacterSubCategory, ClientProfile, Coupon
+from .models import Workflow, Character, CharacterImage, ConnectionConfig, CompanySettings, ChatMessage, CharacterCategory, CharacterSubCategory, ClientProfile, Coupon, CouponRedemption, CharacterAccessCode, UserCharacterAccess
 import json
 import os
 from django.conf import settings
@@ -92,11 +92,22 @@ def serve_private_media(request, path):
 
 # --- NEW SECURE FUNCTION TO GET CHARACTERS ---
 @sync_to_async
-def get_characters_with_images():
-    # CHANGE: Now using 'catalog_images_set' for public images
-    # And select_related 'category' and 'subcategory' for optimization
-    # --- NEW: Filter by is_active=True ---
-    return list(Character.objects.filter(is_active=True).prefetch_related('catalog_images_set').select_related('category', 'subcategory').all())
+def get_characters_with_images(user=None):
+    # Base query: Active characters
+    qs = Character.objects.filter(is_active=True).prefetch_related('catalog_images_set').select_related('category', 'subcategory')
+    
+    if user and user.is_authenticated:
+        # If user is logged in, show public OR private ones they have unlocked
+        # Subquery for unlocked private characters
+        unlocked_ids = UserCharacterAccess.objects.filter(user=user).values_list('character_id', flat=True)
+        
+        # Filter: (Public) OR (Private AND Unlocked)
+        qs = qs.filter(Q(is_private=False) | Q(id__in=unlocked_ids))
+    else:
+        # If not logged in, only show public
+        qs = qs.filter(is_private=False)
+        
+    return list(qs.all())
 
 # --- FUNCTION TO GET COMPANY SETTINGS ---
 @sync_to_async
@@ -265,25 +276,32 @@ async def gallery_view(request):
     )
     
     # Group by character
-    gallery_data = {}
+    public_gallery = {}
+    private_gallery = {}
+    
     for img in user_images:
         char_id = img.character.id
-        if char_id not in gallery_data:
-            gallery_data[char_id] = {
+        is_private = img.character.is_private
+        
+        target_dict = private_gallery if is_private else public_gallery
+        
+        if char_id not in target_dict:
+            target_dict[char_id] = {
                 'character': img.character,
                 'images': [],
                 'count': 0,
                 'latest_image': img
             }
-        gallery_data[char_id]['images'].append({
+        target_dict[char_id]['images'].append({
             'id': img.id,
             'url': img.image.url
         })
-        gallery_data[char_id]['count'] += 1
+        target_dict[char_id]['count'] += 1
     
     context = {
         'company': company_settings,
-        'gallery_data': list(gallery_data.values())
+        'public_gallery': list(public_gallery.values()),
+        'private_gallery': list(private_gallery.values())
     }
     return await sync_to_async(render)(request, 'myapp/gallery.html', context)
 
@@ -403,8 +421,8 @@ async def workspace_view(request):
     
     company_settings = await get_company_settings()
     
-    # Get all characters for the selection modal
-    all_characters = await get_characters_with_images()
+    # Get all characters for the selection modal (Filtered by user access)
+    all_characters = await get_characters_with_images(user)
     
     # --- NEW: Get all categories and subcategories ---
     all_categories = await sync_to_async(list)(CharacterCategory.objects.all())
@@ -464,9 +482,8 @@ async def workspace_view(request):
     random_preview_images = []
     if not character_id:
         # 1. Get all active characters with their catalog images prefetched
-        all_active_chars = await sync_to_async(list)(
-            Character.objects.filter(is_active=True).prefetch_related('catalog_images_set')
-        )
+        # --- CHANGE: Use the filtered list we already got ---
+        all_active_chars = all_characters
         
         # 2. Collect all catalog images into a single list
         all_catalog_images = []
@@ -491,26 +508,24 @@ async def workspace_view(request):
             # Search in the already loaded list to avoid another query
             selected_character = next((c for c in all_characters if str(c.id) == str(character_id)), None)
 
-            # --- NEW: Extract default dimensions and seed from character's JSON ---
-            if selected_character and selected_character.character_config:
-                try:
-                    config = json.loads(selected_character.character_config)
-                    if 'width' in config: default_width = int(config['width'])
-                    if 'height' in config: default_height = int(config['height'])
-                    
-                    # Seed logic:
-                    # If seed_behavior is 'fixed', use the saved seed.
-                    # If 'random', show -1 (or empty) to indicate random.
-                    if config.get('seed_behavior') == 'fixed' and 'seed' in config:
-                        default_seed = int(config['seed'])
-                    else:
-                        default_seed = -1
-                        
-                except (json.JSONDecodeError, ValueError):
-                    pass # If it fails, stick to defaults
-            
             # --- NEW: Analyze Workflow to determine capabilities ---
             if selected_character:
+                # --- NEW: Extract default dimensions and seed from character's JSON ---
+                if selected_character.character_config:
+                    try:
+                        config = json.loads(selected_character.character_config)
+                        if 'width' in config: default_width = int(config['width'])
+                        if 'height' in config: default_height = int(config['height'])
+                        
+                        # Seed logic:
+                        if config.get('seed_behavior') == 'fixed' and 'seed' in config:
+                            default_seed = int(config['seed'])
+                        else:
+                            default_seed = -1
+                            
+                    except (json.JSONDecodeError, ValueError):
+                        pass 
+
                 @sync_to_async
                 def get_workflow_json():
                     with open(selected_character.base_workflow.json_file.path, 'r', encoding='utf-8') as f:
@@ -545,7 +560,6 @@ async def workspace_view(request):
                         imgs = await sync_to_async(list)(msg.generated_images.all())
                         
                         # --- PLACEHOLDER LOGIC ---
-                        # If there are fewer images than there should be, fill with placeholders
                         real_images_count = len(imgs)
                         expected_count = msg.image_count
                         
@@ -658,6 +672,18 @@ async def generate_image_view(request):
             try:
                 character = await sync_to_async(Character.objects.select_related('base_workflow').get)(id=character_id)
 
+                # --- NEW: PRIVATE CHARACTER QUOTA CHECK ---
+                if character.is_private and not user.is_staff:
+                    try:
+                        access = await sync_to_async(UserCharacterAccess.objects.get)(user=user, character=character)
+                        await access.check_and_reset_quota()
+                        
+                        if access.remaining_generations <= 0:
+                            return JsonResponse({'status': 'error', 'message': 'You have reached the generation limit for this private character.'}, status=403)
+                    except UserCharacterAccess.DoesNotExist:
+                        return JsonResponse({'status': 'error', 'message': 'You do not have access to this private character.'}, status=403)
+                # ------------------------------------------
+
                 @sync_to_async
                 def save_user_message():
                     return ChatMessage.objects.create(user=user, character=character, message=user_prompt, is_from_user=True)
@@ -668,7 +694,7 @@ async def generate_image_view(request):
                 )
 
                 if images_data_list:
-                    # --- DEDUCT TOKEN (NEW) ---
+                    # --- DEDUCT TOKEN (GLOBAL) ---
                     if not user.is_staff:
                         @sync_to_async
                         def deduct_token(u):
@@ -676,6 +702,18 @@ async def generate_image_view(request):
                             p.tokens_used += 1
                             p.save()
                         await deduct_token(user)
+                        
+                        # --- DEDUCT PRIVATE QUOTA ---
+                        if character.is_private:
+                            @sync_to_async
+                            def deduct_private_quota(u, c):
+                                try:
+                                    acc = UserCharacterAccess.objects.get(user=u, character=c)
+                                    acc.images_generated_current_period += 1
+                                    acc.save()
+                                except UserCharacterAccess.DoesNotExist:
+                                    pass
+                            await deduct_private_quota(user, character)
                     # -------------------------------
 
                     generated_results = []
@@ -749,7 +787,7 @@ async def generate_image_view(request):
                 return JsonResponse({'status': 'error', 'message': str(e)}, status=500)
 
     if request.method == 'GET':
-        characters = await get_characters_with_images()
+        characters = await get_characters_with_images(user)
         company_settings = await get_company_settings()
         
         # --- FIX: Add loading of categories and subcategories ---
@@ -791,32 +829,72 @@ async def redeem_coupon_view(request):
         
         try:
             @sync_to_async
-            def process_redemption(user_obj, coupon_code):
+            def process_redemption(user_obj, input_code):
+                # 1. Try to redeem as Token Coupon
                 try:
-                    coupon = Coupon.objects.get(code=coupon_code, is_redeemed=False)
+                    coupon = Coupon.objects.get(code=input_code) # Removed is_redeemed=False check here
                     
-                    # Update coupon
-                    coupon.is_redeemed = True
-                    coupon.redeemed_by = user_obj
-                    coupon.redeemed_at = timezone.now()
+                    # Check if user already redeemed this coupon
+                    if CouponRedemption.objects.filter(user=user_obj, coupon=coupon).exists():
+                        return {"success": False, "message": "You have already redeemed this coupon."}
+                    
+                    # Check global limit
+                    if coupon.max_redemptions is not None and coupon.times_redeemed >= coupon.max_redemptions:
+                        return {"success": False, "message": "This coupon has reached its maximum usage limit."}
+                    
+                    # Process redemption
+                    CouponRedemption.objects.create(user=user_obj, coupon=coupon)
+                    
+                    # Update coupon stats
+                    coupon.times_redeemed += 1
+                    # Optional: Mark as fully redeemed if limit reached (for visual purposes in admin)
+                    if coupon.max_redemptions and coupon.times_redeemed >= coupon.max_redemptions:
+                        coupon.is_redeemed = True 
                     coupon.save()
                     
-                    # Update user profile
-                    profile, created = ClientProfile.objects.get_or_create(user=user_obj)
-                    
-                    # ADD TOKENS TO BONUS
+                    # Grant tokens
+                    profile, _ = ClientProfile.objects.get_or_create(user=user_obj)
                     profile.bonus_tokens += coupon.tokens
                     profile.save()
                     
-                    return {"success": True, "tokens": coupon.tokens}
-                    
+                    return {"success": True, "message": f"Successfully redeemed {coupon.tokens} tokens!"}
                 except Coupon.DoesNotExist:
-                    return {"success": False, "message": "Invalid or already redeemed code."}
+                    pass # Continue to check Character Codes
+
+                # 2. Try to redeem as Character Access Code
+                try:
+                    char_code = CharacterAccessCode.objects.get(code=input_code, is_active=True)
+                    
+                    # --- NEW: Check Global Limit ---
+                    if char_code.max_redemptions is not None and char_code.times_redeemed >= char_code.max_redemptions:
+                        return {"success": False, "message": "This code has reached its maximum usage limit."}
+                    
+                    # Check if user already has this character
+                    if UserCharacterAccess.objects.filter(user=user_obj, character=char_code.character).exists():
+                        return {"success": False, "message": "You already have access to this character."}
+                    
+                    # Create access record
+                    UserCharacterAccess.objects.create(
+                        user=user_obj,
+                        character=char_code.character,
+                        source_code=char_code,
+                        limit_amount=char_code.limit_amount,
+                        reset_interval=char_code.reset_interval
+                    )
+                    
+                    # Increment counter
+                    char_code.times_redeemed += 1
+                    char_code.save()
+                    
+                    return {"success": True, "message": f"Successfully unlocked character: {char_code.character.name}!"}
+                    
+                except CharacterAccessCode.DoesNotExist:
+                    return {"success": False, "message": "Invalid code."}
 
             result = await process_redemption(user, code)
             
             if result["success"]:
-                return JsonResponse({'status': 'success', 'message': f'Successfully redeemed {result["tokens"]} tokens!'})
+                return JsonResponse({'status': 'success', 'message': result["message"]})
             else:
                 return JsonResponse({'status': 'error', 'message': result["message"]})
 

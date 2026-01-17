@@ -9,7 +9,7 @@ from django.contrib.auth.admin import UserAdmin
 from django.contrib.auth.models import User
 from django.db.models import Q, CharField
 from django.forms import ModelForm, ValidationError, CheckboxSelectMultiple, TextInput
-from .models import Workflow, Character, CharacterImage, CharacterCatalogImage, ConnectionConfig, CompanySettings, HeroCarouselImage, CharacterCategory, CharacterSubCategory, ClientProfile, TokenSettings, Coupon
+from .models import Workflow, Character, PrivateCharacter, CharacterImage, CharacterCatalogImage, ConnectionConfig, CompanySettings, HeroCarouselImage, CharacterCategory, CharacterSubCategory, ClientProfile, TokenSettings, Coupon, CouponRedemption, CharacterAccessCode, UserCharacterAccess
 from .services import generate_image_from_character, get_active_comfyui_address, get_comfyui_object_info, analyze_workflow
 import json
 from asgiref.sync import async_to_sync, sync_to_async
@@ -311,6 +311,15 @@ class CharacterCatalogImageInline(admin.TabularInline):
         return "(No image)"
     image_preview.short_description = "Preview"
 
+# --- NEW: INLINE FOR ACCESS CODES (STACKED FOR 1-TO-1) ---
+class CharacterAccessCodeInline(admin.StackedInline): # Changed to StackedInline
+    model = CharacterAccessCode
+    can_delete = False # Optional: Prevent deleting the key once created if desired
+    verbose_name = "Access Code (Key)"
+    verbose_name_plural = "Access Code (Key)"
+    fields = ('code', 'limit_amount', 'reset_interval', 'max_redemptions', 'times_redeemed', 'is_active')
+    readonly_fields = ('times_redeemed',)
+
 # --- NEW: CATEGORY AND SUBCATEGORY REGISTRATION ---
 @admin.register(CharacterCategory)
 class CharacterCategoryAdmin(admin.ModelAdmin):
@@ -333,16 +342,15 @@ def deactivate_characters(modeladmin, request, queryset):
     updated = queryset.update(is_active=False)
     modeladmin.message_user(request, f"{updated} characters were successfully deactivated.", level='success')
 
-@admin.register(Character)
-class CharacterAdmin(admin.ModelAdmin):
-    list_display = ('name', 'category', 'subcategory', 'base_workflow', 'is_active', 'character_actions') # ADDED: is_active
-    list_filter = ('is_active', 'category', 'subcategory', 'base_workflow') # ADDED: is_active
-    actions = [activate_characters, deactivate_characters] # ADDED: actions
+# --- BASE CHARACTER ADMIN (SHARED LOGIC) ---
+class BaseCharacterAdmin(admin.ModelAdmin):
+    list_display = ('name', 'category', 'subcategory', 'base_workflow', 'is_active', 'character_actions')
+    list_filter = ('is_active', 'category', 'subcategory', 'base_workflow')
+    actions = [activate_characters, deactivate_characters]
     inlines = [CharacterCatalogImageInline]
-    # REMOVED: filter_horizontal = ('tags',) (No longer ManyToMany)
 
     fieldsets = (
-        (None, {'fields': ('name', 'description', 'is_active', 'category', 'subcategory', 'base_workflow')}), # ADDED: is_active
+        (None, {'fields': ('name', 'description', 'is_active', 'category', 'subcategory', 'base_workflow')}),
         ('Default Prompts (Sandwich)', {
             'fields': ('prompt_prefix', 'prompt_suffix', 'negative_prompt'),
             'description': 'Structure: [Prefix] + (User:1.2) + [Suffix]'
@@ -412,18 +420,12 @@ class CharacterAdmin(admin.ModelAdmin):
             new_config = {
                 'checkpoint': request.POST.get('checkpoint'),
                 'vae': request.POST.get('vae'),
-                # 'width': request.POST.get('width'), # REMOVED
-                # 'height': request.POST.get('height'), # REMOVED
-                # 'seed': request.POST.get('seed'), # REMOVED
-                # 'seed_behavior': request.POST.get('seed_behavior', 'random'), # REMOVED
-                # 'upscale_by': request.POST.get('upscale_by'), # REMOVED
                 'lora_names': request.POST.getlist('lora_name'),
                 'lora_strengths': request.POST.getlist('lora_strength'),
                 'prompt': request.POST.get('prompt'), 
             }
             
             # --- NEW: Preserve original values (Read-Only) ---
-            # These fields are not read from POST, but kept from previous config or base workflow
             for field in ['width', 'height', 'seed', 'seed_behavior', 'upscale_by']:
                 if field in saved_config:
                     new_config[field] = saved_config[field]
@@ -434,6 +436,10 @@ class CharacterAdmin(admin.ModelAdmin):
             character.character_config = json.dumps(new_config)
             character.save()
             self.message_user(request, "Character configuration saved successfully.")
+            
+            # Redirect to the correct list based on type
+            if character.is_private:
+                return redirect('admin:myapp_privatecharacter_changelist')
             return redirect('admin:myapp_character_changelist')
 
         context = {
@@ -442,7 +448,7 @@ class CharacterAdmin(admin.ModelAdmin):
             'workflow_params': workflow_params,
             'comfyui_info': comfyui_info,
             'saved_config': saved_config,
-            'readonly_params': True, # NEW: General indicator to lock fields
+            'readonly_params': True, 
             **self.admin_site.each_context(request), 
         }
         return render(request, 'admin/myapp/workflow/configure.html', context)
@@ -459,7 +465,7 @@ class CharacterAdmin(admin.ModelAdmin):
                 self.message_user(request, msg, level='error')
             else:
                 try:
-                    images_data_list, prompt_id = async_to_sync(generate_image_from_character)(character, prompt)
+                    images_data_list, prompt_id, _ = async_to_sync(generate_image_from_character)(character, prompt)
                     
                     if images_data_list:
                         count = 0
@@ -484,20 +490,69 @@ class CharacterAdmin(admin.ModelAdmin):
                     if is_ajax: return JsonResponse({'status': 'error', 'message': msg})
                     self.message_user(request, msg, level='error')
             
+            if character.is_private:
+                return redirect('admin:myapp_privatecharacter_change', character_id)
             return redirect('admin:myapp_character_change', character_id)
 
+        if character.is_private:
+            return redirect('admin:myapp_privatecharacter_change', character_id)
         return redirect('admin:myapp_character_change', character_id)
+
+# --- PUBLIC CHARACTERS ADMIN ---
+@admin.register(Character)
+class CharacterAdmin(BaseCharacterAdmin):
+    def get_queryset(self, request):
+        return super().get_queryset(request).filter(is_private=False)
+    
+    def save_model(self, request, obj, form, change):
+        obj.is_private = False # Ensure it stays public
+        super().save_model(request, obj, form, change)
+
+# --- PRIVATE CHARACTERS ADMIN ---
+@admin.register(PrivateCharacter)
+class PrivateCharacterAdmin(BaseCharacterAdmin):
+    def get_queryset(self, request):
+        return super().get_queryset(request).filter(is_private=True)
+    
+    # --- MERGE INLINES: Catalog Images + Access Codes ---
+    inlines = [CharacterCatalogImageInline, CharacterAccessCodeInline]
+
+    def save_model(self, request, obj, form, change):
+        obj.is_private = True # Ensure it stays private
+        super().save_model(request, obj, form, change)
+
+# --- ACCESS CODES ADMIN (REMOVED FROM SIDEBAR) ---
+# The logic is now handled via Inline in PrivateCharacterAdmin
+
+@admin.register(UserCharacterAccess)
+class UserCharacterAccessAdmin(admin.ModelAdmin):
+    list_display = ('user', 'character', 'remaining_generations', 'reset_interval', 'view_images_link')
+    list_filter = ('reset_interval', 'character')
+    search_fields = ('user__username', 'character__name')
+    readonly_fields = ('unlocked_at',)
+
+    def view_images_link(self, obj):
+        count = CharacterImage.objects.filter(user=obj.user, character=obj.character).count()
+        url = reverse("admin:myapp_characterimage_changelist") + f"?user__id__exact={obj.user.id}&character__id__exact={obj.character.id}"
+        return format_html('<a class="button" href="{}">View {} Images</a>', url, count)
+    view_images_link.short_description = "Gallery"
+
+# --- UPDATED COUPON ADMIN ---
+class CouponRedemptionInline(admin.TabularInline):
+    model = CouponRedemption
+    extra = 0
+    readonly_fields = ('user', 'redeemed_at')
+    can_delete = False
+    verbose_name = "Redemption History"
+    verbose_name_plural = "Redemption History"
 
 @admin.register(Coupon)
 class CouponAdmin(admin.ModelAdmin):
-    list_display = ('code', 'tokens', 'is_redeemed', 'redeemed_by', 'created_at')
-    list_filter = ('is_redeemed', 'created_at')
-    search_fields = ('code', 'redeemed_by__username')
-    readonly_fields = ('code', 'is_redeemed', 'redeemed_by', 'redeemed_at', 'created_at')
+    list_display = ('code', 'tokens', 'max_redemptions', 'times_redeemed', 'created_at')
+    list_filter = ('created_at',)
+    search_fields = ('code',)
+    readonly_fields = ('times_redeemed', 'created_at')
+    inlines = [CouponRedemptionInline]
 
     def has_add_permission(self, request):
         return True
-
-    def save_model(self, request, obj, form, change):
-        if not change: # Only on create
-            obj.save()
