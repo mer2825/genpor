@@ -102,9 +102,6 @@ async def get_comfyui_object_info(address):
 async def queue_prompt(client, prompt_workflow, client_id, address):
     protocol, _ = get_protocols(address)
     p = {"prompt": prompt_workflow, "client_id": client_id}
-    # Headers para evitar bloqueo de ngrok (aunque en POST suele ser menos estricto, mejor prevenir)
-    # Nota: httpx client ya puede traer headers si se configura al crearlo, pero aquí lo pasamos explícito si es necesario
-    # Sin embargo, client se pasa como argumento. Lo ideal es configurar los headers al crear el client en generate_image_from_character
     
     try:
         response = await client.post(f"{protocol}://{address}/prompt", json=p)
@@ -118,8 +115,7 @@ async def queue_prompt(client, prompt_workflow, client_id, address):
 
 async def get_image(client, filename, subfolder, folder_type, address):
     protocol, _ = get_protocols(address)
-    # Headers ya deberían venir en el client, pero por seguridad:
-    # (El client se crea en el bloque principal, ahí añadiremos los headers)
+    # Usamos el mismo cliente que ya tiene headers y timeout configurado
     response = await client.get(f"{protocol}://{address}/view?filename={filename}&subfolder={subfolder}&type={folder_type}")
     response.raise_for_status()
     return response.content
@@ -538,8 +534,8 @@ async def generate_image_from_character(character, user_prompt, width=None, heig
     headers = {"ngrok-skip-browser-warning": "true", "User-Agent": "MyApp/1.0"}
 
     async with websockets.connect(uri) as websocket:
-        # Pasamos headers al cliente principal
-        async with httpx.AsyncClient(timeout=300.0, headers=headers) as client:
+        # Pasamos headers al cliente principal y AUMENTAMOS TIMEOUT A 600s
+        async with httpx.AsyncClient(timeout=600.0, headers=headers) as client:
             queued_prompt = await queue_prompt(client, updated_workflow, client_id, address)
             prompt_id = queued_prompt['prompt_id']
             
