@@ -314,7 +314,10 @@ def update_workflow(prompt_workflow, new_values, lora_names=None, lora_strengths
                 if i < len(lora_strengths): inputs[f"lora_{i+1}_strength"] = float(lora_strengths[i])
         
         # Actualizar otros parámetros
-        if class_type == "CheckpointLoaderSimple" and "checkpoint" in new_values: inputs["ckpt_name"] = new_values["checkpoint"]
+        # --- CORRECCIÓN: Asegurar que se actualice el checkpoint ---
+        if class_type == "CheckpointLoaderSimple" and "checkpoint" in new_values: 
+            inputs["ckpt_name"] = new_values["checkpoint"]
+
         elif class_type == "VAELoader" and "vae" in new_values and new_values["vae"] != "None": inputs["vae_name"] = new_values["vae"]
         elif class_type == "DW_resolution" and "width" in new_values: inputs["WIDTH"], inputs["HEIGHT"] = int(new_values["width"]), int(new_values["height"])
         # ELIMINADO: DW_SamplerSelector y DW_SchedulerSelector
