@@ -90,6 +90,82 @@
     {% endif %}
 
     <style>
+        /* --- NUEVO ESTILO HERO: IMAGEN DE FONDO + TEXTO ENCIMA --- */
+
+        .hero-section {
+            position: relative; /* Para contener los elementos absolutos */
+            display: flex;
+            align-items: center; /* Centrar verticalmente el texto */
+            justify-content: flex-start; /* Alinear texto a la izquierda */
+            min-height: 85vh; /* Altura considerable para el banner */
+            padding: 0 5%; /* Espacio a los lados */
+            overflow: hidden; /* Recortar lo que sobresalga */
+        }
+
+        /* El contenedor del carrusel ahora es el FONDO */
+        .hero-carousel-wrapper {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 0; /* Detrás de todo */
+        }
+
+        .hero-slide {
+            width: 100%;
+            height: 100%;
+        }
+
+        .hero-image-half {
+            width: 100%;
+            height: 100%;
+        }
+
+        .hero-image-half img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover; /* Cubrir todo el espacio sin deformarse */
+
+            /* MÁSCARA: Transparente a la izquierda (para leer texto) -> Sólido a la derecha */
+            -webkit-mask-image: linear-gradient(to right, transparent 0%, rgba(0,0,0,0.1) 10%, black 60%, black 100%);
+            mask-image: linear-gradient(to right, transparent 0%, rgba(0,0,0,0.1) 10%, black 60%, black 100%);
+        }
+
+        /* El texto ahora flota ENCIMA */
+        .hero-text {
+            position: relative;
+            z-index: 10; /* Encima de la imagen */
+            width: 100%;
+            max-width: 650px; /* Limitar ancho para que no tape toda la imagen */
+            text-align: left;
+            padding-right: 20px;
+            /* Sombra de texto opcional para mejorar legibilidad extrema */
+            text-shadow: 0 2px 10px rgba(0,0,0,0.8);
+        }
+
+        /* Ajustes para móvil */
+        @media (max-width: 768px) {
+            .hero-section {
+                min-height: 70vh;
+                align-items: flex-end; /* Texto abajo en móvil */
+                padding-bottom: 50px;
+            }
+
+            .hero-text {
+                max-width: 100%;
+                text-align: center; /* Centrado en móvil */
+            }
+
+            .hero-image-half img {
+                /* En móvil, desvanecido de abajo hacia arriba */
+                -webkit-mask-image: linear-gradient(to top, transparent 0%, black 60%);
+                mask-image: linear-gradient(to top, transparent 0%, black 60%);
+            }
+        }
+
+        /* --- FIN NUEVO ESTILO HERO --- */
+
         /* Estilo para el Botón Flotante (FAB) */
         .fab-create {
             position: fixed;
@@ -334,13 +410,14 @@
             <a href="{% url 'workspace' %}" id="hero-cta-btn" class="cta-button">Start Creating</a>
         </div>
 
-        <!-- Carrusel Hero -->
+        <!-- Carrusel Hero (AHORA ES EL FONDO) -->
         <div class="hero-carousel-wrapper" id="hero-carousel">
             {% for item in hero_items %}
                 <div class="hero-slide {% if forloop.first %}active{% endif %}">
                     <div class="hero-image-half">
                         <img src="{{ item.image_url }}" alt="{{ item.name }}">
-                        <div class="hero-caption">{{ item.name }}</div>
+                        <!-- Caption oculto en modo fondo -->
+                        <div class="hero-caption" style="display:none;">{{ item.name }}</div>
                     </div>
                 </div>
             {% empty %}
