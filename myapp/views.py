@@ -93,8 +93,8 @@ def serve_private_media(request, path):
 # --- NEW SECURE FUNCTION TO GET CHARACTERS ---
 @sync_to_async
 def get_characters_with_images(user=None):
-    # Base query: Active characters
-    qs = Character.objects.filter(is_active=True).prefetch_related('catalog_images_set').select_related('category', 'subcategory')
+    # Base query: Active characters -> ORDERED BY NAME
+    qs = Character.objects.filter(is_active=True).order_by('name').prefetch_related('catalog_images_set').select_related('category', 'subcategory')
     
     if user and user.is_authenticated:
         # If user is logged in, show public OR private ones they have unlocked
