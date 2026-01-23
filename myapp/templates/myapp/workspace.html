@@ -375,6 +375,14 @@
                 <span>Face Detailer (Faces)</span>
             </label>
             {% endif %}
+
+            <!-- NUEVO CHECKBOX EYE DETAILER -->
+            {% if workflow_capabilities.can_eyedetailer %}
+            <label class="checkbox-wrapper">
+                <input type="checkbox" id="check-eyedetailer" checked>
+                <span>Eye Detailer (Eyes)</span>
+            </label>
+            {% endif %}
         </aside>
 
         <!-- Contenido Central -->
@@ -427,6 +435,8 @@
                                                     <span class="result-badge badge-upscale">UPSCALER</span>
                                                 {% elif img.type == "FACEDETAILER" %}
                                                     <span class="result-badge badge-face">FACEDETAILER</span>
+                                                {% elif img.type == "EYEDETAILER" %}
+                                                    <span class="result-badge badge-face">EYEDETAILER</span> <!-- NUEVO BADGE -->
                                                 {% else %}
                                                     <span class="result-badge badge-normal">NORMAL</span>
                                                 {% endif %}
@@ -881,9 +891,12 @@
             const checkNormal = document.getElementById('check-normal');
             const checkUpscale = document.getElementById('check-upscale');
             const checkFacedetailer = document.getElementById('check-facedetailer');
+            const checkEyedetailer = document.getElementById('check-eyedetailer'); // NUEVO
+
             const useNormal = checkNormal ? checkNormal.checked : true;
             const useUpscale = checkUpscale ? checkUpscale.checked : false;
             const useFaceDetailer = checkFacedetailer ? checkFacedetailer.checked : false;
+            const useEyeDetailer = checkEyedetailer ? checkEyedetailer.checked : false; // NUEVO
 
             const formData = new FormData();
             formData.append('character_id', characterId);
@@ -894,6 +907,7 @@
             formData.append('use_normal', useNormal);
             formData.append('use_upscale', useUpscale);
             formData.append('use_facedetailer', useFaceDetailer);
+            formData.append('use_eyedetailer', useEyeDetailer); // NUEVO
 
             fetch(generateUrl, {
                 method: 'POST',
@@ -914,6 +928,8 @@
                         let badgeClass = "badge-normal";
                         if (item.type === "Gen_UpScaler") { badgeText = "UPSCALER"; badgeClass = "badge-upscale"; }
                         else if (item.type === "Gen_FaceDetailer") { badgeText = "FACEDETAILER"; badgeClass = "badge-face"; }
+                        else if (item.type === "Gen_EyeDetailer") { badgeText = "EYEDETAILER"; badgeClass = "badge-face"; } // NUEVO
+
                         let resBadge = '';
                         if (item.width && item.height) { resBadge = `<span class="resolution-badge">${item.width}x${item.height}</span>`; }
                         html += `<div class="result-card"><span class="result-badge ${badgeClass}">${badgeText}</span>${resBadge}<img src="${item.url}" class="chat-image" onclick="openImageViewer(this.src)"></div>`;
@@ -1150,7 +1166,7 @@
                         setTimeout(() => star.remove(), 1500);
                     }
 
-                    setTimeout(() => window.location.reload(), 2500);
+                    setTimeout(() => window.location.reload(), 2000);
                 } else {
                     messageDiv.style.color = '#ef4444';
                     messageDiv.textContent = data.message;

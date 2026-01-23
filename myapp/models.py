@@ -106,7 +106,13 @@ def delete_character_catalog_image_file(sender, instance, **kwargs):
                 print(f"Error deleting catalog image file: {e}")
 
 class CharacterImage(models.Model):
-    TYPE_CHOICES = [('Gen_Normal', 'Normal'), ('Gen_UpScaler', 'Upscaler'), ('Gen_FaceDetailer', 'Face Detailer')]
+    # CAMBIO: Agregado 'Gen_EyeDetailer' a las opciones
+    TYPE_CHOICES = [
+        ('Gen_Normal', 'Normal'), 
+        ('Gen_UpScaler', 'Upscaler'), 
+        ('Gen_FaceDetailer', 'Face Detailer'),
+        ('Gen_EyeDetailer', 'Eye Detailer') # NUEVO
+    ]
     character = models.ForeignKey(Character, related_name='images', on_delete=models.CASCADE)
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='generated_images', null=True, blank=True)
     image = models.ImageField(upload_to=character_image_path)

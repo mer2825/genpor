@@ -166,6 +166,76 @@
 
         /* --- FIN NUEVO ESTILO HERO --- */
 
+        /* --- ESTILOS FOOTER 3 COLUMNAS (HORIZONTAL) --- */
+        footer {
+            padding: 15px 5% !important;
+            background: #050505;
+            border-top: 1px solid rgba(255,255,255,0.05);
+            position: relative; /* Necesario para z-index */
+            z-index: 2000; /* Asegurar que esté por encima si es necesario */
+        }
+        .footer-content {
+            display: flex !important;
+            flex-direction: row !important; /* Horizontal */
+            justify-content: space-between !important; /* Esparcir columnas */
+            align-items: center !important;
+            gap: 20px !important;
+            padding: 0 !important;
+            margin: 0 !important;
+            flex-wrap: wrap; /* Permitir que baje en pantallas muy pequeñas */
+        }
+        .footer-section {
+            margin: 0 !important;
+            flex: 1; /* Distribuir espacio */
+            min-width: 200px; /* Ancho mínimo para no aplastarse */
+        }
+
+        /* Alineación específica por columna */
+        .footer-section:nth-child(1) { text-align: left; }
+        .footer-section:nth-child(2) { text-align: center; }
+        .footer-section:nth-child(3) { text-align: right; display: flex; justify-content: flex-end; }
+
+        /* Títulos ocultos para ahorrar espacio */
+        .footer-section h3 {
+            display: none !important;
+        }
+        .footer-section p {
+            font-size: 0.8rem !important;
+            margin: 0 !important;
+            color: #888;
+            line-height: 1.4;
+        }
+        .copyright {
+            display: none !important;
+        }
+        /* Iconos sociales */
+        .social-links {
+            display: flex;
+            gap: 15px;
+        }
+        .social-links a {
+            font-size: 1.1rem !important;
+            color: #aaa !important;
+            transition: color 0.3s;
+        }
+        .social-links a:hover {
+            color: white !important;
+        }
+
+        /* Ajuste Móvil: Apilar si no cabe */
+        @media (max-width: 768px) {
+            .footer-content {
+                flex-direction: column !important;
+                gap: 15px !important;
+                text-align: center !important;
+            }
+            .footer-section {
+                text-align: center !important;
+            }
+            .footer-section:nth-child(3) { justify-content: center; }
+        }
+        /* --- FIN FOOTER 3 COLUMNAS --- */
+
         /* Estilo para el Botón Flotante (FAB) */
         .fab-create {
             position: fixed;
@@ -183,7 +253,7 @@
             align-items: center;
             gap: 12px;
             z-index: 1000;
-            transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+            transition: all 0.1s ease-out; /* Transición más rápida para el movimiento */
             border: 2px solid rgba(255, 255, 255, 0.2);
             letter-spacing: 0.5px;
 
@@ -198,6 +268,8 @@
             transform: scale(1) translateY(0);
             pointer-events: auto;
         }
+
+        /* ELIMINADA LA CLASE hidden-footer PORQUE AHORA LO MOVEMOS CON JS */
 
         .fab-create:hover {
             transform: translateY(-5px) scale(1.05);
@@ -512,6 +584,7 @@
 
     <!-- BOTÓN FLOTANTE (FAB) CON ESTRELLAS IA -->
     {% if user.is_authenticated %}
+    <!-- CAMBIO: Ahora apunta al WORKSPACE -->
     <a href="{% url 'workspace' %}" class="fab-create" id="fab-create-btn">
         <!-- SVG Grupo de Estrellas 4 Puntas -->
         <svg class="star-icon" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
@@ -653,16 +726,23 @@
         }
 
         function toggleSubCategory(subId, btn) {
-            btn.classList.toggle('active');
-            const list = document.getElementById('personajes-list');
-            let activeSubs = list.dataset.activeSubs ? list.dataset.activeSubs.split(',') : [];
+            // 1. Verificar si el botón ya estaba activo
+            const wasActive = btn.classList.contains('active');
 
-            if (btn.classList.contains('active')) {
-                activeSubs.push(subId);
-            } else {
-                activeSubs = activeSubs.filter(id => id !== subId);
+            // 2. Quitar 'active' de TODOS los botones de subcategoría
+            document.querySelectorAll('.sub-filter-container .filter-btn').forEach(b => b.classList.remove('active'));
+
+            // 3. Limpiar la lista de filtros
+            const list = document.getElementById('personajes-list');
+            list.dataset.activeSubs = '';
+
+            // 4. Si NO estaba activo, lo activamos (si estaba activo, al hacer clic se desactiva y queda todo limpio)
+            if (!wasActive) {
+                btn.classList.add('active');
+                list.dataset.activeSubs = subId;
             }
-            list.dataset.activeSubs = activeSubs.join(',');
+
+            // 5. Aplicar filtros
             applyFilters();
         }
 
@@ -806,31 +886,47 @@
             const heroBtn = document.getElementById('hero-cta-btn');
             const fabBtn = document.getElementById('fab-create-btn');
             const starParticle = document.getElementById('star-particle');
+            const footer = document.querySelector('footer'); // Referencia al footer
 
             if (!heroBtn || !fabBtn) return;
 
             let isFabVisible = false;
             let isAnimating = false;
 
+            // Base bottom position (CSS default)
+            const baseBottom = 30;
+
             // NUEVA LÓGICA DE SCROLL
             function checkScroll() {
                 const rect = heroBtn.getBoundingClientRect();
+                const footerRect = footer.getBoundingClientRect();
+                const windowHeight = window.innerHeight;
 
-                // Si el botón está subiendo y ya pasó la parte superior (o está muy cerca)
-                // Ajustamos el umbral a 150px desde el top (cerca del header)
+                // 1. Lógica de aparición (cuando el botón Hero sale de pantalla)
                 if (rect.top < 150) {
                     if (!isFabVisible && !isAnimating) {
-                        // Ocultar botón original
                         heroBtn.classList.add('hidden-hero');
                         animateStarTransition();
                     }
                 } else {
-                    // Si el usuario vuelve a subir y el botón baja a una posición visible
                     if (isFabVisible && rect.top > 300) {
                         hideFab();
-                        // Mostrar botón original
                         heroBtn.classList.remove('hidden-hero');
                     }
+                }
+
+                // 2. Lógica de "Empuje" por el Footer
+                // Si el footer entra en la pantalla (su top es menor que la altura de la ventana)
+                if (footerRect.top < windowHeight) {
+                    // Calculamos cuánto ha entrado el footer
+                    const overlap = windowHeight - footerRect.top;
+
+                    // Movemos el botón hacia arriba esa cantidad + el margen base
+                    // (overlap + baseBottom)
+                    fabBtn.style.bottom = `${baseBottom + overlap}px`;
+                } else {
+                    // Si el footer no está visible, volvemos a la posición original
+                    fabBtn.style.bottom = `${baseBottom}px`;
                 }
             }
 

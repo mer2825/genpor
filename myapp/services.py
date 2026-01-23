@@ -149,7 +149,8 @@ def analyze_workflow_outputs(workflow_json):
     """
     capabilities = {
         'can_upscale': False,
-        'can_facedetail': False
+        'can_facedetail': False,
+        'can_eyedetailer': False # NUEVO
     }
     if not isinstance(workflow_json, dict):
         return capabilities
@@ -160,17 +161,26 @@ def analyze_workflow_outputs(workflow_json):
         
         class_type = node.get("class_type", "").lower()
         title = node.get("_meta", {}).get("title", "").lower()
+        inputs = node.get("inputs", {})
         
         # Detección de Upscale
         if 'upscale' in class_type or 'upscale' in title or 'hires' in title:
             capabilities['can_upscale'] = True
             
-        # Detección de Face Detailer (Más robusta)
-        # Incluimos: face, detailer, segs (Impact Pack), sam (Segment Anything), bbox (Bounding Box)
-        # NOTA: Quitamos 'sam' para evitar conflicto con 'sampler'
+        # Detección de Face Detailer
         face_keywords = ['face', 'detailer', 'segs', 'segmentation', 'bbox', 'impact']
-        if any(k in class_type for k in face_keywords) or any(k in title for k in face_keywords):
+        if (any(k in class_type for k in face_keywords) or any(k in title for k in face_keywords)) and 'eye' not in title:
             capabilities['can_facedetail'] = True
+
+        # --- NUEVO: Detección de Eye Detailer (Más profunda) ---
+        # 1. Por título
+        if 'eye' in title or 'pupil' in title or 'iris' in title:
+            capabilities['can_eyedetailer'] = True
+        # 2. Por prompt de segmentación (si usa SAM)
+        elif "prompt" in inputs and isinstance(inputs["prompt"], str):
+            prompt_text = inputs["prompt"].lower()
+            if "eye" in prompt_text or "pupil" in prompt_text:
+                capabilities['can_eyedetailer'] = True
             
     return capabilities
 
@@ -382,14 +392,20 @@ def classify_image_node(node_id, workflow):
     Rastrea el origen de un nodo de imagen para clasificarlo.
     Retorna (nombre_clasificacion, debe_guardarse)
     """
+    print(f"DEBUG: Classifying Node {node_id}") # DEBUG LOG
+    
     node = workflow.get(str(node_id))
-    if not node: return "Gen_Unknown", True
+    if not node: 
+        print(f"DEBUG: Node {node_id} not found in workflow")
+        return "Gen_Unknown", True
     
     title = node.get("_meta", {}).get("title", "").upper() # Convertir a mayúsculas para comparar
+    print(f"DEBUG: Node Title: {title}") # DEBUG LOG
     
-    # --- CLASIFICACIÓN POR TÍTULO (FLEXIBLE) ---
-    # Buscamos palabras clave en el título del nodo SaveImage
-    
+    # --- CLASIFICACIÓN POR TÍTULO (PRIORIDAD MÁXIMA) ---
+    if "EYE" in title:
+        return "Gen_EyeDetailer", True
+
     if "FACE" in title or "DETAILER" in title:
         return "Gen_FaceDetailer", True
     
@@ -399,7 +415,7 @@ def classify_image_node(node_id, workflow):
     if "NORMAL" in title or "BASE" in title:
         return "Gen_Normal", True
 
-    # --- Lógica anterior como fallback (si el título no dice nada claro) ---
+    # --- Lógica de respaldo (Backtracking) ---
     class_type = node.get("class_type", "").lower()
     title_lower = title.lower()
 
@@ -425,27 +441,59 @@ def classify_image_node(node_id, workflow):
         class_type = curr_node.get("class_type", "").lower()
         title = curr_node.get("_meta", {}).get("title", "").lower()
         
+        print(f"DEBUG: Backtracking -> Node {current_id} ({class_type})") # DEBUG LOG
+        
+        # --- NUEVO: Detección profunda de Eye Detailer (Rastreo de máscara) ---
+        if "sampler" in class_type:
+            # Verificar si el sampler usa una máscara de ojos
+            sampler_inputs = curr_node.get("inputs", {})
+            
+            # HEURÍSTICA DE DENOISE (INFALIBLE PARA ESTE WORKFLOW)
+            if "denoise" in sampler_inputs:
+                denoise_val = sampler_inputs["denoise"]
+                if 0.2 <= denoise_val <= 0.3:
+                    print("DEBUG: Found Eye Detailer by Denoise")
+                    return "Gen_EyeDetailer", True
+            
+            if "mask" in sampler_inputs and isinstance(sampler_inputs["mask"], list):
+                mask_node_id = str(sampler_inputs["mask"][0])
+                mask_node = workflow.get(mask_node_id)
+                if mask_node:
+                    mask_inputs = mask_node.get("inputs", {})
+                    # Si el nodo de máscara tiene un prompt "eye" o "pupil"
+                    prompt_text = mask_inputs.get("prompt", "").lower()
+                    if "eye" in prompt_text or "pupil" in prompt_text:
+                        print("DEBUG: Found Eye Detailer by Mask Prompt")
+                        return "Gen_EyeDetailer", True
+
+        if "eye" in title or "pupil" in title: 
+            return "Gen_EyeDetailer", True
         if "face" in class_type or "detailer" in class_type or "segs" in class_type:
             return "Gen_FaceDetailer", True
         if "upscale" in class_type or "upscale" in title:
             return "Gen_UpScaler", True
-        if "preview" in class_type or "preview" in title:
-            return "Gen_Normal", True
-            
-        if "reroute" in class_type:
-            inputs = curr_node.get("inputs", {})
-            if "image" in inputs and isinstance(inputs["image"], list):
-                current_id = str(inputs["image"][0])
-                continue
-            elif "images" in inputs and isinstance(inputs["images"], list):
-                current_id = str(inputs["images"][0])
-                continue
         
-        if "decode" in class_type:
-            inputs = curr_node.get("inputs", {})
-            if "samples" in inputs and isinstance(inputs["samples"], list):
-                current_id = str(inputs["samples"][0])
-                continue
+        # --- CORRECCIÓN: No detenerse en Preview, seguir rastreando ---
+        if "preview" in class_type or "preview" in title:
+            # Si tiene título explícito, ya lo atrapó el bloque de arriba.
+            # Si no, asumimos que es Normal, PERO si estamos rastreando, mejor seguir.
+            pass 
+            
+        # Lógica de salto (Reroute, Decode, Preview, SaveImage)
+        inputs = curr_node.get("inputs", {})
+        
+        # Intentar saltar al siguiente nodo si es un nodo de paso
+        next_id = None
+        if "image" in inputs and isinstance(inputs["image"], list):
+            next_id = str(inputs["image"][0])
+        elif "images" in inputs and isinstance(inputs["images"], list):
+            next_id = str(inputs["images"][0])
+        elif "samples" in inputs and isinstance(inputs["samples"], list):
+            next_id = str(inputs["samples"][0])
+            
+        if next_id:
+            current_id = next_id
+            continue
                 
         if "sampler" in class_type:
             return "Gen_Normal", True
@@ -572,10 +620,13 @@ async def generate_image_from_character(character, user_prompt, width=None, heig
             for node_id in history['outputs']:
                 classification, should_save = classify_image_node(node_id, updated_workflow)
                 
+                print(f"DEBUG: Node {node_id} -> {classification} (Save: {should_save})") # DEBUG LOG
+                
                 if not should_save:
                     continue
                 
                 if allowed_types is not None and classification not in allowed_types:
+                    print(f"DEBUG: Skipped {classification} because not in allowed_types: {allowed_types}") # DEBUG LOG
                     continue
                 
                 node_output = history['outputs'][node_id]

@@ -93,8 +93,8 @@ def serve_private_media(request, path):
 # --- NEW SECURE FUNCTION TO GET CHARACTERS ---
 @sync_to_async
 def get_characters_with_images(user=None):
-    # Base query: Active characters -> ORDERED BY NAME
-    qs = Character.objects.filter(is_active=True).order_by('name').prefetch_related('catalog_images_set').select_related('category', 'subcategory')
+    # Base query: Active characters -> ORDERED BY SUBCATEGORY NAME, THEN CHARACTER NAME
+    qs = Character.objects.filter(is_active=True).order_by('subcategory__name', 'name').prefetch_related('catalog_images_set').select_related('category', 'subcategory')
     
     if user and user.is_authenticated:
         # If user is logged in, show public OR private ones they have unlocked
@@ -424,9 +424,9 @@ async def workspace_view(request):
     # Get all characters for the selection modal (Filtered by user access)
     all_characters = await get_characters_with_images(user)
     
-    # --- NEW: Get all categories and subcategories ---
-    all_categories = await sync_to_async(list)(CharacterCategory.objects.all())
-    all_subcategories = await sync_to_async(list)(CharacterSubCategory.objects.all())
+    # --- NEW: Get all categories and subcategories ORDERED BY NAME ---
+    all_categories = await sync_to_async(list)(CharacterCategory.objects.all().order_by('name'))
+    all_subcategories = await sync_to_async(list)(CharacterSubCategory.objects.all().order_by('name'))
     
     # Check if a character is selected
     character_id = request.GET.get('character_id')
@@ -445,7 +445,8 @@ async def workspace_view(request):
     # Workflow capabilities (to show/hide checkboxes)
     workflow_capabilities = {
         'can_upscale': False,
-        'can_facedetail': False
+        'can_facedetail': False,
+        'can_eyedetailer': False # NUEVO: Por defecto False
     }
 
     # --- NEW: Get list of recent chats WITH IMAGES ---
@@ -565,9 +566,11 @@ async def workspace_view(request):
                         
                         # First, add the real images
                         for img in imgs:
+                            # --- CORRECCIÓN: Usar el campo de la BD en lugar de adivinar por nombre ---
                             img_type = "NORMAL"
-                            if "UpScaler" in img.image.name: img_type = "UPSCALER"
-                            elif "FaceDetailer" in img.image.name: img_type = "FACEDETAILER"
+                            if img.generation_type == "Gen_UpScaler": img_type = "UPSCALER"
+                            elif img.generation_type == "Gen_FaceDetailer": img_type = "FACEDETAILER"
+                            elif img.generation_type == "Gen_EyeDetailer": img_type = "EYEDETAILER"
                             
                             item['images'].append({
                                 'url': img.image.url,
@@ -661,11 +664,13 @@ async def generate_image_view(request):
             use_normal = request.POST.get('use_normal') == 'true'
             use_upscale = request.POST.get('use_upscale') == 'true'
             use_facedetailer = request.POST.get('use_facedetailer') == 'true'
+            use_eyedetailer = request.POST.get('use_eyedetailer') == 'true' # NUEVO
             
             allowed_types = []
             if use_normal: allowed_types.append("Gen_Normal")
             if use_upscale: allowed_types.append("Gen_UpScaler")
             if use_facedetailer: allowed_types.append("Gen_FaceDetailer")
+            if use_eyedetailer: allowed_types.append("Gen_EyeDetailer") # NUEVO
             
             if not allowed_types: allowed_types.append("Gen_Normal")
 
@@ -790,9 +795,9 @@ async def generate_image_view(request):
         characters = await get_characters_with_images(user)
         company_settings = await get_company_settings()
         
-        # --- FIX: Add loading of categories and subcategories ---
-        all_categories = await sync_to_async(list)(CharacterCategory.objects.all())
-        all_subcategories = await sync_to_async(list)(CharacterSubCategory.objects.all())
+        # --- FIX: Add loading of categories and subcategories ORDERED BY NAME ---
+        all_categories = await sync_to_async(list)(CharacterCategory.objects.all().order_by('name'))
+        all_subcategories = await sync_to_async(list)(CharacterSubCategory.objects.all().order_by('name'))
 
         # --- HERO CAROUSEL LOGIC (NEW) ---
         hero_items = []
