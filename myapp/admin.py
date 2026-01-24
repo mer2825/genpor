@@ -9,7 +9,7 @@ from django.contrib.auth.admin import UserAdmin
 from django.contrib.auth.models import User
 from django.db.models import Q, CharField
 from django.forms import ModelForm, ValidationError, CheckboxSelectMultiple, TextInput
-from .models import Workflow, Character, PrivateCharacter, CharacterImage, CharacterCatalogImage, ConnectionConfig, CompanySettings, HeroCarouselImage, CharacterCategory, CharacterSubCategory, ClientProfile, TokenSettings, Coupon, CouponRedemption, CharacterAccessCode, UserCharacterAccess
+from .models import Workflow, Character, PrivateCharacter, CharacterImage, CharacterCatalogImage, ConnectionConfig, CompanySettings, HeroCarouselImage, AuthPageImage, CharacterCategory, CharacterSubCategory, ClientProfile, TokenSettings, Coupon, CouponRedemption, CharacterAccessCode, UserCharacterAccess
 from .services import generate_image_from_character, get_active_comfyui_address, get_comfyui_object_info, analyze_workflow
 import json
 from asgiref.sync import async_to_sync, sync_to_async
@@ -113,7 +113,23 @@ class HeroCarouselImageInline(admin.TabularInline):
     fields = ('image_preview', 'image', 'caption', 'order')
     readonly_fields = ('image_preview',)
     verbose_name = "Hero Carousel Image"
-    verbose_name_plural = "Hero Carousel Images"
+    verbose_name_plural = "Hero Carousel Images (Main Page)"
+
+    def image_preview(self, obj):
+        if obj.image:
+            return format_html('<img src="{}" style="height: 100px; width: auto; border-radius: 5px;" />', obj.image.url)
+        return "(No image)"
+    image_preview.short_description = "Preview"
+
+# --- NEW: INLINE FOR AUTH PAGE IMAGES ---
+class AuthPageImageInline(admin.TabularInline):
+    model = AuthPageImage
+    extra = 1
+    # AÑADIDO: overlay_opacity
+    fields = ('image_preview', 'image', 'caption', 'overlay_opacity', 'order')
+    readonly_fields = ('image_preview',)
+    verbose_name = "Auth Page Image"
+    verbose_name_plural = "Auth Page Images (Login/Signup)"
 
     def image_preview(self, obj):
         if obj.image:
@@ -137,7 +153,7 @@ class CompanySettingsForm(ModelForm):
 @admin.register(CompanySettings)
 class CompanySettingsAdmin(admin.ModelAdmin):
     form = CompanySettingsForm # Usar el formulario personalizado
-    inlines = [HeroCarouselImageInline]
+    inlines = [HeroCarouselImageInline, AuthPageImageInline] # AÑADIDO AQUÍ
 
     # Organize fields into sections
     fieldsets = (

@@ -510,7 +510,7 @@
             <div class="sidebar-title" style="margin-top:30px;">History</div>
             <!-- LISTA DE CHATS RECIENTES -->
             {% for chat in recent_chats %}
-                <a href="?character_id={{ chat.id }}&load_history=true" class="history-item {% if selected_character.id == chat.id %}active{% endif %}">
+                <a href="?character_id={{ chat.id }}" class="history-item {% if selected_character.id == chat.id %}active{% endif %}">
                     {% if chat.catalog_images_set.all %}
                         <img src="{{ chat.catalog_images_set.all.0.image.url }}">
                     {% else %}

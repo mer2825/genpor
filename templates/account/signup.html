@@ -8,82 +8,121 @@
 {% block footer %}{% endblock %}
 
 {% block content %}
-<!-- Contenedor Full Screen - MODO OSCURO -->
-<div class="fixed inset-0 z-50 bg-black flex overflow-hidden font-sans">
 
-    <!-- LADO IZQUIERDO: Imagen Carrusel + Branding (50% del ancho) -->
-    <div class="hidden lg:flex lg:w-1/2 relative bg-gray-900 items-end justify-start overflow-hidden group">
-        <!-- Slideshow de imágenes -->
-        {% if hero_images %}
+<style>
+    :root {
+        --primary-start: {{ company_settings.primary_color_start|default:"#a855f7" }};
+        --primary-mid: {{ company_settings.primary_color_mid|default:"#ef4444" }};
+        --primary-end: {{ company_settings.primary_color_end|default:"#ff9068" }};
+        /* Mismo gradiente que en generate.html */
+        --primary-gradient: linear-gradient(135deg, var(--primary-start) 0%, var(--primary-mid) 50%, var(--primary-end) 100%);
+    }
+
+    /* --- SCROLLBAR PERSONALIZADO --- */
+    ::-webkit-scrollbar { width: 6px; height: 6px; }
+    ::-webkit-scrollbar-track { background: rgba(0, 0, 0, 0.2); }
+    ::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.15); border-radius: 10px; }
+    ::-webkit-scrollbar-thumb:hover { background: rgba(255, 255, 255, 0.3); }
+    * { scrollbar-width: thin; scrollbar-color: rgba(255, 255, 255, 0.15) rgba(0, 0, 0, 0.2); }
+
+    /* 1. FONDO GENERAL */
+    .page-background {
+        position: fixed; inset: 0; z-index: -1;
+        background:
+            radial-gradient(circle at 50% -20%, color-mix(in srgb, var(--primary-start), transparent 85%) 0%, transparent 50%),
+            radial-gradient(circle at 0% 30%, color-mix(in srgb, var(--primary-mid), transparent 90%) 0%, transparent 40%),
+            radial-gradient(circle at 100% 70%, color-mix(in srgb, var(--primary-start), transparent 92%) 0%, transparent 40%),
+            linear-gradient(to bottom, #0f0505 0%, #020202 100%);
+        background-size: cover;
+    }
+
+    /* 2. TARJETA CENTRAL */
+    .login-card {
+        position: relative; width: 100%; max-width: 450px;
+        border-radius: 24px; overflow: hidden;
+        box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.8);
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        display: flex; flex-direction: column; justify-content: center;
+        min-height: auto;
+    }
+    @media (min-width: 640px) { .login-card { min-height: 600px; } }
+
+    /* Slideshow */
+    .card-background-slide {
+        position: absolute; inset: 0; background-size: cover; background-position: center;
+        transition: opacity 1s ease-in-out; z-index: 0;
+    }
+
+    /* Contenido */
+    .card-content { position: relative; z-index: 2; padding: 40px; color: white; }
+    @media (max-width: 640px) {
+        .card-content { padding: 24px 20px; }
+        .login-card { border-radius: 16px; }
+    }
+
+    /* CLASE PARA DELINEADO DE TEXTO */
+    .text-outline {
+        text-shadow: 0 1px 3px rgba(0,0,0,0.9), 0 0 2px rgba(0,0,0,0.8);
+    }
+</style>
+
+<div class="page-background"></div>
+
+<div class="fixed inset-0 z-50 flex justify-center items-center p-4 overflow-y-auto">
+    <a href="/" class="absolute top-6 right-6 text-white/80 hover:text-white transition-colors flex items-center gap-2 text-sm font-medium z-50 bg-black/30 px-3 py-1 rounded-full backdrop-blur-md border border-white/10 text-outline">
+        <span>Volver</span>
+        <i class="fas fa-times"></i>
+    </a>
+
+    <div class="login-card my-auto">
+        {% if auth_images %}
+            {% for img in auth_images %}
+                <div class="card-background-slide {% if not forloop.first %}opacity-0{% endif %}" style="background-image: url('{{ img.image.url }}');">
+                    <!-- OVERLAY CONDICIONAL: Solo aplica blur si la opacidad es mayor a 0 -->
+                    <div class="absolute inset-0"
+                         style="background-color: rgba(0,0,0, {{ img.overlay_opacity|default:'0.5' }});
+                                {% if img.overlay_opacity > 0.0 %}backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);{% endif %}">
+                    </div>
+                </div>
+            {% endfor %}
+        {% elif hero_images %}
             {% for img in hero_images %}
-                <div class="hero-slide absolute inset-0 bg-cover bg-center transition-opacity duration-1000 ease-in-out {% if not forloop.first %}opacity-0{% endif %}"
-                     style="background-image: url('{{ img.image.url }}');">
+                <div class="card-background-slide {% if not forloop.first %}opacity-0{% endif %}" style="background-image: url('{{ img.image.url }}');">
+                    <div class="absolute inset-0" style="background-color: rgba(0,0,0, 0.5); backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);"></div>
                 </div>
             {% endfor %}
         {% else %}
-            <div class="absolute inset-0 bg-cover bg-center"
-                 style="background-image: url('https://images.unsplash.com/photo-1620641788421-7a1c342ea42e?q=80&w=2574&auto=format&fit=crop');"></div>
+            <div class="card-background-slide" style="background-image: url('https://images.unsplash.com/photo-1620641788421-7a1c342ea42e?q=80&w=2574&auto=format&fit=crop');">
+                <div class="absolute inset-0" style="background-color: rgba(0,0,0, 0.5); backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);"></div>
+            </div>
         {% endif %}
 
-        <!-- Overlay MUY sutil -->
-        <div class="absolute inset-0 bg-black/10"></div>
+        <div class="card-content">
+            <div class="text-center mb-6">
+                {% if company_settings.logo %}
+                    <img src="{{ company_settings.logo.url }}" alt="Logo" class="h-14 mx-auto mb-3 object-contain drop-shadow-lg">
+                {% endif %}
+                <h1 class="text-2xl font-black tracking-tight text-white drop-shadow-md text-outline">
+                    {{ company_settings.name|default:"Mi App" }}
+                </h1>
+            </div>
 
-        <!-- Contenido Texto (Abajo a la izquierda) -->
-        <div class="relative z-10 p-16 w-full max-w-4xl">
-            {% if company_settings.logo %}
-                <img src="{{ company_settings.logo.url }}" alt="Logo" class="h-24 mb-8 object-contain drop-shadow-[0_0_10px_rgba(255,255,255,0.5)]">
-            {% endif %}
-
-            <h2 class="text-6xl font-extrabold text-white mb-2 tracking-tight drop-shadow-md">
-                Únete a <br/>
-                <span class="text-[#d946ef]" style="text-shadow: 0 0 20px rgba(220, 38, 38, 0.9), 0 0 40px rgba(220, 38, 38, 0.6);">
-                    {{ company_settings.name|default:"la Comunidad" }}
-                </span>
-            </h2>
-
-            <!-- Subtítulo (Nuevo) -->
-            {% if company_settings.app_hero_subtitle %}
-                <h3 class="text-2xl font-bold text-white mb-6 drop-shadow-[0_2px_4px_rgba(0,0,0,0.8)]">
-                    {{ company_settings.app_hero_subtitle }}
-                </h3>
-            {% endif %}
-
-            <div class="h-2 w-32 bg-[#d946ef] mb-8 rounded-full shadow-[0_0_15px_rgba(220,38,38,0.8)]"></div>
-
-            <p class="text-white text-xl font-bold leading-relaxed max-w-2xl drop-shadow-[0_2px_4px_rgba(0,0,0,0.8)]">
-                {{ company_settings.app_hero_description|default:"Crea, comparte y explora. La plataforma definitiva para artistas digitales." }}
-            </p>
-        </div>
-    </div>
-
-    <!-- LADO DERECHO: Formulario (50% del ancho) -->
-    <div class="w-full lg:w-1/2 flex flex-col justify-center items-center bg-[#0a0a0a] px-8 sm:px-12 relative border-l border-gray-900 shadow-2xl overflow-y-auto">
-
-        <!-- Botón Volver -->
-        <a href="/" class="absolute top-8 right-8 text-gray-500 hover:text-orange-500 transition-colors flex items-center gap-2 text-sm font-medium z-10">
-            <span>Volver</span>
-            <i class="fas fa-times"></i>
-        </a>
-
-        <div class="w-full max-w-sm space-y-8 py-12">
-            <!-- Encabezado Formulario -->
-            <div class="text-center lg:text-left">
-                <h2 class="text-3xl font-bold text-white tracking-tight mb-2">Crear Cuenta</h2>
-                <p class="text-sm text-gray-400">
+            <div class="text-center mb-6">
+                <h2 class="text-xl font-bold mb-1 text-outline">Crear Cuenta</h2>
+                <p class="text-xs text-gray-200 text-outline">
                     ¿Ya tienes cuenta?
-                    <a href="{{ login_url }}" class="font-medium text-orange-500 hover:text-orange-400 transition-colors">Inicia sesión</a>.
+                    <a href="{{ login_url }}" class="font-bold hover:underline" style="color: var(--primary-start);">Inicia sesión</a>.
                 </p>
             </div>
 
-            <!-- Botón Google -->
-            <div>
+            <div class="mb-6">
                 {% get_providers as socialaccount_providers %}
                 {% if socialaccount_providers %}
                     {% for provider in socialaccount_providers %}
                         {% if provider.id == "google" %}
                         <form action="{% provider_login_url provider.id process='login' scope=scope auth_params=auth_params %}" method="post">
                             {% csrf_token %}
-                            <button type="submit" class="w-full flex items-center justify-center gap-3 px-6 py-3.5 border border-gray-800 rounded-lg shadow-sm text-sm font-semibold text-gray-200 bg-gray-900 hover:bg-gray-800 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-orange-500 transition-all duration-200">
+                            <button type="submit" class="w-full flex items-center justify-center gap-3 px-4 py-3 border border-white/30 rounded-xl shadow-sm text-sm font-semibold text-white bg-white/10 hover:bg-white/20 focus:outline-none transition-all duration-200 text-outline">
                                 <img src="https://www.svgrepo.com/show/475656/google-color.svg" class="h-5 w-5" alt="Google">
                                 <span>Registrarse con Google</span>
                             </button>
@@ -91,61 +130,61 @@
                         {% endif %}
                     {% endfor %}
 
-                    <div class="relative mt-8">
+                    <div class="relative mt-5">
                         <div class="absolute inset-0 flex items-center">
-                            <div class="w-full border-t border-gray-800"></div>
+                            <div class="w-full border-t border-white/30"></div>
                         </div>
-                        <div class="relative flex justify-center text-sm">
-                            <span class="px-4 bg-[#0a0a0a] text-gray-500 font-medium">o regístrate con tu correo</span>
+                        <div class="relative flex justify-center text-xs">
+                            <span class="px-2 text-gray-200 font-medium text-outline" style="text-shadow: 0 0 4px rgba(0,0,0,0.8);">o regístrate con tu correo</span>
                         </div>
                     </div>
                 {% endif %}
             </div>
 
-            <!-- Formulario Email -->
-            <form class="mt-8 space-y-5" method="POST" action="{% url 'account_signup' %}">
+            <form class="space-y-4" method="POST" action="{% url 'account_signup' %}">
                 {% csrf_token %}
 
                 {% if form.errors %}
-                    <div class="rounded-lg bg-red-900/20 p-4 border-l-4 border-red-600 mb-4">
-                        <p class="text-sm text-red-400">Por favor corrige los errores abajo.</p>
+                    <div class="rounded-lg bg-red-500/40 p-3 border border-red-500/60 mb-4 backdrop-blur-sm">
+                        <p class="text-xs text-white text-center font-medium text-outline">Por favor corrige los errores abajo.</p>
                     </div>
                 {% endif %}
 
                 {% for field in form %}
                     <div>
-                        <label for="{{ field.id_for_label }}" class="block text-sm font-medium text-gray-400 mb-1">
+                        <label for="{{ field.id_for_label }}" class="block text-xs font-bold text-gray-100 mb-1 ml-1 uppercase tracking-wider text-outline">
                             {{ field.label }}
                         </label>
                         <input type="{{ field.field.widget.input_type }}"
                                name="{{ field.name }}"
                                id="{{ field.id_for_label }}"
                                {% if field.field.required %}required{% endif %}
-                               class="block w-full px-4 py-3 border border-gray-800 rounded-lg bg-gray-900 text-white placeholder-gray-600 focus:outline-none focus:border-orange-500 focus:ring-1 focus:ring-orange-500 sm:text-sm transition-colors"
+                               class="block w-full px-4 py-3 border border-white/30 rounded-xl bg-black/50 text-white placeholder-gray-300 focus:outline-none focus:border-white/80 focus:ring-1 focus:ring-white/80 sm:text-sm transition-colors backdrop-blur-sm text-outline"
                                placeholder="{{ field.label }}">
                         {% if field.help_text %}
-                            <p class="mt-1 text-xs text-gray-600">{{ field.help_text }}</p>
+                            <p class="mt-1 text-[10px] text-gray-300 ml-1 text-outline">{{ field.help_text }}</p>
                         {% endif %}
                     </div>
                 {% endfor %}
 
-                <div class="pt-2">
-                    <button type="submit" class="w-full flex justify-center py-3.5 px-4 border border-transparent rounded-lg shadow-sm text-sm font-bold text-white bg-gradient-to-r from-orange-600 to-red-600 hover:from-orange-700 hover:to-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-orange-500 transition-all duration-200 transform hover:scale-[1.02]">
-                        Crear Cuenta
-                    </button>
-                </div>
+                <!-- BOTÓN CON GRADIENTE -->
+                <button type="submit" class="w-full flex justify-center py-3.5 px-4 border border-transparent rounded-xl shadow-lg text-sm font-bold text-white transition-all duration-200 transform hover:scale-[1.02] mt-6 text-outline"
+                        style="background: var(--primary-gradient); box-shadow: 0 4px 20px -5px rgba(0,0,0,0.5);">
+                    Crear Cuenta
+                </button>
 
-                <p class="text-xs text-center text-gray-500 mt-4">
-                    Al registrarte, aceptas nuestros <a href="#" class="text-orange-500 hover:underline">Términos de Servicio</a>.
+                <p class="text-[10px] text-center text-gray-300 mt-4 text-outline">
+                    Al registrarte, aceptas nuestros <a href="#" class="hover:text-white hover:underline">Términos de Servicio</a>.
                 </p>
             </form>
+
         </div>
     </div>
 </div>
 
 <script>
     document.addEventListener('DOMContentLoaded', function() {
-        const slides = document.querySelectorAll('.hero-slide');
+        const slides = document.querySelectorAll('.card-background-slide');
         if (slides.length > 1) {
             let currentSlide = 0;
             setInterval(() => {

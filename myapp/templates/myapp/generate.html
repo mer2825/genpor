@@ -331,10 +331,12 @@
         /* Ajuste para móvil: subirlo un poco para no tapar el bottom nav */
         @media (max-width: 768px) {
             .fab-create {
-                bottom: 80px;
+                bottom: 90px; /* Aumentado para asegurar que no tape el nav */
                 right: 20px;
                 padding: 12px 24px;
                 font-size: 1rem;
+                /* Asegurar que esté por encima del bottom nav */
+                z-index: 10001;
             }
         }
 
@@ -527,6 +529,7 @@
 
         <div class="album-container">
             {% for character in characters %}
+            <!-- CAMBIO: Eliminado &load_history=true porque ahora es el comportamiento por defecto -->
             <a href="{% url 'workspace' %}?character_id={{ character.id }}" class="character-card"
                data-character-id="{{ character.id }}"
                data-category-id="{{ character.category.id|default:'NONE' }}"
@@ -715,7 +718,7 @@
 
         // URL para canjear cupones (necesaria para el script)
         const redeemCouponUrl = "{% url 'redeem_coupon' %}";
-        const csrfToken = "{{ csrf_token }}";
+        const csrfToken = "{{ csrf_token }}"
 
         // --- LÓGICA DE FILTRADO ---
         function filterCategory(categoryId, btn) {
@@ -894,7 +897,13 @@
             let isAnimating = false;
 
             // Base bottom position (CSS default)
-            const baseBottom = 30;
+            // const baseBottom = 30; // OLD
+
+            function getBaseBottom() {
+                 // En móvil (<= 768px), la base debe ser mayor para librar el bottom nav (aprox 60-70px)
+                 // Usamos 90px para estar seguros. En desktop 30px.
+                 return window.innerWidth <= 768 ? 90 : 30;
+            }
 
             // NUEVA LÓGICA DE SCROLL
             function checkScroll() {
@@ -917,16 +926,18 @@
 
                 // 2. Lógica de "Empuje" por el Footer
                 // Si el footer entra en la pantalla (su top es menor que la altura de la ventana)
+                const currentBase = getBaseBottom();
+
                 if (footerRect.top < windowHeight) {
                     // Calculamos cuánto ha entrado el footer
                     const overlap = windowHeight - footerRect.top;
 
                     // Movemos el botón hacia arriba esa cantidad + el margen base
                     // (overlap + baseBottom)
-                    fabBtn.style.bottom = `${baseBottom + overlap}px`;
+                    fabBtn.style.bottom = `${currentBase + overlap}px`;
                 } else {
                     // Si el footer no está visible, volvemos a la posición original
-                    fabBtn.style.bottom = `${baseBottom}px`;
+                    fabBtn.style.bottom = `${currentBase}px`;
                 }
             }
 

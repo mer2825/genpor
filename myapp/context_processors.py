@@ -17,11 +17,15 @@ def company_data(request):
     
     # Cargar imágenes del carrusel si existen
     hero_images = []
+    auth_images = []
+    
     if settings:
         hero_images = list(settings.hero_images.all())
+        auth_images = list(settings.auth_images.all())
 
-    # Devolvemos 'company_settings' y 'hero_images' para las plantillas
+    # Devolvemos 'company_settings', 'hero_images' y 'auth_images' para las plantillas
     return {
         'company_settings': settings,
-        'hero_images': hero_images
+        'hero_images': hero_images,
+        'auth_images': auth_images
     }

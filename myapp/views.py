@@ -430,8 +430,9 @@ async def workspace_view(request):
     
     # Check if a character is selected
     character_id = request.GET.get('character_id')
-    # CHANGE: Check if history loading was requested
-    should_load_history = request.GET.get('load_history') == 'true'
+    
+    # CHANGE: Always load history if a character is selected
+    should_load_history = True
     
     selected_character = None
     chat_history = [] # List for the central chat

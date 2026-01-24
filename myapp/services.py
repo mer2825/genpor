@@ -325,7 +325,7 @@ def update_workflow(prompt_workflow, new_values, lora_names=None, lora_strengths
         if not isinstance(details, dict): continue
         class_type, inputs = details.get("class_type"), details.get("inputs", {})
         title = details.get("_meta", {}).get("title", "").upper() # Convertir a mayúsculas para ser consistente
-        
+
         # Actualizar Prompts (Soporte para Primitives y Stylers)
         candidates = ["text", "text_g", "text_l", "prompt", "text_positive", "positive_prompt", "text_negative", "negative_prompt", "value"]
         
@@ -616,7 +616,7 @@ async def generate_image_from_character(character, user_prompt, width=None, heig
             
             history = await get_history(client, prompt_id, address)
             history = history[prompt_id]
-            
+
             for node_id in history['outputs']:
                 classification, should_save = classify_image_node(node_id, updated_workflow)
                 
@@ -635,6 +635,6 @@ async def generate_image_from_character(character, user_prompt, width=None, heig
                         image_bytes = await get_image(client, image['filename'], image['subfolder'], image['type'], address)
                         if image_bytes:
                             images_data.append((image_bytes, classification))
-    
+
     return images_data, prompt_id, updated_workflow
 # Limpieza final

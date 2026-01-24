@@ -9,6 +9,7 @@ from django.dispatch import receiver
 from asgiref.sync import sync_to_async
 import secrets
 import string
+from django.core.validators import MinValueValidator, MaxValueValidator # IMPORTANTE
 
 class Workflow(models.Model):
     name = models.CharField(max_length=100)
@@ -312,6 +313,32 @@ class HeroCarouselImage(models.Model):
         verbose_name_plural = "Hero Carousel Images"
     def __str__(self):
         return f"Hero Image {self.order}"
+    def delete(self, *args, **kwargs):
+        if self.image and os.path.isfile(self.image.path):
+            os.remove(self.image.path)
+        super().delete(*args, **kwargs)
+
+# --- NEW: AUTH PAGE IMAGES ---
+class AuthPageImage(models.Model):
+    company_settings = models.ForeignKey(CompanySettings, related_name='auth_images', on_delete=models.CASCADE)
+    image = models.ImageField(upload_to='auth_backgrounds/', verbose_name="Auth Background Image")
+    caption = models.CharField(max_length=100, blank=True, verbose_name="Caption (Optional)")
+    order = models.PositiveIntegerField(default=0, help_text="Order in the slideshow")
+    
+    # --- NEW: OPACITY CONTROL ---
+    overlay_opacity = models.FloatField(
+        default=0.5, 
+        validators=[MinValueValidator(0.0), MaxValueValidator(1.0)],
+        verbose_name="Overlay Opacity",
+        help_text="0.0 = Transparent (Image clear), 1.0 = Black (Image hidden). Default is 0.5."
+    )
+
+    class Meta:
+        ordering = ['order']
+        verbose_name = "Auth Page Image"
+        verbose_name_plural = "Auth Page Images"
+    def __str__(self):
+        return f"Auth Image {self.order}"
     def delete(self, *args, **kwargs):
         if self.image and os.path.isfile(self.image.path):
             os.remove(self.image.path)
