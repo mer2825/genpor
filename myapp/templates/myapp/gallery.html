@@ -934,7 +934,7 @@
                 const visiblePrivateCards = privateGrid.querySelectorAll('.folder-card[style="display: flex;"]');
                 privateTitle.style.display = visiblePrivateCards.length > 0 ? 'flex' : 'none';
             }
-        }
+        };
 
         function filterCategory(categoryId, btn) {
             // Actualizar botones
@@ -943,7 +943,7 @@
 
             activeCategory = categoryId;
             filterGallery();
-        }
+        };
 
         function toggleSubCategory(subId, btn) {
             btn.classList.toggle('active');
@@ -954,7 +954,7 @@
                 activeSubcategories.add(subId);
             }
             filterGallery();
-        }
+        };
 
         // --- FIN LÓGICA DE FILTRADO ---
 
@@ -986,7 +986,7 @@
                 // Fade in
                 setTimeout(() => imagesView.style.opacity = '1', 50);
             }, 200);
-        }
+        };
 
         function renderGrid() {
             const grid = document.getElementById('detail-grid');
@@ -1052,7 +1052,7 @@
                 `;
                 grid.appendChild(div);
             });
-        }
+        };
 
         function showFolders() {
             const imagesView = document.getElementById('images-view');
@@ -1064,7 +1064,7 @@
                 foldersView.style.display = 'block';
                 setTimeout(() => foldersView.style.opacity = '1', 50);
             }, 200);
-        }
+        };
 
         // --- LÓGICA DE SELECCIÓN (OPTIMIZADA) ---
 
@@ -1085,7 +1085,7 @@
             }
 
             updateToolbar();
-        }
+        };
 
         function toggleSelectAll() {
             const data = galleryData[currentCharacterId];
@@ -1098,7 +1098,7 @@
             }
             renderGrid(); // Aquí sí redibujamos todo
             updateToolbar();
-        }
+        };
 
         function updateToolbar() {
             document.getElementById('selected-count').textContent = selectedImages.size;
@@ -1110,7 +1110,7 @@
                 deleteBtn.style.opacity = '0.5';
                 deleteBtn.style.pointerEvents = 'none';
             }
-        }
+        };
 
         // --- LÓGICA DE BORRADO CON MODAL ---
 
@@ -1119,12 +1119,12 @@
             imageToDeleteFromViewerId = null; // Asegurar que no es borrado individual
             document.getElementById('confirm-count-text').textContent = selectedImages.size;
             document.getElementById('modal-confirm').style.display = 'block';
-        }
+        };
 
         function closeConfirm() {
             document.getElementById('modal-confirm').style.display = 'none';
             imageToDeleteFromViewerId = null;
-        }
+        };
 
         function executeDelete() {
             let idsToDelete = [];
@@ -1180,7 +1180,7 @@
                 }
             })
             .catch(err => alert('Connection error'));
-        }
+        };
 
         window.onclick = (event) => {
             const modal = document.getElementById('modal-confirm');
@@ -1206,11 +1206,11 @@
             updateViewerImage();
             document.getElementById('image-viewer').style.display = 'flex';
             resetZoom();
-        }
+        };
 
         function closeImageViewer() {
             document.getElementById('image-viewer').style.display = 'none';
-        }
+        };
 
         function navigateImage(direction) {
             let newIndex = currentViewerIndex + direction;
@@ -1218,7 +1218,7 @@
                 currentViewerIndex = newIndex;
                 updateViewerImage();
             }
-        }
+        };
 
         function updateViewerImage() {
             if (currentViewerImages.length === 0) return;
@@ -1232,19 +1232,19 @@
             // Actualizar flechas
             document.querySelector('.nav-arrow.left').style.display = currentViewerIndex > 0 ? 'flex' : 'none';
             document.querySelector('.nav-arrow.right').style.display = currentViewerIndex < currentViewerImages.length - 1 ? 'flex' : 'none';
-        }
+        };
 
         function resetZoom() {
             zoomLevel = 1;
             translateX = 0;
             translateY = 0;
             updateTransform();
-        }
+        };
 
         function updateTransform() {
             const viewerImg = document.getElementById('viewer-img');
             viewerImg.style.transform = `translate(${translateX}px, ${translateY}px) scale(${zoomLevel})`;
-        }
+        };
 
         // Funciones de Acción en Visor
         function downloadCurrentImage() {
@@ -1255,7 +1255,7 @@
             document.body.appendChild(link);
             link.click();
             document.body.removeChild(link);
-        }
+        };
 
         function confirmDeleteFromViewer() {
             const imgObj = currentViewerImages[currentViewerIndex];
@@ -1263,7 +1263,7 @@
 
             document.getElementById('confirm-count-text').textContent = "1";
             document.getElementById('modal-confirm').style.display = 'block';
-        }
+        };
 
         // Zoom y Pan (Reutilizado del workspace)
         const viewerContainer = document.getElementById('viewer-container');
