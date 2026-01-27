@@ -64,6 +64,9 @@ INSTALLED_APPS = [
 
     # PayPal
     'paypal.standard.ipn',
+
+    # Captcha
+    'django_recaptcha',
 ]
 
 MIDDLEWARE = [
@@ -255,7 +258,9 @@ CONTENT_SECURITY_POLICY = {
             "https://cdnjs.cloudflare.com",
             "https://www.paypal.com", # PayPal
             "https://www.sandbox.paypal.com", # PayPal Sandbox
-            "https://accounts.google.com" # Google Auth
+            "https://accounts.google.com", # Google Auth
+            "https://www.google.com/recaptcha/", # ReCaptcha
+            "https://www.gstatic.com/recaptcha/" # ReCaptcha
         ],
         'font-src': [
             "'self'", 
@@ -273,6 +278,7 @@ CONTENT_SECURITY_POLICY = {
         ],
         'connect-src': ["'self'", "https://accounts.google.com"],
         'form-action': ["'self'", "https://www.paypal.com", "https://www.sandbox.paypal.com", "https://accounts.google.com"], # Allow forms to post to PayPal & Google
+        'frame-src': ["'self'", "https://www.google.com/recaptcha/", "https://recaptcha.google.com/recaptcha/"], # ReCaptcha Frame
     }
 }
 
@@ -310,3 +316,9 @@ if not DEBUG:
 # PayPal Settings
 PAYPAL_RECEIVER_EMAIL = os.getenv('PAYPAL_RECEIVER_EMAIL')
 PAYPAL_TEST = os.getenv('PAYPAL_TEST', 'True') == 'True'
+
+# ReCaptcha Settings
+RECAPTCHA_PUBLIC_KEY = os.getenv('RECAPTCHA_PUBLIC_KEY')
+RECAPTCHA_PRIVATE_KEY = os.getenv('RECAPTCHA_PRIVATE_KEY')
+# Usar formulario personalizado para Signup
+ACCOUNT_FORMS = {'signup': 'myapp.forms.CustomSignupForm'}

@@ -147,24 +147,38 @@
                 {% if form.errors %}
                     <div class="rounded-lg bg-red-500/40 p-3 border border-red-500/60 mb-4 backdrop-blur-sm">
                         <p class="text-xs text-white text-center font-medium text-outline">Por favor corrige los errores abajo.</p>
+                        {% for field in form %}
+                            {% for error in field.errors %}
+                                <p class="text-[10px] text-white text-center">{{ error }}</p>
+                            {% endfor %}
+                        {% endfor %}
+                        {% for error in form.non_field_errors %}
+                            <p class="text-[10px] text-white text-center">{{ error }}</p>
+                        {% endfor %}
                     </div>
                 {% endif %}
 
                 {% for field in form %}
-                    <div>
-                        <label for="{{ field.id_for_label }}" class="block text-xs font-bold text-gray-100 mb-1 ml-1 uppercase tracking-wider text-outline">
-                            {{ field.label }}
-                        </label>
-                        <input type="{{ field.field.widget.input_type }}"
-                               name="{{ field.name }}"
-                               id="{{ field.id_for_label }}"
-                               {% if field.field.required %}required{% endif %}
-                               class="block w-full px-4 py-3 border border-white/30 rounded-xl bg-black/50 text-white placeholder-gray-300 focus:outline-none focus:border-white/80 focus:ring-1 focus:ring-white/80 sm:text-sm transition-colors backdrop-blur-sm text-outline"
-                               placeholder="{{ field.label }}">
-                        {% if field.help_text %}
-                            <p class="mt-1 text-[10px] text-gray-300 ml-1 text-outline">{{ field.help_text }}</p>
-                        {% endif %}
-                    </div>
+                    {% if field.name == 'captcha' %}
+                        <div class="flex justify-center my-4">
+                            {{ field }}
+                        </div>
+                    {% else %}
+                        <div>
+                            <label for="{{ field.id_for_label }}" class="block text-xs font-bold text-gray-100 mb-1 ml-1 uppercase tracking-wider text-outline">
+                                {{ field.label }}
+                            </label>
+                            <input type="{{ field.field.widget.input_type }}"
+                                   name="{{ field.name }}"
+                                   id="{{ field.id_for_label }}"
+                                   {% if field.field.required %}required{% endif %}
+                                   class="block w-full px-4 py-3 border border-white/30 rounded-xl bg-black/50 text-white placeholder-gray-300 focus:outline-none focus:border-white/80 focus:ring-1 focus:ring-white/80 sm:text-sm transition-colors backdrop-blur-sm text-outline"
+                                   placeholder="{{ field.label }}">
+                            {% if field.help_text %}
+                                <p class="mt-1 text-[10px] text-gray-300 ml-1 text-outline">{{ field.help_text }}</p>
+                            {% endif %}
+                        </div>
+                    {% endif %}
                 {% endfor %}
 
                 <!-- BOTÓN CON GRADIENTE -->
