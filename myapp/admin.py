@@ -9,7 +9,7 @@ from django.contrib.auth.admin import UserAdmin
 from django.contrib.auth.models import User
 from django.db.models import Q, CharField
 from django.forms import ModelForm, ValidationError, CheckboxSelectMultiple, TextInput
-from .models import Workflow, Character, PrivateCharacter, CharacterImage, CharacterCatalogImage, ConnectionConfig, CompanySettings, HeroCarouselImage, AuthPageImage, CharacterCategory, CharacterSubCategory, ClientProfile, TokenSettings, Coupon, CouponRedemption, CharacterAccessCode, UserCharacterAccess
+from .models import Workflow, Character, PrivateCharacter, CharacterImage, CharacterCatalogImage, ConnectionConfig, CompanySettings, HeroCarouselImage, AuthPageImage, CharacterCategory, CharacterSubCategory, ClientProfile, TokenSettings, Coupon, CouponRedemption, CharacterAccessCode, UserCharacterAccess, TokenPackage, PaymentTransaction
 from .services import generate_image_from_character, get_active_comfyui_address, get_comfyui_object_info, analyze_workflow
 import json
 from asgiref.sync import async_to_sync, sync_to_async
@@ -572,3 +572,21 @@ class CouponAdmin(admin.ModelAdmin):
 
     def has_add_permission(self, request):
         return True
+
+# --- PAYPAL ADMIN ---
+
+@admin.register(TokenPackage)
+class TokenPackageAdmin(admin.ModelAdmin):
+    list_display = ('name', 'tokens', 'price', 'is_active')
+    list_editable = ('is_active',)
+    search_fields = ('name',)
+
+@admin.register(PaymentTransaction)
+class PaymentTransactionAdmin(admin.ModelAdmin):
+    list_display = ('user', 'package', 'amount', 'status', 'created_at')
+    list_filter = ('status', 'created_at')
+    search_fields = ('user__username', 'paypal_transaction_id')
+    readonly_fields = ('user', 'package', 'amount', 'status', 'paypal_transaction_id', 'created_at', 'updated_at')
+    
+    def has_add_permission(self, request):
+        return False

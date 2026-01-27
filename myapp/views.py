@@ -1,6 +1,6 @@
 from django.shortcuts import render, redirect, get_object_or_404
 from django.db import models
-from .models import Workflow, Character, CharacterImage, ConnectionConfig, CompanySettings, ChatMessage, CharacterCategory, CharacterSubCategory, ClientProfile, Coupon, CouponRedemption, CharacterAccessCode, UserCharacterAccess
+from .models import Workflow, Character, CharacterImage, ConnectionConfig, CompanySettings, ChatMessage, CharacterCategory, CharacterSubCategory, ClientProfile, Coupon, CouponRedemption, CharacterAccessCode, UserCharacterAccess, TokenPackage, PaymentTransaction
 import json
 import os
 from django.conf import settings
@@ -21,6 +21,8 @@ from django.core.cache import cache # IMPORTANTE: Para Rate Limiting Real
 from allauth.socialaccount.models import SocialAccount # IMPORTANTE: Para verificar cuentas vinculadas
 from allauth.account.models import EmailAddress # IMPORTANTE: Para limpiar emails antiguos
 import random # IMPORTANTE: Para seleccionar imágenes aleatorias
+from paypal.standard.forms import PayPalPaymentsForm # IMPORTANTE: Para PayPal
+from django.views.decorators.csrf import csrf_exempt # IMPORTANTE: Para PayPal
 
 # --- SECURE MEDIA SERVING VIEW ---
 def serve_private_media(request, path):
@@ -908,3 +910,54 @@ async def redeem_coupon_view(request):
             return JsonResponse({'status': 'error', 'message': str(e)}, status=500)
             
     return JsonResponse({'status': 'error', 'message': 'Method not allowed'}, status=405)
+
+# --- PAYPAL VIEWS ---
+
+@login_required
+def token_packages(request):
+    packages = TokenPackage.objects.filter(is_active=True)
+    company_settings = CompanySettings.objects.first()
+    return render(request, 'myapp/token_packages.html', {'packages': packages, 'company': company_settings})
+
+@login_required
+def payment_process(request, package_id):
+    package = get_object_or_404(TokenPackage, id=package_id)
+    host = request.get_host()
+    
+    # Crear transacción
+    transaction = PaymentTransaction.objects.create(
+        user=request.user,
+        package=package,
+        amount=package.price
+    )
+    
+    paypal_dict = {
+        'business': settings.PAYPAL_RECEIVER_EMAIL,
+        'amount': str(package.price),
+        'item_name': package.name,
+        'invoice': str(transaction.id),
+        'currency_code': 'USD',
+        'notify_url': f'http://{host}{reverse("paypal-ipn")}',
+        'return_url': f'http://{host}{reverse("payment_done")}',
+        'cancel_return': f'http://{host}{reverse("payment_canceled")}',
+        'custom': str(transaction.id), # Pasamos el ID de la transacción para recuperarlo en la señal
+    }
+    
+    form = PayPalPaymentsForm(initial=paypal_dict)
+    company_settings = CompanySettings.objects.first()
+    
+    return render(request, 'myapp/payment_process.html', {
+        'form': form, 
+        'package': package,
+        'company': company_settings
+    })
+
+@csrf_exempt
+def payment_done(request):
+    company_settings = CompanySettings.objects.first()
+    return render(request, 'myapp/payment_done.html', {'company': company_settings})
+
+@csrf_exempt
+def payment_canceled(request):
+    company_settings = CompanySettings.objects.first()
+    return render(request, 'myapp/payment_canceled.html', {'company': company_settings})

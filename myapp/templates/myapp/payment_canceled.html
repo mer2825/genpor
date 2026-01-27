@@ -1,0 +1,84 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Payment Canceled - {{ company.name|default:"AI Generator" }}</title>
+
+    <!-- FAVICON -->
+    {% if company.favicon %}
+        <link rel="icon" href="{{ company.favicon.url }}">
+    {% else %}
+        <link rel="icon" href="data:,">
+    {% endif %}
+
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+
+    <!-- INYECCIÓN DINÁMICA DE COLORES -->
+    {% if company %}
+    <style>
+        :root {
+            --primary-start: {{ company.primary_color_start|default:"#a855f7" }};
+            --primary-mid: {{ company.primary_color_mid|default:"#ef4444" }};
+            --primary-end: {{ company.primary_color_end|default:"#ff9068" }};
+            --accent-glow: {{ company.accent_glow_color|default:"#ef4444" }};
+
+            /* Variables derivadas */
+            --primary-gradient: linear-gradient(135deg, var(--primary-start) 0%, var(--primary-mid) 50%, var(--primary-end) 100%);
+            --primary-glow: color-mix(in srgb, var(--accent-glow), transparent 50%);
+        }
+    </style>
+    {% endif %}
+
+    <style>
+        /* FONDO GLOBAL */
+        body {
+            background:
+                radial-gradient(circle at 50% -20%, color-mix(in srgb, var(--primary-start), transparent 85%) 0%, transparent 50%),
+                radial-gradient(circle at 0% 30%, color-mix(in srgb, var(--primary-mid), transparent 90%) 0%, transparent 40%),
+                radial-gradient(circle at 100% 70%, color-mix(in srgb, var(--primary-start), transparent 92%) 0%, transparent 40%),
+                linear-gradient(to bottom, #0f0505 0%, #020202 100%);
+            background-attachment: fixed;
+            color: white;
+            font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+        }
+
+        /* TARJETAS GLASSMORPHISM */
+        .glass-panel {
+            background: rgba(15, 23, 42, 0.6);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+        }
+    </style>
+</head>
+<body class="min-h-screen flex items-center justify-center p-4">
+
+    <div class="glass-panel rounded-3xl p-10 max-w-md w-full text-center shadow-2xl">
+
+        <div class="h-24 w-24 bg-red-500/20 rounded-full flex items-center justify-center mx-auto mb-6 text-red-400 text-5xl border border-red-500/30">
+            <i class="fas fa-times"></i>
+        </div>
+
+        <h2 class="text-3xl font-black mb-2 text-white tracking-tight">Payment Canceled</h2>
+        <p class="text-gray-400 mb-8 leading-relaxed">
+            The payment process was canceled. <br>
+            No charges were made to your account.
+        </p>
+
+        <div class="flex flex-col gap-3">
+            <a href="{% url 'token_packages' %}" class="inline-block w-full py-4 px-6 bg-white/10 hover:bg-white/20 border border-white/10 rounded-xl font-bold transition-all duration-200">
+                Try Again
+            </a>
+            <a href="{% url 'workspace' %}" class="text-gray-500 hover:text-white text-sm transition-colors mt-2 flex items-center justify-center gap-2">
+                <i class="fas fa-arrow-left"></i> Return to Workspace
+            </a>
+        </div>
+
+    </div>
+
+</body>
+</html>

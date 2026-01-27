@@ -1,0 +1,100 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Payment Successful - {{ company.name|default:"AI Generator" }}</title>
+
+    <!-- FAVICON -->
+    {% if company.favicon %}
+        <link rel="icon" href="{{ company.favicon.url }}">
+    {% else %}
+        <link rel="icon" href="data:,">
+    {% endif %}
+
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+
+    <!-- INYECCIÓN DINÁMICA DE COLORES -->
+    {% if company %}
+    <style>
+        :root {
+            --primary-start: {{ company.primary_color_start|default:"#a855f7" }};
+            --primary-mid: {{ company.primary_color_mid|default:"#ef4444" }};
+            --primary-end: {{ company.primary_color_end|default:"#ff9068" }};
+            --accent-glow: {{ company.accent_glow_color|default:"#ef4444" }};
+
+            /* Variables derivadas */
+            --primary-gradient: linear-gradient(135deg, var(--primary-start) 0%, var(--primary-mid) 50%, var(--primary-end) 100%);
+            --primary-glow: color-mix(in srgb, var(--accent-glow), transparent 50%);
+        }
+    </style>
+    {% endif %}
+
+    <style>
+        /* FONDO GLOBAL */
+        body {
+            background:
+                radial-gradient(circle at 50% -20%, color-mix(in srgb, var(--primary-start), transparent 85%) 0%, transparent 50%),
+                radial-gradient(circle at 0% 30%, color-mix(in srgb, var(--primary-mid), transparent 90%) 0%, transparent 40%),
+                radial-gradient(circle at 100% 70%, color-mix(in srgb, var(--primary-start), transparent 92%) 0%, transparent 40%),
+                linear-gradient(to bottom, #0f0505 0%, #020202 100%);
+            background-attachment: fixed;
+            color: white;
+            font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+        }
+
+        /* TARJETAS GLASSMORPHISM */
+        .glass-panel {
+            background: rgba(15, 23, 42, 0.6);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+        }
+
+        /* BOTÓN PRINCIPAL */
+        .btn-primary {
+            background: var(--primary-gradient);
+            color: white;
+            border: none;
+            font-weight: 700;
+            box-shadow: 0 4px 15px -3px var(--primary-glow);
+            transition: all 0.3s ease;
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-2px) scale(1.02);
+            box-shadow: 0 8px 25px -5px var(--primary-glow);
+            filter: brightness(1.1);
+        }
+    </style>
+</head>
+<body class="min-h-screen flex items-center justify-center p-4">
+
+    <div class="glass-panel rounded-3xl p-10 max-w-md w-full text-center shadow-2xl relative overflow-hidden">
+
+        <!-- Confetti Effect (Simple CSS Animation) -->
+        <div class="absolute top-0 left-0 w-full h-full pointer-events-none overflow-hidden">
+            <!-- Se podría agregar JS para confetti real, pero mantenemos simple -->
+        </div>
+
+        <div class="h-24 w-24 bg-green-500/20 rounded-full flex items-center justify-center mx-auto mb-6 text-green-400 text-5xl border border-green-500/30 animate-bounce">
+            <i class="fas fa-check"></i>
+        </div>
+
+        <h2 class="text-3xl font-black mb-2 text-white tracking-tight">Payment Successful!</h2>
+        <p class="text-gray-400 mb-8 leading-relaxed">
+            Thank you for your purchase. <br>
+            Your tokens have been added to your account.
+        </p>
+
+        <a href="{% url 'workspace' %}" class="inline-block w-full py-4 px-6 rounded-xl text-center btn-primary">
+            Go to Workspace
+        </a>
+
+    </div>
+
+</body>
+</html>

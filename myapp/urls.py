@@ -19,4 +19,10 @@ urlpatterns = [
     
     # Ruta para actualizar username
     path('update-username/', views.update_username_view, name='update_username'),
+
+    # Rutas de Pagos (PayPal)
+    path('tokens/', views.token_packages, name='token_packages'),
+    path('payment/process/<int:package_id>/', views.payment_process, name='payment_process'),
+    path('payment/done/', views.payment_done, name='payment_done'),
+    path('payment/canceled/', views.payment_canceled, name='payment_canceled'),
 ]

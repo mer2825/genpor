@@ -61,6 +61,9 @@ INSTALLED_APPS = [
     'django_otp.plugins.otp_static',
     'django_otp.plugins.otp_totp',
     'two_factor',
+
+    # PayPal
+    'paypal.standard.ipn',
 ]
 
 MIDDLEWARE = [
@@ -195,7 +198,11 @@ SOCIALACCOUNT_EMAIL_VERIFICATION = "none"
 SOCIALACCOUNT_ADAPTER = "allauth.socialaccount.adapter.DefaultSocialAccountAdapter"
 
 # Forzar HTTPS en las URLs de callback de Allauth (CRUCIAL PARA GOOGLE OAUTH EN PROD)
-ACCOUNT_DEFAULT_HTTP_PROTOCOL = "https"
+# CAMBIO: Solo forzar HTTPS si NO estamos en modo DEBUG
+if not DEBUG:
+    ACCOUNT_DEFAULT_HTTP_PROTOCOL = "https"
+else:
+    ACCOUNT_DEFAULT_HTTP_PROTOCOL = "http"
 
 # Configuración de Proveedores Sociales (Google)
 SOCIALACCOUNT_PROVIDERS = {
@@ -244,8 +251,11 @@ CONTENT_SECURITY_POLICY = {
             "'self'", 
             "'unsafe-inline'", 
             "'unsafe-eval'", 
-            "https://cdn.tailwindcss.com",
-            "https://cdnjs.cloudflare.com"
+            "https://cdn.tailwindcss.com", 
+            "https://cdnjs.cloudflare.com",
+            "https://www.paypal.com", # PayPal
+            "https://www.sandbox.paypal.com", # PayPal Sandbox
+            "https://accounts.google.com" # Google Auth
         ],
         'font-src': [
             "'self'", 
@@ -258,9 +268,11 @@ CONTENT_SECURITY_POLICY = {
             "https://*.googleusercontent.com", 
             "https://images.unsplash.com", 
             "https://www.svgrepo.com", 
-            "https://www.transparenttextures.com"
+            "https://www.transparenttextures.com",
+            "https://www.paypalobjects.com" # PayPal Images
         ],
-        'connect-src': ["'self'"],
+        'connect-src': ["'self'", "https://accounts.google.com"],
+        'form-action': ["'self'", "https://www.paypal.com", "https://www.sandbox.paypal.com", "https://accounts.google.com"], # Allow forms to post to PayPal & Google
     }
 }
 
@@ -294,3 +306,7 @@ if not DEBUG:
 
     # 7. Clickjacking
     X_FRAME_OPTIONS = 'DENY'
+
+# PayPal Settings
+PAYPAL_RECEIVER_EMAIL = os.getenv('PAYPAL_RECEIVER_EMAIL')
+PAYPAL_TEST = os.getenv('PAYPAL_TEST', 'True') == 'True'

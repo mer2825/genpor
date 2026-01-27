@@ -30,6 +30,9 @@ urlpatterns = [
     # Rutas de 2FA (Ahora bajo 'security/' para evitar conflictos)
     path('', include(tf_urls)),
     
+    # PayPal IPN
+    path('paypal/', include('paypal.standard.ipn.urls')),
+
     path('', include('myapp.urls')),
 ]
 

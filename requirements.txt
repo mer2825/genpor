@@ -13,3 +13,4 @@ cryptography
 django-csp
 django-two-factor-auth
 qrcode
+django-paypal
