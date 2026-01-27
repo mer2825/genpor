@@ -56,27 +56,29 @@
     <style>
         /* Estilos específicos para la Galería */
         .gallery-container {
-            padding: 40px 5%;
-            max-width: 1400px;
+            padding: 20px 2%;
+            width: 100% !important;
+            max-width: 100% !important;
             margin: 0 auto;
             flex: 1;
+            box-sizing: border-box;
         }
 
         .gallery-header {
-            margin-bottom: 40px;
+            margin-bottom: 20px;
             border-bottom: 1px solid var(--card-border);
-            padding-bottom: 20px;
+            padding-bottom: 15px;
             display: flex;
             justify-content: space-between;
             align-items: flex-end;
             flex-wrap: wrap;
-            gap: 20px;
+            gap: 15px;
         }
 
         .gallery-header h1 {
-            font-size: 2.5rem;
+            font-size: 2rem;
             color: var(--text-main);
-            margin: 0 0 10px 0;
+            margin: 0 0 5px 0;
             background: linear-gradient(to right, #fff, #cbd5e1);
             -webkit-background-clip: text;
             -webkit-text-fill-color: transparent;
@@ -85,55 +87,147 @@
         .gallery-header p {
             color: var(--text-muted);
             margin: 0;
-            font-size: 1rem;
+            font-size: 0.9rem;
+        }
+
+        /* --- FILTROS (ESTILO WORKSPACE) --- */
+        .filters-container {
+            margin-bottom: 25px;
+            text-align: center; /* Centrar todo el bloque */
+        }
+
+        .search-bar {
+            width: 100%;
+            max-width: 600px; /* Limitar ancho para que se vea bien centrado */
+            margin: 0 auto 15px auto; /* Centrar */
+            padding: 10px 15px;
+            background: rgba(0,0,0,0.3);
+            border: 1px solid var(--border-subtle);
+            color: white;
+            border-radius: 10px;
+            box-sizing: border-box;
+            font-size: 0.9rem;
+            display: block;
+        }
+        .search-bar:focus {
+            outline: none;
+            border-color: var(--primary-color);
+        }
+
+        .filter-buttons-container {
+            display: flex;
+            gap: 8px;
+            margin-bottom: 10px;
+            overflow-x: auto;
+            padding-bottom: 5px;
+            justify-content: center; /* CENTRADO */
+        }
+
+        .filter-btn {
+            padding: 6px 12px;
+            border-radius: 16px;
+            background: rgba(255,255,255,0.05);
+            border: 1px solid var(--border-subtle);
+            color: var(--text-muted);
+            cursor: pointer;
+            white-space: nowrap;
+            transition: all 0.2s;
+            font-size: 0.8rem;
+        }
+        .filter-btn:hover, .filter-btn.active {
+            background: var(--primary-gradient);
+            color: white;
+            border-color: transparent;
+            box-shadow: 0 4px 10px -2px var(--primary-glow);
+        }
+
+        .filter-btn.private-btn {
+            background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+            color: white;
+            border: 1px solid rgba(251, 191, 36, 0.5);
+            box-shadow: 0 4px 15px rgba(245, 158, 11, 0.3);
+            font-weight: 700;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+        .filter-btn.private-btn:hover, .filter-btn.private-btn.active {
+            background: linear-gradient(135deg, #fbbf24 0%, #b45309 100%);
+            box-shadow: 0 6px 20px rgba(245, 158, 11, 0.5);
+            transform: translateY(-2px);
+        }
+
+        .tags-container {
+            display: flex;
+            gap: 6px;
+            margin-bottom: 15px;
+            flex-wrap: wrap;
+            justify-content: center; /* CENTRADO */
+        }
+
+        .tag-btn {
+            padding: 4px 10px;
+            border-radius: 12px;
+            background: rgba(255,255,255,0.03);
+            border: 1px solid var(--border-subtle);
+            color: var(--text-muted);
+            cursor: pointer;
+            font-size: 0.75rem;
+            transition: all 0.2s;
+        }
+        .tag-btn:hover, .tag-btn.active {
+            background: rgba(255,255,255,0.1);
+            color: white;
+            border-color: var(--primary-color);
         }
 
         /* SECCIÓN PRIVADA (NUEVO) */
         .private-section-title {
-            margin-top: 60px;
-            margin-bottom: 30px;
+            margin-top: 40px;
+            margin-bottom: 15px;
             display: flex;
             align-items: center;
-            gap: 15px;
+            gap: 10px;
             color: #fbbf24;
-            font-size: 1.8rem;
+            font-size: 1.4rem;
             font-weight: 700;
             border-bottom: 1px solid rgba(251, 191, 36, 0.3);
-            padding-bottom: 15px;
+            padding-bottom: 8px;
         }
 
-        /* Grid de Personajes (Carpetas) - Estilo Tarjeta Inmersiva */
+        /* Grid de Personajes (Carpetas) - 5 COLUMNAS FIJAS */
         .folders-grid {
             display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
-            gap: 30px;
+            grid-template-columns: repeat(5, 1fr) !important; /* 5 Columnas Fijas */
+            gap: 20px !important;
         }
 
         .folder-card {
             background-color: var(--card-bg);
             border: 1px solid var(--card-border);
-            border-radius: 24px;
+            border-radius: 16px;
             overflow: hidden;
             cursor: pointer;
             transition: all 0.4s cubic-bezier(0.25, 0.8, 0.25, 1);
             position: relative;
-            height: 320px; /* Altura fija */
-            box-shadow: 0 10px 30px -10px rgba(0,0,0,0.5);
+            height: 300px; /* Altura estándar */
+            box-shadow: 0 8px 20px -8px rgba(0,0,0,0.5);
+            display: flex; /* Para ocultar con JS */
         }
 
         .folder-card:hover {
-            transform: translateY(-8px);
+            transform: translateY(-6px);
             border-color: rgba(255, 75, 75, 0.4);
-            box-shadow: 0 20px 50px -10px rgba(255, 75, 75, 0.15);
+            box-shadow: 0 15px 40px -10px rgba(255, 75, 75, 0.15);
         }
 
-        /* ESTILO TARJETA PRIVADA (NUEVO) */
+        /* ESTILO TARJETA PRIVADA */
         .folder-card.private-card {
             border: 1px solid rgba(251, 191, 36, 0.3);
         }
         .folder-card.private-card:hover {
             border-color: #fbbf24;
-            box-shadow: 0 20px 50px -10px rgba(251, 191, 36, 0.15);
+            box-shadow: 0 15px 40px -10px rgba(251, 191, 36, 0.15);
         }
 
         .folder-preview {
@@ -151,51 +245,58 @@
         }
         .folder-card:hover .folder-preview img { transform: scale(1.1); }
 
-        /* Overlay de Información */
+        /* Overlay de Información - MEJORADO (MÁS SUTIL) */
         .folder-overlay {
             position: absolute;
             bottom: 0; left: 0; width: 100%;
-            background: linear-gradient(to top, rgba(0,0,0,0.95) 10%, rgba(0,0,0,0.6) 60%, transparent 100%);
-            padding: 60px 20px 20px;
+            /* Degradado mucho más sutil y corto, solo para el texto */
+            background: linear-gradient(to top, rgba(0,0,0,0.8) 0%, rgba(0,0,0,0.4) 50%, transparent 100%);
+            padding: 40px 15px 15px; /* Más espacio arriba para suavizar */
             z-index: 1;
             display: flex;
             flex-direction: column;
             justify-content: flex-end;
-            height: 100%;
+            height: auto; /* Ya no ocupa todo el alto, solo lo necesario */
+            min-height: 30%; /* Mínimo para el degradado */
             box-sizing: border-box;
+            pointer-events: none; /* Dejar pasar clics a la imagen si fuera necesario */
         }
 
         .folder-info h3 {
-            margin: 0 0 5px 0;
-            font-size: 1.3rem;
+            margin: 0 0 3px 0;
+            font-size: 1rem;
             color: white;
             font-weight: 700;
-            text-shadow: 0 2px 10px rgba(0,0,0,0.8);
+            text-shadow: 0 2px 4px rgba(0,0,0,0.9); /* Sombra de texto fuerte para legibilidad */
             display: flex;
             align-items: center;
-            gap: 8px;
+            gap: 5px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
         }
 
         .folder-info span {
-            font-size: 0.9rem;
-            color: #cbd5e1;
+            font-size: 0.8rem;
+            color: #e2e8f0; /* Texto más claro */
             display: flex;
             align-items: center;
-            gap: 6px;
+            gap: 4px;
+            text-shadow: 0 1px 3px rgba(0,0,0,0.9);
         }
         .folder-info span i { color: var(--primary-color); }
 
         /* Grid de Imágenes (Detalle) */
         .images-grid {
             display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
-            gap: 20px;
+            grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)) !important;
+            gap: 15px !important;
             margin-top: 20px;
             display: none; /* Oculto por defecto */
         }
 
         .image-item {
-            border-radius: 16px;
+            border-radius: 12px;
             overflow: hidden;
             border: 1px solid var(--card-border);
             position: relative;
@@ -231,10 +332,10 @@
         /* Checkbox de Selección */
         .select-check {
             position: absolute;
-            top: 10px;
-            right: 10px;
-            width: 28px;
-            height: 28px;
+            top: 8px;
+            right: 8px;
+            width: 24px;
+            height: 24px;
             background: rgba(0,0,0,0.6);
             border: 2px solid rgba(255,255,255,0.5);
             border-radius: 50%;
@@ -256,27 +357,27 @@
             transform: scale(1.1);
             opacity: 1;
         }
-        .select-check i { color: white; font-size: 14px; display: none; }
+        .select-check i { color: white; font-size: 12px; display: none; }
         .image-item.selected .select-check i { display: block; }
 
         /* Barra de Herramientas */
         .toolbar {
             display: none;
-            gap: 15px;
+            gap: 12px;
             align-items: center;
         }
 
         .tool-btn {
-            padding: 10px 20px;
-            border-radius: 12px;
+            padding: 8px 16px;
+            border-radius: 10px;
             border: 1px solid var(--card-border);
             background: rgba(255,255,255,0.05);
             color: var(--text-muted);
             cursor: pointer;
-            font-size: 0.9rem;
+            font-size: 0.85rem;
             display: flex;
             align-items: center;
-            gap: 8px;
+            gap: 6px;
             transition: all 0.2s;
             font-weight: 500;
         }
@@ -288,14 +389,14 @@
         .back-btn {
             display: none;
             align-items: center;
-            gap: 8px;
+            gap: 6px;
             color: var(--text-muted);
             cursor: pointer;
             font-weight: 600;
-            margin-bottom: 20px;
+            margin-bottom: 15px;
             background: none;
             border: none;
-            font-size: 1rem;
+            font-size: 0.9rem;
             padding: 0;
             transition: color 0.2s;
         }
@@ -305,31 +406,32 @@
         /* Estilos Modal Confirmación */
         .confirm-content {
             text-align: center;
-            max-width: 400px;
+            max-width: 360px;
             background: #141414;
             border: 1px solid var(--card-border);
         }
         .confirm-icon {
-            font-size: 3.5rem;
+            font-size: 3rem;
             color: #ef4444;
-            margin-bottom: 20px;
+            margin-bottom: 15px;
             opacity: 0.9;
         }
         .confirm-actions {
             display: flex;
             justify-content: center;
-            gap: 15px;
-            margin-top: 30px;
+            gap: 12px;
+            margin-top: 25px;
         }
         .btn-cancel {
             background-color: transparent;
             border: 1px solid var(--card-border);
             color: var(--text-muted);
-            padding: 12px 24px;
-            border-radius: 12px;
+            padding: 10px 20px;
+            border-radius: 10px;
             cursor: pointer;
             transition: all 0.2s;
             font-weight: 500;
+            font-size: 0.9rem;
         }
         .btn-cancel:hover { background-color: rgba(255,255,255,0.05); color: white; }
 
@@ -337,10 +439,11 @@
             background: linear-gradient(135deg, #ef4444 0%, #b91c1c 100%);
             color: white;
             border: none;
-            padding: 12px 24px;
-            border-radius: 12px;
+            padding: 10px 20px;
+            border-radius: 10px;
             cursor: pointer;
             font-weight: 600;
+            font-size: 0.9rem;
             box-shadow: 0 4px 15px rgba(239, 68, 68, 0.3);
             transition: all 0.2s;
         }
@@ -464,15 +567,21 @@
         .nav-arrow.right { right: 20px; }
 
         /* Responsive Adjustments */
+        @media (max-width: 1200px) {
+            .folders-grid { grid-template-columns: repeat(4, 1fr) !important; }
+        }
+        @media (max-width: 992px) {
+            .folders-grid { grid-template-columns: repeat(3, 1fr) !important; }
+        }
         @media (max-width: 768px) {
             .gallery-header h1 { font-size: 2rem; }
-            .folders-grid { grid-template-columns: 1fr 1fr; gap: 15px; }
+            .folders-grid { grid-template-columns: repeat(2, 1fr) !important; gap: 15px !important; }
             .folder-card { height: 220px; border-radius: 16px; }
             .folder-overlay { padding: 15px; }
             .folder-info h3 { font-size: 1rem; }
             .folder-info span { font-size: 0.8rem; }
 
-            .images-grid { grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 10px; }
+            .images-grid { grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)) !important; gap: 10px !important; }
 
             .toolbar { width: 100%; justify-content: space-between; }
             .tool-btn { padding: 8px 12px; font-size: 0.8rem; flex: 1; justify-content: center; }
@@ -552,10 +661,39 @@
                 </div>
             </div>
 
+            <!-- FILTROS (NUEVO) -->
+            <div class="filters-container">
+                <input type="text" id="char-search" placeholder="Search characters..." class="search-bar" onkeyup="filterGallery()">
+
+                <!-- FILTROS DE CATEGORÍA -->
+                <div class="filter-buttons-container" id="category-filters">
+                    <button class="filter-btn active" onclick="filterCategory('ALL', this)">All</button>
+                    {% for cat in all_categories %}
+                        <button class="filter-btn" onclick="filterCategory('{{ cat.id }}', this)">{{ cat.name }}</button>
+                    {% endfor %}
+                    <!-- BOTÓN PRIVATE -->
+                    <button class="filter-btn private-btn" onclick="filterCategory('PRIVATE', this)">
+                        <i class="fas fa-lock"></i> Private
+                    </button>
+                </div>
+
+                <!-- FILTROS DE SUBCATEGORÍAS -->
+                <div class="tags-container" id="subcategory-filters">
+                    {% for sub in all_subcategories %}
+                        <button class="tag-btn" onclick="toggleSubCategory('{{ sub.id }}', this)">#{{ sub.name }}</button>
+                    {% endfor %}
+                </div>
+            </div>
+
             <!-- SECCIÓN PÚBLICA -->
-            <div class="folders-grid">
+            <div class="folders-grid" id="public-grid">
                 {% for item in public_gallery %}
-                <div class="folder-card" onclick="showImages('{{ item.character.id }}')">
+                <div class="folder-card" onclick="showImages('{{ item.character.id }}')"
+                     data-name="{{ item.character.name|lower }}"
+                     data-category-id="{{ item.character.category.id|default:'NONE' }}"
+                     data-subcategory-id="{{ item.character.subcategory.id|default:'NONE' }}"
+                     data-is-private="false">
+
                     <div class="folder-preview">
                         {% if item.latest_image %}
                             <img src="{{ item.latest_image.image.url }}" alt="{{ item.character.name }}">
@@ -587,13 +725,18 @@
 
             <!-- SECCIÓN PRIVADA (SI EXISTE) -->
             {% if private_gallery %}
-            <div class="private-section-title">
+            <div class="private-section-title" id="private-title">
                 <i class="fas fa-unlock"></i> Private Characters
             </div>
 
-            <div class="folders-grid">
+            <div class="folders-grid" id="private-grid">
                 {% for item in private_gallery %}
-                <div class="folder-card private-card" onclick="showImages('{{ item.character.id }}')">
+                <div class="folder-card private-card" onclick="showImages('{{ item.character.id }}')"
+                     data-name="{{ item.character.name|lower }}"
+                     data-category-id="{{ item.character.category.id|default:'NONE' }}"
+                     data-subcategory-id="{{ item.character.subcategory.id|default:'NONE' }}"
+                     data-is-private="true">
+
                     <div class="folder-preview">
                         {% if item.latest_image %}
                             <img src="{{ item.latest_image.image.url }}" alt="{{ item.character.name }}">
@@ -745,6 +888,75 @@
         let currentCharacterId = null;
         let selectedImages = new Set();
         let imageToDeleteFromViewerId = null; // Variable para borrado individual desde visor
+
+        // --- LÓGICA DE FILTRADO (NUEVO) ---
+        let activeCategory = 'ALL';
+        let activeSubcategories = new Set();
+
+        function filterGallery() {
+            const searchVal = document.getElementById('char-search').value.toLowerCase();
+            const cards = document.querySelectorAll('.folder-card');
+
+            cards.forEach(card => {
+                const name = card.dataset.name;
+                const categoryId = card.dataset.categoryId;
+                const subcategoryId = card.dataset.subcategoryId;
+                const isPrivate = card.dataset.isPrivate === 'true';
+
+                // 1. Filtro de Búsqueda
+                const matchesSearch = name.includes(searchVal);
+
+                // 2. Filtro de Categoría
+                let matchesCategory = false;
+                if (activeCategory === 'ALL') {
+                    matchesCategory = true;
+                } else if (activeCategory === 'PRIVATE') {
+                    matchesCategory = isPrivate;
+                } else {
+                    matchesCategory = categoryId === activeCategory;
+                }
+
+                // 3. Filtro de Subcategoría
+                const matchesSub = activeSubcategories.size === 0 || activeSubcategories.has(subcategoryId);
+
+                // Mostrar u ocultar
+                if (matchesSearch && matchesCategory && matchesSub) {
+                    card.style.display = 'flex';
+                } else {
+                    card.style.display = 'none';
+                }
+            });
+
+            // Ocultar título "Private Characters" si no hay tarjetas privadas visibles
+            const privateGrid = document.getElementById('private-grid');
+            const privateTitle = document.getElementById('private-title');
+            if (privateGrid && privateTitle) {
+                const visiblePrivateCards = privateGrid.querySelectorAll('.folder-card[style="display: flex;"]');
+                privateTitle.style.display = visiblePrivateCards.length > 0 ? 'flex' : 'none';
+            }
+        }
+
+        function filterCategory(categoryId, btn) {
+            // Actualizar botones
+            document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+
+            activeCategory = categoryId;
+            filterGallery();
+        }
+
+        function toggleSubCategory(subId, btn) {
+            btn.classList.toggle('active');
+
+            if (activeSubcategories.has(subId)) {
+                activeSubcategories.delete(subId);
+            } else {
+                activeSubcategories.add(subId);
+            }
+            filterGallery();
+        }
+
+        // --- FIN LÓGICA DE FILTRADO ---
 
         function showImages(charId) {
             const data = galleryData[charId];

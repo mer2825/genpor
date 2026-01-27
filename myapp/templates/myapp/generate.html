@@ -436,12 +436,13 @@
                     <i class="fas fa-ticket-alt"></i> Coupons
                 </button>
 
-                <!-- Contador de Tokens -->
+                <!-- Contador de Tokens (AHORA ES UN ENLACE DE COMPRA) -->
                 {% if user.is_authenticated and not user.is_staff %}
-                <div class="token-badge">
+                <a href="{% url 'token_packages' %}" class="token-badge" title="Buy more tokens" style="text-decoration: none; cursor: pointer; transition: transform 0.2s;">
                     <i class="fas fa-coins"></i>
                     <span>{{ user.clientprofile.tokens_remaining }} Tokens</span>
-                </div>
+                    <i class="fas fa-plus-circle" style="font-size: 0.8em; margin-left: 4px; color: #4ade80;"></i>
+                </a>
                 {% endif %}
 
                 <!-- AVATAR CLICABLE (PERFIL) -->

@@ -7,6 +7,9 @@
 {% block navbar %}{% endblock %}
 {% block footer %}{% endblock %}
 
+{# --- ANULAR MENSAJES HEREDADOS DE BASE.HTML --- #}
+{% block messages %}{% endblock %}
+
 {% block content %}
 
 <style>
@@ -115,6 +118,26 @@
                     <a href="{{ signup_url }}" class="font-bold hover:underline" style="color: var(--primary-start);">crea una cuenta</a>.
                 </p>
             </div>
+
+            <!-- MENSAJES FLASH (SOLO EL ÚLTIMO - CORREGIDO) -->
+            {% if messages %}
+                <div class="mb-6">
+                    {% for message in messages %}
+                        {% if forloop.last %}
+                            <div class="p-3 rounded-xl backdrop-blur-md border text-sm font-medium text-center shadow-lg
+                                        {% if message.tags == 'error' %}
+                                            bg-red-500/30 border-red-500/50 text-white
+                                        {% elif message.tags == 'success' %}
+                                            bg-green-500/30 border-green-500/50 text-white
+                                        {% else %}
+                                            bg-blue-500/30 border-blue-500/50 text-white
+                                        {% endif %}">
+                                {{ message }}
+                            </div>
+                        {% endif %}
+                    {% endfor %}
+                </div>
+            {% endif %}
 
             <div class="mb-6">
                 {% get_providers as socialaccount_providers %}

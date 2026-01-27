@@ -88,6 +88,9 @@ MIDDLEWARE = [
     
     # CSP Middleware
     'csp.middleware.CSPMiddleware',
+
+    # HTML Minification (Solo en Producción)
+    'myapp.middleware.HtmlMinificationMiddleware',
 ]
 
 ROOT_URLCONF = 'myproject.urls'
