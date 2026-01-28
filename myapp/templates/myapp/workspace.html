@@ -192,6 +192,42 @@
             }
         }
 
+        /* Output Options Buttons (Single Selection) */
+        .output-options-grid {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+        .output-option-btn {
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid var(--border-subtle);
+            color: var(--text-muted);
+            padding: 10px 15px;
+            border-radius: 8px;
+            cursor: pointer;
+            text-align: left;
+            transition: all 0.2s;
+            font-size: 0.9rem;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+        .output-option-btn:hover {
+            background: rgba(255, 255, 255, 0.1);
+            color: white;
+        }
+        .output-option-btn.active {
+            background: var(--primary-gradient);
+            color: white;
+            border-color: transparent;
+            box-shadow: 0 4px 12px -2px var(--primary-glow);
+        }
+        .output-option-btn.active::after {
+            content: '\f00c'; /* FontAwesome Check */
+            font-family: 'Font Awesome 6 Free';
+            font-weight: 900;
+        }
+
         /* Responsive adjustments for Welcome Screen */
         @media (max-width: 768px) {
             .welcome-container {
@@ -295,13 +331,22 @@
                     <i class="fas fa-ticket-alt" style="color: #fbbf24;"></i> <span>Coupons</span>
                 </button>
 
-                <!-- Contador de Tokens (AHORA ES UN ENLACE DE COMPRA) -->
+                <!-- Contador de Tokens (CONDICIONAL) -->
                 {% if user.is_authenticated and not user.is_staff %}
-                <a href="{% url 'token_packages' %}" class="token-badge" title="Buy more tokens" style="text-decoration: none; cursor: pointer; transition: transform 0.2s;">
-                    <i class="fas fa-coins"></i>
-                    <span>{{ user.clientprofile.tokens_remaining }} Tokens</span>
-                    <i class="fas fa-plus-circle" style="font-size: 0.8em; margin-left: 4px; color: #4ade80;"></i>
-                </a>
+                    {% if company.is_token_sale_active %}
+                        <!-- Venta ACTIVA: Enlace a compra -->
+                        <a href="{% url 'token_packages' %}" class="token-badge" title="Buy more tokens" style="text-decoration: none; cursor: pointer; transition: transform 0.2s;">
+                            <i class="fas fa-coins"></i>
+                            <span>{{ user.clientprofile.tokens_remaining }} Tokens</span>
+                            <i class="fas fa-plus-circle" style="font-size: 0.8em; margin-left: 4px; color: #4ade80;"></i>
+                        </a>
+                    {% else %}
+                        <!-- Venta INACTIVA: Solo visualización -->
+                        <div class="token-badge" title="Tokens available" style="cursor: default;">
+                            <i class="fas fa-coins"></i>
+                            <span>{{ user.clientprofile.tokens_remaining }} Tokens</span>
+                        </div>
+                    {% endif %}
                 {% endif %}
 
                 <!-- AVATAR CLICABLE (PERFIL) -->
@@ -356,34 +401,23 @@
                 </div>
             </div>
 
-            <!-- Opciones de Salida -->
+            <!-- Opciones de Salida (SINGLE SELECTION) -->
             <div class="sidebar-title">Output Options</div>
-            <label class="checkbox-wrapper">
-                <input type="checkbox" id="check-normal" checked>
-                <span>Generate Normal (Fast)</span>
-            </label>
+            <div class="output-options-grid" id="output-options-container">
+                <button class="output-option-btn active" data-type="Gen_Normal" onclick="selectOutputOption(this)">Generate Normal (Fast)</button>
 
-            {% if workflow_capabilities.can_upscale %}
-            <label class="checkbox-wrapper">
-                <input type="checkbox" id="check-upscale" checked>
-                <span>Generate Upscale (HD)</span>
-            </label>
-            {% endif %}
+                {% if workflow_capabilities.can_upscale %}
+                <button class="output-option-btn" data-type="Gen_UpScaler" onclick="selectOutputOption(this)">Generate Upscale (HD)</button>
+                {% endif %}
 
-            {% if workflow_capabilities.can_facedetail %}
-            <label class="checkbox-wrapper">
-                <input type="checkbox" id="check-facedetailer" checked>
-                <span>Face Detailer (Faces)</span>
-            </label>
-            {% endif %}
+                {% if workflow_capabilities.can_facedetail %}
+                <button class="output-option-btn" data-type="Gen_FaceDetailer" onclick="selectOutputOption(this)">Face Detailer (Faces)</button>
+                {% endif %}
 
-            <!-- NUEVO CHECKBOX EYE DETAILER -->
-            {% if workflow_capabilities.can_eyedetailer %}
-            <label class="checkbox-wrapper">
-                <input type="checkbox" id="check-eyedetailer" checked>
-                <span>Eye Detailer (Eyes)</span>
-            </label>
-            {% endif %}
+                {% if workflow_capabilities.can_eyedetailer %}
+                <button class="output-option-btn" data-type="Gen_EyeDetailer" onclick="selectOutputOption(this)">Eye Detailer (Eyes)</button>
+                {% endif %}
+            </div>
         </aside>
 
         <!-- Contenido Central -->
@@ -856,6 +890,16 @@
             input.value = val + delta;
         };
 
+        // --- OUTPUT OPTION LOGIC (SINGLE SELECTION) ---
+        function selectOutputOption(btn) {
+            // Remove active class from all buttons
+            const container = document.getElementById('output-options-container');
+            container.querySelectorAll('.output-option-btn').forEach(b => b.classList.remove('active'));
+
+            // Add active class to clicked button
+            btn.classList.add('active');
+        }
+
         // --- GENERATION LOGIC ---
         let isGenerating = false; // Flag para evitar múltiples envíos
 
@@ -889,15 +933,10 @@
             const width = document.getElementById('width-input').value;
             const height = document.getElementById('height-input').value;
             const seed = document.getElementById('seed-input').value;
-            const checkNormal = document.getElementById('check-normal');
-            const checkUpscale = document.getElementById('check-upscale');
-            const checkFacedetailer = document.getElementById('check-facedetailer');
-            const checkEyedetailer = document.getElementById('check-eyedetailer'); // NUEVO
 
-            const useNormal = checkNormal ? checkNormal.checked : true;
-            const useUpscale = checkUpscale ? checkUpscale.checked : false;
-            const useFaceDetailer = checkFacedetailer ? checkFacedetailer.checked : false;
-            const useEyeDetailer = checkEyedetailer ? checkEyedetailer.checked : false; // NUEVO
+            // --- GET SELECTED GENERATION TYPE ---
+            const activeOption = document.querySelector('.output-option-btn.active');
+            const generationType = activeOption ? activeOption.dataset.type : 'Gen_Normal';
 
             const formData = new FormData();
             formData.append('character_id', characterId);
@@ -905,10 +944,7 @@
             formData.append('width', width);
             formData.append('height', height);
             formData.append('seed', seed);
-            formData.append('use_normal', useNormal);
-            formData.append('use_upscale', useUpscale);
-            formData.append('use_facedetailer', useFaceDetailer);
-            formData.append('use_eyedetailer', useEyeDetailer); // NUEVO
+            formData.append('generation_type', generationType); // Send single type
 
             fetch(generateUrl, {
                 method: 'POST',

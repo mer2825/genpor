@@ -271,6 +271,12 @@ class CompanySettings(models.Model):
     
     accent_glow_color = models.CharField(max_length=7, default="#ef4444", verbose_name="Accent Glow Color", help_text="Hex code (e.g., #ef4444). Used for shadows and glows.")
 
+    # --- NEW: TOKEN SALE SWITCH ---
+    is_token_sale_active = models.BooleanField(default=True, verbose_name="Enable Token Sales", help_text="If unchecked, users cannot buy token packages.")
+
+    # --- NEW: SUBSCRIPTION SWITCH ---
+    is_subscription_active = models.BooleanField(default=True, verbose_name="Enable Subscriptions", help_text="If unchecked, users cannot subscribe to plans.")
+
     class Meta:
         verbose_name = "Company Settings"
         verbose_name_plural = "Company Settings"
@@ -500,3 +506,53 @@ class PaymentTransaction(models.Model):
 
     def __str__(self):
         return f"{self.user.username} - {self.amount} - {self.status}"
+
+# --- SUBSCRIPTION MODELS ---
+
+class SubscriptionPlan(models.Model):
+    INTERVAL_CHOICES = [
+        ('D', 'Days'),
+        ('W', 'Weeks'),
+        ('M', 'Months'),
+        ('Y', 'Years'),
+    ]
+
+    name = models.CharField(max_length=100, verbose_name="Plan Name")
+    description = models.TextField(blank=True, verbose_name="Description")
+    price = models.DecimalField(max_digits=10, decimal_places=2, verbose_name="Price (USD)")
+    
+    # PayPal Billing Cycle
+    billing_period = models.PositiveIntegerField(default=1, verbose_name="Billing Period (Count)")
+    billing_period_unit = models.CharField(max_length=1, choices=INTERVAL_CHOICES, default='M', verbose_name="Billing Period Unit")
+    
+    tokens_per_period = models.PositiveIntegerField(verbose_name="Tokens per Period", help_text="Tokens granted each renewal")
+    
+    is_active = models.BooleanField(default=True, verbose_name="Active")
+    paypal_plan_id = models.CharField(max_length=100, blank=True, null=True, help_text="Optional: ID from PayPal Dashboard if needed")
+
+    def __str__(self):
+        return f"{self.name} - ${self.price} / {self.billing_period}{self.billing_period_unit}"
+
+class UserSubscription(models.Model):
+    STATUS_CHOICES = [
+        ('ACTIVE', 'Active'),
+        ('CANCELLED', 'Cancelled'),
+        ('EXPIRED', 'Expired'),
+        ('PENDING', 'Pending'),
+    ]
+
+    user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='subscription')
+    plan = models.ForeignKey(SubscriptionPlan, on_delete=models.SET_NULL, null=True)
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='PENDING')
+    
+    paypal_sub_id = models.CharField(max_length=100, blank=True, null=True, verbose_name="PayPal Subscription ID")
+    
+    start_date = models.DateTimeField(auto_now_add=True)
+    last_payment_date = models.DateTimeField(null=True, blank=True)
+    next_payment_date = models.DateTimeField(null=True, blank=True)
+    
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return f"{self.user.username} - {self.plan.name if self.plan else 'No Plan'} ({self.status})"

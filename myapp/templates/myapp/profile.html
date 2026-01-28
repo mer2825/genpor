@@ -224,6 +224,7 @@
             border-radius: 16px;
             padding: 15px;
             text-align: center;
+            position: relative; /* Para posicionar el botón */
         }
         .stat-number {
             font-size: 1.5rem; /* Números más pequeños */
@@ -232,6 +233,23 @@
             margin-bottom: 3px;
         }
         .stat-desc { font-size: 0.75rem; color: var(--text-muted); }
+
+        /* Botón de compra de tokens */
+        .buy-tokens-btn {
+            display: inline-block;
+            margin-top: 5px;
+            background: var(--primary-gradient);
+            color: white;
+            font-size: 0.7rem;
+            padding: 4px 10px;
+            border-radius: 12px;
+            text-decoration: none;
+            font-weight: 600;
+            transition: transform 0.2s;
+        }
+        .buy-tokens-btn:hover {
+            transform: scale(1.05);
+        }
 
         /* Estilos para Cuentas Vinculadas */
         .linked-account {
@@ -444,17 +462,42 @@
 
             <!-- Estadísticas -->
             <div class="stats-row">
+                <!-- CAJA 1: TOKENS -->
                 <div class="stat-box">
                     <div class="stat-number">{{ tokens }}</div>
                     <div class="stat-desc">Tokens Available</div>
+
+                    <!-- BOTÓN DE COMPRA CONDICIONAL -->
+                    {% if company.is_token_sale_active %}
+                    <a href="{% url 'token_packages' %}" class="buy-tokens-btn">
+                        <i class="fas fa-plus-circle"></i> Buy More
+                    </a>
+                    {% endif %}
                 </div>
+
+                <!-- CAJA 2: PLAN (NUEVA) -->
+                <div class="stat-box">
+                    <div class="stat-number" style="font-size: 1.2rem; margin-bottom: 8px;">
+                        {{ plan_name }}
+                    </div>
+                    <div class="stat-desc">Current Plan</div>
+
+                    <!-- BOTÓN DE UPGRADE CONDICIONAL -->
+                    {% if company.is_subscription_active %}
+                    <a href="{% url 'subscription_plans' %}" class="buy-tokens-btn" style="background: linear-gradient(135deg, #10b981 0%, #059669 100%);">
+                        {% if is_subscribed %}
+                            <i class="fas fa-cog"></i> Manage
+                        {% else %}
+                            <i class="fas fa-crown"></i> Upgrade
+                        {% endif %}
+                    </a>
+                    {% endif %}
+                </div>
+
+                <!-- CAJA 3: IMÁGENES -->
                 <div class="stat-box">
                     <div class="stat-number">{{ total_images }}</div>
                     <div class="stat-desc">Images Created</div>
-                </div>
-                <div class="stat-box">
-                    <div class="stat-number">{{ user.date_joined|date:"M Y" }}</div>
-                    <div class="stat-desc">Member Since</div>
                 </div>
             </div>
 

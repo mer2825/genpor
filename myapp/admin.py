@@ -9,11 +9,18 @@ from django.contrib.auth.admin import UserAdmin
 from django.contrib.auth.models import User
 from django.db.models import Q, CharField
 from django.forms import ModelForm, ValidationError, CheckboxSelectMultiple, TextInput
-from .models import Workflow, Character, PrivateCharacter, CharacterImage, CharacterCatalogImage, ConnectionConfig, CompanySettings, HeroCarouselImage, AuthPageImage, CharacterCategory, CharacterSubCategory, ClientProfile, TokenSettings, Coupon, CouponRedemption, CharacterAccessCode, UserCharacterAccess, TokenPackage, PaymentTransaction
+from .models import (
+    Workflow, Character, PrivateCharacter, CharacterImage, CharacterCatalogImage, 
+    ConnectionConfig, CompanySettings, HeroCarouselImage, AuthPageImage, 
+    CharacterCategory, CharacterSubCategory, ClientProfile, TokenSettings, 
+    Coupon, CouponRedemption, CharacterAccessCode, UserCharacterAccess, 
+    TokenPackage, PaymentTransaction, SubscriptionPlan, UserSubscription
+)
 from .services import generate_image_from_character, get_active_comfyui_address, get_comfyui_object_info, analyze_workflow
 import json
 from asgiref.sync import async_to_sync, sync_to_async
-from django.http import JsonResponse
+from django.http import JsonResponse, HttpResponseRedirect
+from django.db import ProgrammingError
 
 # --- USER CUSTOMIZATION ---
 
@@ -167,6 +174,10 @@ class CompanySettingsAdmin(admin.ModelAdmin):
         ('Color Theme (Branding)', {
             'fields': ('primary_color_start', 'primary_color_mid', 'primary_color_end', 'accent_glow_color'),
             'description': 'Customize the main gradient and glow colors of the site.'
+        }),
+        ('Sales & Subscriptions', {
+            'fields': ('is_token_sale_active', 'is_subscription_active'),
+            'description': 'Enable or disable the ability for users to purchase token packages or subscriptions.'
         }),
         ('Contact & Social', {
             'fields': ('phone', 'email', 'facebook', 'discord')
@@ -358,11 +369,22 @@ def deactivate_characters(modeladmin, request, queryset):
     updated = queryset.update(is_active=False)
     modeladmin.message_user(request, f"{updated} characters were successfully deactivated.", level='success')
 
+# --- NEW: ACTIONS TO TOGGLE PRIVACY ---
+@admin.action(description='Make selected characters PRIVATE')
+def make_private(modeladmin, request, queryset):
+    updated = queryset.update(is_private=True)
+    modeladmin.message_user(request, f"{updated} characters were moved to Private Characters.", level='success')
+
+@admin.action(description='Make selected characters PUBLIC')
+def make_public(modeladmin, request, queryset):
+    updated = queryset.update(is_private=False)
+    modeladmin.message_user(request, f"{updated} characters were moved to Public Characters.", level='success')
+
 # --- BASE CHARACTER ADMIN (SHARED LOGIC) ---
 class BaseCharacterAdmin(admin.ModelAdmin):
-    list_display = ('name', 'category', 'subcategory', 'base_workflow', 'is_active', 'character_actions')
+    list_display = ('name', 'category', 'subcategory', 'base_workflow', 'is_active', 'toggle_privacy_button', 'character_actions')
     list_filter = ('is_active', 'category', 'subcategory', 'base_workflow')
-    actions = [activate_characters, deactivate_characters]
+    actions = [activate_characters, deactivate_characters, make_private, make_public]
     inlines = [CharacterCatalogImageInline]
 
     fieldsets = (
@@ -383,6 +405,25 @@ class BaseCharacterAdmin(admin.ModelAdmin):
     character_actions.short_description = 'Actions'
     character_actions.allow_tags = True
 
+    # --- NEW: PRIVACY TOGGLE BUTTON ---
+    def toggle_privacy_button(self, obj):
+        if obj.is_private:
+            label = "Make Public"
+            color = "#10b981" # Green
+            title = "Move to Public List"
+        else:
+            label = "Make Private"
+            color = "#f59e0b" # Orange/Gold
+            title = "Move to Private List"
+        
+        url = reverse('admin:character_toggle_privacy', args=[obj.pk])
+        return format_html(
+            '<a class="button" href="{}" style="background-color:{}; color:white; border:none;" title="{}">{}</a>',
+            url, color, title, label
+        )
+    toggle_privacy_button.short_description = "Privacy"
+    toggle_privacy_button.allow_tags = True
+
     def save_model(self, request, obj, form, change):
         if not obj.pk and not obj.character_config and obj.base_workflow.active_config:
             obj.character_config = obj.base_workflow.active_config
@@ -393,8 +434,23 @@ class BaseCharacterAdmin(admin.ModelAdmin):
         custom_urls = [
             path('<int:character_id>/configure/', self.admin_site.admin_view(self.configure_character_view), name='character_configure'),
             path('<int:character_id>/generate/', self.admin_site.admin_view(self.generate_character_image_view), name='character_generate'),
+            path('<int:character_id>/toggle-privacy/', self.admin_site.admin_view(self.toggle_privacy_view), name='character_toggle_privacy'), # NEW URL
         ]
         return custom_urls + urls
+
+    # --- NEW: VIEW TO TOGGLE PRIVACY ---
+    def toggle_privacy_view(self, request, character_id):
+        character = get_object_or_404(Character, pk=character_id)
+        
+        # Toggle status
+        character.is_private = not character.is_private
+        character.save()
+        
+        status_msg = "Private" if character.is_private else "Public"
+        self.message_user(request, f"Character '{character.name}' is now {status_msg}.", level='success')
+        
+        # Redirect back to the list where the user came from (referer) or default to changelist
+        return HttpResponseRedirect(request.META.get('HTTP_REFERER', reverse('admin:myapp_character_changelist')))
 
     def configure_character_view(self, request, character_id):
         character = get_object_or_404(Character, pk=character_id)
@@ -573,20 +629,50 @@ class CouponAdmin(admin.ModelAdmin):
     def has_add_permission(self, request):
         return True
 
-# --- PAYPAL ADMIN ---
+# --- PAYPAL ADMIN (CONDITIONAL) ---
 
-@admin.register(TokenPackage)
-class TokenPackageAdmin(admin.ModelAdmin):
-    list_display = ('name', 'tokens', 'price', 'is_active')
+# Helper to get settings safely, avoiding errors during migrations
+def are_token_sales_active():
+    try:
+        settings = CompanySettings.objects.first()
+        if settings:
+            return settings.is_token_sale_active
+    except (ProgrammingError, CompanySettings.DoesNotExist):
+        # If table doesn't exist yet or no settings object, default to False
+        return False
+    return True # Default to True if settings exist but field is not set (for backward compatibility)
+
+if are_token_sales_active():
+    @admin.register(TokenPackage)
+    class TokenPackageAdmin(admin.ModelAdmin):
+        list_display = ('name', 'tokens', 'price', 'is_active')
+        list_editable = ('is_active',)
+        search_fields = ('name',)
+
+    @admin.register(PaymentTransaction)
+    class PaymentTransactionAdmin(admin.ModelAdmin):
+        list_display = ('user', 'package', 'amount', 'status', 'created_at')
+        list_filter = ('status', 'created_at')
+        search_fields = ('user__username', 'paypal_transaction_id')
+        readonly_fields = ('user', 'package', 'amount', 'status', 'paypal_transaction_id', 'created_at', 'updated_at')
+        
+        def has_add_permission(self, request):
+            return False
+
+# --- SUBSCRIPTION ADMIN ---
+
+@admin.register(SubscriptionPlan)
+class SubscriptionPlanAdmin(admin.ModelAdmin):
+    list_display = ('name', 'price', 'billing_period', 'billing_period_unit', 'tokens_per_period', 'is_active')
     list_editable = ('is_active',)
     search_fields = ('name',)
 
-@admin.register(PaymentTransaction)
-class PaymentTransactionAdmin(admin.ModelAdmin):
-    list_display = ('user', 'package', 'amount', 'status', 'created_at')
-    list_filter = ('status', 'created_at')
-    search_fields = ('user__username', 'paypal_transaction_id')
-    readonly_fields = ('user', 'package', 'amount', 'status', 'paypal_transaction_id', 'created_at', 'updated_at')
-    
+@admin.register(UserSubscription)
+class UserSubscriptionAdmin(admin.ModelAdmin):
+    list_display = ('user', 'plan', 'status', 'last_payment_date', 'next_payment_date')
+    list_filter = ('status', 'plan')
+    search_fields = ('user__username', 'paypal_sub_id')
+    readonly_fields = ('user', 'plan', 'status', 'paypal_sub_id', 'start_date', 'last_payment_date', 'next_payment_date', 'created_at', 'updated_at')
+
     def has_add_permission(self, request):
         return False

@@ -25,4 +25,10 @@ urlpatterns = [
     path('payment/process/<int:package_id>/', views.payment_process, name='payment_process'),
     path('payment/done/', views.payment_done, name='payment_done'),
     path('payment/canceled/', views.payment_canceled, name='payment_canceled'),
+
+    # Rutas de Suscripciones (PayPal)
+    path('subscriptions/', views.subscription_plans, name='subscription_plans'),
+    path('subscription/process/<int:plan_id>/', views.subscription_process, name='subscription_process'),
+    path('subscription/done/', views.subscription_done, name='subscription_done'),
+    path('subscription/canceled/', views.subscription_canceled, name='subscription_canceled'),
 ]

@@ -559,10 +559,14 @@ async def generate_image_from_character(character, user_prompt, width=None, heig
     # Si no, usamos la lógica por defecto (random o fija del config).
     
     use_random_seed = True
+    MAX_SEED_VALUE = 2147483647 # Límite seguro para INT32 (ComfyUI standard)
     
     if seed is not None and str(seed).strip() != "" and str(seed) != "-1":
         try:
-            final_config['seed'] = int(seed)
+            val = int(seed)
+            # Asegurar que esté en rango
+            if val > MAX_SEED_VALUE: val = val % MAX_SEED_VALUE
+            final_config['seed'] = val
             use_random_seed = False
         except ValueError:
             pass # Si no es un número válido, ignoramos y usamos random
@@ -570,11 +574,11 @@ async def generate_image_from_character(character, user_prompt, width=None, heig
     if use_random_seed:
         # Si no se forzó semilla manual, miramos la config del personaje
         if final_config.get('seed_behavior', 'random') == 'random':
-            final_config['seed'] = random.randint(0, 999999999999999)
+            final_config['seed'] = random.randint(0, MAX_SEED_VALUE)
         else:
             # Si es fixed, ya debería venir en el JSON, pero nos aseguramos
             if 'seed' not in final_config:
-                 final_config['seed'] = random.randint(0, 999999999999999)
+                 final_config['seed'] = random.randint(0, MAX_SEED_VALUE)
     
     lora_names = final_config.pop('lora_names', [])
     lora_strengths = final_config.pop('lora_strengths', [])

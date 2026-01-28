@@ -1,0 +1,255 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Subscription Plans - {{ company.name|default:"AI Generator" }}</title>
+
+    <!-- FAVICON -->
+    {% if company.favicon %}
+        <link rel="icon" href="{{ company.favicon.url }}">
+    {% else %}
+        <link rel="icon" href="data:,">
+    {% endif %}
+
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+
+    <!-- INYECCIÓN DINÁMICA DE COLORES -->
+    {% if company %}
+    <style>
+        :root {
+            --primary-start: {{ company.primary_color_start|default:"#a855f7" }};
+            --primary-mid: {{ company.primary_color_mid|default:"#ef4444" }};
+            --primary-end: {{ company.primary_color_end|default:"#ff9068" }};
+            --accent-glow: {{ company.accent_glow_color|default:"#ef4444" }};
+
+            /* Variables derivadas */
+            --primary-gradient: linear-gradient(135deg, var(--primary-start) 0%, var(--primary-mid) 50%, var(--primary-end) 100%);
+            --primary-glow: color-mix(in srgb, var(--accent-glow), transparent 50%);
+        }
+    </style>
+    {% endif %}
+
+    <style>
+        /* FONDO GLOBAL */
+        body {
+            background:
+                radial-gradient(circle at 50% -20%, color-mix(in srgb, var(--primary-start), transparent 85%) 0%, transparent 50%),
+                radial-gradient(circle at 0% 30%, color-mix(in srgb, var(--primary-mid), transparent 90%) 0%, transparent 40%),
+                radial-gradient(circle at 100% 70%, color-mix(in srgb, var(--primary-start), transparent 92%) 0%, transparent 40%),
+                linear-gradient(to bottom, #0f0505 0%, #020202 100%);
+            background-attachment: fixed;
+            color: white;
+            font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+        }
+
+        /* Custom Scrollbar */
+        ::-webkit-scrollbar { width: 8px; height: 8px; }
+        ::-webkit-scrollbar-track { background: rgba(0,0,0,0.3); }
+        ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.2); border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.3); }
+
+        /* TARJETAS GLASSMORPHISM */
+        .glass-panel {
+            background: rgba(15, 23, 42, 0.6);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        .glass-panel:hover {
+            border-color: rgba(255, 255, 255, 0.2);
+            transform: translateY(-5px);
+            box-shadow: 0 30px 60px -12px rgba(0, 0, 0, 0.6), 0 0 20px -5px var(--primary-glow);
+        }
+
+        /* TEXTO GRADIENTE */
+        .text-gradient {
+            background: var(--primary-gradient);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        /* BOTÓN PRINCIPAL */
+        .btn-primary {
+            background: var(--primary-gradient);
+            color: white;
+            border: none;
+            font-weight: 700;
+            box-shadow: 0 4px 15px -3px var(--primary-glow);
+            transition: all 0.3s ease;
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-2px) scale(1.02);
+            box-shadow: 0 8px 25px -5px var(--primary-glow);
+            filter: brightness(1.1);
+        }
+
+        .btn-primary:active {
+            transform: scale(0.98);
+        }
+
+        .btn-disabled {
+            background: rgba(255,255,255,0.1);
+            color: rgba(255,255,255,0.4);
+            cursor: not-allowed;
+        }
+
+        /* ICONO DE CORONA */
+        .crown-icon-bg {
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            color: var(--primary-mid);
+        }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col">
+
+    <!-- Navbar (Glass) -->
+    <nav class="border-b border-white/10 bg-black/20 backdrop-blur-md sticky top-0 z-50">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex items-center justify-between h-16">
+                <a href="{% url 'workspace' %}" class="flex items-center gap-3 group">
+                    <div class="h-9 w-9 rounded-lg overflow-hidden shadow-lg" style="background: var(--primary-gradient); padding: 1px;">
+                        {% if company.logo %}
+                            <img src="{{ company.logo.url }}" alt="Logo" class="h-full w-full object-cover rounded-md bg-black">
+                        {% else %}
+                            <div class="h-full w-full bg-black rounded-md flex items-center justify-center font-bold text-xs">AI</div>
+                        {% endif %}
+                    </div>
+                    <span class="font-bold text-xl tracking-tight group-hover:text-white/90 transition-colors">{{ company.name|default:"AI Generator" }}</span>
+                </a>
+                <div class="flex items-center gap-6">
+                    <a href="{% url 'profile' %}" class="text-gray-300 hover:text-white transition-colors text-sm font-medium flex items-center gap-2">
+                        <i class="fas fa-arrow-left"></i> Back to Profile
+                    </a>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Main Content -->
+    <div class="flex-grow flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8">
+        <div class="max-w-7xl w-full">
+
+            <div class="text-center mb-16">
+                <h1 class="text-5xl font-black mb-4 tracking-tight">
+                    <span class="text-gradient">Unlock Premium Features</span>
+                </h1>
+                <p class="text-gray-400 text-lg max-w-2xl mx-auto leading-relaxed">
+                    Subscribe to a plan and get monthly tokens automatically. <br>
+                    Cancel anytime.
+                </p>
+            </div>
+
+            {% if current_sub and current_sub.status == 'ACTIVE' %}
+            <div class="max-w-2xl mx-auto mb-12 p-6 glass-panel rounded-2xl border-l-4 border-green-500 flex items-center justify-between">
+                <div>
+                    <h3 class="text-xl font-bold text-white">Active Subscription</h3>
+                    <p class="text-gray-400">You are currently subscribed to: <span class="text-white font-semibold">{{ current_sub.plan.name }}</span></p>
+                    <p class="text-sm text-gray-500 mt-1">Next payment: {{ current_sub.next_payment_date|date:"M d, Y" }}</p>
+                </div>
+                <div class="h-12 w-12 rounded-full bg-green-500/20 flex items-center justify-center text-green-400 text-xl">
+                    <i class="fas fa-check-circle"></i>
+                </div>
+            </div>
+            {% endif %}
+
+            {% if plans %}
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+                    {% for plan in plans %}
+                    <div class="glass-panel rounded-3xl p-8 flex flex-col items-center relative overflow-hidden group {% if current_sub.plan.id == plan.id and current_sub.status == 'ACTIVE' %}border-green-500/50 shadow-[0_0_30px_-5px_rgba(16,185,129,0.3)]{% endif %}">
+
+                        <!-- Glow Effect on Hover -->
+                        <div class="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-transparent via-white/50 to-transparent transform -translate-x-full group-hover:translate-x-full transition-transform duration-1000"></div>
+
+                        <div class="h-20 w-20 rounded-2xl flex items-center justify-center mb-6 text-3xl shadow-inner crown-icon-bg">
+                            <i class="fas fa-crown"></i>
+                        </div>
+
+                        <h3 class="text-2xl font-bold mb-2 text-white">{{ plan.name }}</h3>
+
+                        <div class="flex items-baseline gap-1 mb-2">
+                            <span class="text-4xl font-black text-white">${{ plan.price }}</span>
+                            <span class="text-gray-400 text-sm">
+                                /
+                                {% if plan.billing_period == 1 %}
+                                    {% if plan.billing_period_unit == 'M' %}Month
+                                    {% elif plan.billing_period_unit == 'Y' %}Year
+                                    {% elif plan.billing_period_unit == 'W' %}Week
+                                    {% elif plan.billing_period_unit == 'D' %}Day
+                                    {% endif %}
+                                {% else %}
+                                    {{ plan.billing_period }}
+                                    {% if plan.billing_period_unit == 'M' %}Months
+                                    {% elif plan.billing_period_unit == 'Y' %}Years
+                                    {% elif plan.billing_period_unit == 'W' %}Weeks
+                                    {% elif plan.billing_period_unit == 'D' %}Days
+                                    {% endif %}
+                                {% endif %}
+                            </span>
+                        </div>
+
+                        <div class="text-sm font-bold mb-8 px-3 py-1 rounded-full border border-white/10 bg-white/5" style="color: var(--primary-end);">
+                            {{ plan.tokens_per_period }} Tokens / Renewal
+                        </div>
+
+                        {% if plan.description %}
+                        <p class="text-gray-400 text-sm text-center mb-6">{{ plan.description }}</p>
+                        {% endif %}
+
+                        <ul class="text-gray-400 text-sm space-y-4 mb-8 w-full px-4">
+                            <li class="flex items-center gap-3">
+                                <div class="h-5 w-5 rounded-full bg-green-500/20 flex items-center justify-center text-green-400 text-xs"><i class="fas fa-check"></i></div>
+                                <span>Recurring Tokens</span>
+                            </li>
+                            <li class="flex items-center gap-3">
+                                <div class="h-5 w-5 rounded-full bg-green-500/20 flex items-center justify-center text-green-400 text-xs"><i class="fas fa-check"></i></div>
+                                <span>Priority Support</span>
+                            </li>
+                            <li class="flex items-center gap-3">
+                                <div class="h-5 w-5 rounded-full bg-green-500/20 flex items-center justify-center text-green-400 text-xs"><i class="fas fa-check"></i></div>
+                                <span>Cancel Anytime</span>
+                            </li>
+                        </ul>
+
+                        {% if current_sub.plan.id == plan.id and current_sub.status == 'ACTIVE' %}
+                            <button disabled class="w-full py-4 px-6 rounded-xl text-center btn-disabled font-bold">
+                                Current Plan
+                            </button>
+                        {% else %}
+                            <a href="{% url 'subscription_process' plan.id %}" class="w-full py-4 px-6 rounded-xl text-center btn-primary">
+                                Subscribe Now
+                            </a>
+                        {% endif %}
+                    </div>
+                    {% endfor %}
+                </div>
+            {% else %}
+                <div class="text-center py-20 glass-panel rounded-3xl max-w-2xl mx-auto">
+                    <div class="h-20 w-20 rounded-full bg-gray-800/50 flex items-center justify-center mx-auto mb-4 text-gray-500 text-3xl">
+                        <i class="fas fa-box-open"></i>
+                    </div>
+                    <div class="text-gray-300 text-xl font-bold">No subscription plans available</div>
+                    <p class="text-gray-500 mt-2">Please check back later.</p>
+                </div>
+            {% endif %}
+
+        </div>
+    </div>
+
+    <!-- Footer Simple -->
+    <footer class="border-t border-white/5 bg-black/20 backdrop-blur-sm py-8 mt-auto">
+        <div class="max-w-7xl mx-auto px-4 text-center text-gray-500 text-sm">
+            &copy; {% now "Y" %} {{ company.name|default:"Nayelina AI" }}. All rights reserved.
+        </div>
+    </footer>
+
+</body>
+</html>

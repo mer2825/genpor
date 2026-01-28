@@ -1,22 +1,37 @@
 from django.dispatch import receiver
 from paypal.standard.models import ST_PP_COMPLETED
 from paypal.standard.ipn.signals import valid_ipn_received
-from .models import PaymentTransaction, ClientProfile
+from .models import PaymentTransaction, ClientProfile, UserSubscription, SubscriptionPlan, TokenSettings
 from django.contrib.auth.models import User
 import logging
+from django.utils import timezone
+from datetime import timedelta
 
 logger = logging.getLogger(__name__)
 
 @receiver(valid_ipn_received)
 def payment_notification(sender, **kwargs):
     ipn_obj = sender
+    
+    # --- LOGICA PARA SUSCRIPCIONES ---
+    if ipn_obj.txn_type in ['subscr_signup', 'subscr_payment', 'subscr_cancel', 'subscr_eot', 'subscr_failed']:
+        handle_subscription_ipn(ipn_obj)
+        return
+
+    # --- LOGICA PARA PAGOS UNICOS (TOKENS) ---
     if ipn_obj.payment_status == ST_PP_COMPLETED:
         # El pago fue exitoso
         try:
             # El 'custom' field debe contener el ID de nuestra PaymentTransaction
             transaction_id = ipn_obj.custom
-            transaction = PaymentTransaction.objects.get(id=transaction_id)
             
+            # Verificar si es un UUID válido (para evitar errores si llega basura)
+            try:
+                transaction = PaymentTransaction.objects.get(id=transaction_id)
+            except (ValueError, PaymentTransaction.DoesNotExist):
+                # Si no es una transacción de tokens, podría ser otra cosa, ignoramos
+                return
+
             # Verificar que el monto coincida
             if transaction.amount == ipn_obj.mc_gross:
                 # Marcar transacción como completada
@@ -25,11 +40,7 @@ def payment_notification(sender, **kwargs):
                 transaction.save()
                 
                 # Acreditar tokens al usuario
-                user_profile = ClientProfile.objects.get(user=transaction.user)
-                # Sumamos los tokens como "bonus_tokens" para que no se pierdan en el reset mensual (opcional, depende de tu lógica)
-                # O simplemente restamos de 'tokens_used' si quieres que cuenten como cupo normal, 
-                # pero lo mejor para compras es aumentar el límite o dar bonus.
-                # Aquí asumiremos que se añaden a 'bonus_tokens'.
+                user_profile, _ = ClientProfile.objects.get_or_create(user=transaction.user)
                 
                 tokens_to_add = transaction.package.tokens
                 user_profile.bonus_tokens += tokens_to_add
@@ -39,7 +50,87 @@ def payment_notification(sender, **kwargs):
             else:
                 logger.warning(f"Pago recibido pero monto incorrecto. Esperado: {transaction.amount}, Recibido: {ipn_obj.mc_gross}")
                 
-        except PaymentTransaction.DoesNotExist:
-            logger.error(f"Transacción no encontrada para IPN: {ipn_obj.custom}")
         except Exception as e:
-            logger.error(f"Error procesando pago IPN: {e}")
+            logger.error(f"Error procesando pago IPN (Tokens): {e}")
+
+def handle_subscription_ipn(ipn_obj):
+    # El custom field trae el user_id
+    user_id = ipn_obj.custom
+    try:
+        # Asegurarse de que user_id sea un entero válido
+        user_id = int(user_id)
+        user = User.objects.get(id=user_id)
+        sub, created = UserSubscription.objects.get_or_create(user=user)
+    except (ValueError, User.DoesNotExist):
+        logger.error(f"Usuario no encontrado o ID inválido para suscripción IPN: {ipn_obj.custom}")
+        return
+
+    if ipn_obj.txn_type == 'subscr_signup':
+        # Suscripción iniciada (pero el pago real viene en subscr_payment)
+        sub.paypal_sub_id = ipn_obj.subscr_id
+        sub.status = 'PENDING' # Esperamos el primer pago
+        sub.save()
+        logger.info(f"Suscripción iniciada para {user.username}")
+
+    elif ipn_obj.txn_type == 'subscr_payment':
+        # Pago recurrente recibido (o el primero)
+        if ipn_obj.payment_status == ST_PP_COMPLETED:
+            sub.paypal_sub_id = ipn_obj.subscr_id # Asegurar ID
+            sub.status = 'ACTIVE'
+            sub.last_payment_date = timezone.now()
+            
+            # Intentamos deducir el plan por el monto si no lo tenemos vinculado aún
+            if not sub.plan:
+                try:
+                    plan = SubscriptionPlan.objects.get(price=ipn_obj.mc_gross)
+                    sub.plan = plan
+                except SubscriptionPlan.DoesNotExist:
+                    logger.error(f"No se encontró plan para el monto {ipn_obj.mc_gross}")
+            
+            if sub.plan:
+                # Otorgar beneficios (Tokens mensuales)
+                profile, _ = ClientProfile.objects.get_or_create(user=user)
+                
+                # Lógica: Ajustar bonus_tokens para que (Default + Bonus) = PlanTokens
+                profile.tokens_used = 0
+                
+                settings = TokenSettings.load()
+                default = settings.default_token_allowance
+                
+                new_bonus = sub.plan.tokens_per_period - default
+                if new_bonus < 0: new_bonus = 0 
+                
+                profile.bonus_tokens = new_bonus
+                profile.last_reset_date = timezone.now()
+                profile.save()
+                
+                # Calcular siguiente pago
+                if sub.plan.billing_period_unit == 'M':
+                    sub.next_payment_date = timezone.now() + timedelta(days=30 * sub.plan.billing_period)
+                elif sub.plan.billing_period_unit == 'D':
+                    sub.next_payment_date = timezone.now() + timedelta(days=sub.plan.billing_period)
+                elif sub.plan.billing_period_unit == 'W':
+                    sub.next_payment_date = timezone.now() + timedelta(weeks=sub.plan.billing_period)
+                elif sub.plan.billing_period_unit == 'Y':
+                    sub.next_payment_date = timezone.now() + timedelta(days=365 * sub.plan.billing_period)
+            
+            sub.save()
+            logger.info(f"Pago de suscripción procesado para {user.username}")
+
+    elif ipn_obj.txn_type == 'subscr_cancel':
+        sub.status = 'CANCELLED'
+        sub.save()
+        logger.info(f"Suscripción cancelada para {user.username}")
+
+    elif ipn_obj.txn_type == 'subscr_eot':
+        sub.status = 'EXPIRED'
+        # Quitar beneficios (volver a free tier)
+        profile, _ = ClientProfile.objects.get_or_create(user=user)
+        profile.bonus_tokens = 0 # Quitar bonus del plan
+        profile.save()
+        
+        sub.save()
+        logger.info(f"Suscripción expirada para {user.username}")
+
+    elif ipn_obj.txn_type == 'subscr_failed':
+        logger.warning(f"Pago de suscripción fallido para {user.username}")

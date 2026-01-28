@@ -436,13 +436,22 @@
                     <i class="fas fa-ticket-alt"></i> Coupons
                 </button>
 
-                <!-- Contador de Tokens (AHORA ES UN ENLACE DE COMPRA) -->
+                <!-- Contador de Tokens (CONDICIONAL) -->
                 {% if user.is_authenticated and not user.is_staff %}
-                <a href="{% url 'token_packages' %}" class="token-badge" title="Buy more tokens" style="text-decoration: none; cursor: pointer; transition: transform 0.2s;">
-                    <i class="fas fa-coins"></i>
-                    <span>{{ user.clientprofile.tokens_remaining }} Tokens</span>
-                    <i class="fas fa-plus-circle" style="font-size: 0.8em; margin-left: 4px; color: #4ade80;"></i>
-                </a>
+                    {% if company.is_token_sale_active %}
+                        <!-- Venta ACTIVA: Enlace a compra -->
+                        <a href="{% url 'token_packages' %}" class="token-badge" title="Buy more tokens" style="text-decoration: none; cursor: pointer; transition: transform 0.2s;">
+                            <i class="fas fa-coins"></i>
+                            <span>{{ user.clientprofile.tokens_remaining }} Tokens</span>
+                            <i class="fas fa-plus-circle" style="font-size: 0.8em; margin-left: 4px; color: #4ade80;"></i>
+                        </a>
+                    {% else %}
+                        <!-- Venta INACTIVA: Solo visualización -->
+                        <div class="token-badge" title="Tokens available" style="cursor: default;">
+                            <i class="fas fa-coins"></i>
+                            <span>{{ user.clientprofile.tokens_remaining }} Tokens</span>
+                        </div>
+                    {% endif %}
                 {% endif %}
 
                 <!-- AVATAR CLICABLE (PERFIL) -->

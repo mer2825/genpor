@@ -1,8 +1,9 @@
 from django.shortcuts import render, redirect, get_object_or_404
 from django.db import models
-from .models import Workflow, Character, CharacterImage, ConnectionConfig, CompanySettings, ChatMessage, CharacterCategory, CharacterSubCategory, ClientProfile, Coupon, CouponRedemption, CharacterAccessCode, UserCharacterAccess, TokenPackage, PaymentTransaction
+from .models import Workflow, Character, CharacterImage, ConnectionConfig, CompanySettings, ChatMessage, CharacterCategory, CharacterSubCategory, ClientProfile, Coupon, CouponRedemption, CharacterAccessCode, UserCharacterAccess, TokenPackage, PaymentTransaction, SubscriptionPlan, UserSubscription
 import json
 import os
+import uuid
 from django.conf import settings
 from asgiref.sync import sync_to_async
 from django.http import JsonResponse, FileResponse, Http404
@@ -217,12 +218,34 @@ async def profile_view(request):
             # Ejecutamos el borrado de las antiguas
             await delete_old_accounts(google_accounts, latest_account.id)
     
+    # --- LOGICA DE PLAN DE SUSCRIPCIÓN ---
+    plan_name = "Free Plan"
+    is_subscribed = False
+    try:
+        # Accedemos a la suscripción (OneToOne) de forma segura en async
+        @sync_to_async
+        def get_subscription_info(u):
+            try:
+                sub = u.subscription
+                if sub.status == 'ACTIVE' and sub.plan:
+                    return sub.plan.name, True
+            except UserSubscription.DoesNotExist:
+                pass
+            return "Free Plan", False
+
+        plan_name, is_subscribed = await get_subscription_info(user)
+        
+    except Exception:
+        pass
+
     context = {
         'company': company_settings,
         'tokens': tokens,
         'total_images': total_images,
         'google_account': active_google_account, # Pasamos UN SOLO objeto (o None)
-        'is_google_linked': active_google_account is not None
+        'is_google_linked': active_google_account is not None,
+        'plan_name': plan_name, # NUEVO
+        'is_subscribed': is_subscribed # NUEVO
     }
     return await sync_to_async(render)(request, 'myapp/profile.html', context)
 
@@ -670,18 +693,16 @@ async def generate_image_view(request):
             height = request.POST.get('height')
             seed = request.POST.get('seed')
             
-            use_normal = request.POST.get('use_normal') == 'true'
-            use_upscale = request.POST.get('use_upscale') == 'true'
-            use_facedetailer = request.POST.get('use_facedetailer') == 'true'
-            use_eyedetailer = request.POST.get('use_eyedetailer') == 'true' # NUEVO
+            # --- SINGLE SELECTION LOGIC ---
+            generation_type = request.POST.get('generation_type', 'Gen_Normal')
             
-            allowed_types = []
-            if use_normal: allowed_types.append("Gen_Normal")
-            if use_upscale: allowed_types.append("Gen_UpScaler")
-            if use_facedetailer: allowed_types.append("Gen_FaceDetailer")
-            if use_eyedetailer: allowed_types.append("Gen_EyeDetailer") # NUEVO
-            
-            if not allowed_types: allowed_types.append("Gen_Normal")
+            # Validate type
+            valid_types = ["Gen_Normal", "Gen_UpScaler", "Gen_FaceDetailer", "Gen_EyeDetailer"]
+            if generation_type not in valid_types:
+                generation_type = "Gen_Normal"
+                
+            allowed_types = [generation_type] # Pass as a list with one item
+            # ------------------------------
 
             try:
                 character = await sync_to_async(Character.objects.select_related('base_workflow').get)(id=character_id)
@@ -921,12 +942,23 @@ async def redeem_coupon_view(request):
 
 @login_required
 def token_packages(request):
-    packages = TokenPackage.objects.filter(is_active=True)
     company_settings = CompanySettings.objects.first()
+    
+    # --- NEW: Check if token sales are active ---
+    if company_settings and not company_settings.is_token_sale_active:
+        return redirect('profile') # Redirect to profile if disabled
+    
+    packages = TokenPackage.objects.filter(is_active=True)
     return render(request, 'myapp/token_packages.html', {'packages': packages, 'company': company_settings})
 
 @login_required
 def payment_process(request, package_id):
+    company_settings = CompanySettings.objects.first()
+    
+    # --- NEW: Check if token sales are active ---
+    if company_settings and not company_settings.is_token_sale_active:
+        return redirect('profile')
+
     package = get_object_or_404(TokenPackage, id=package_id)
     host = request.get_host()
     
@@ -950,7 +982,6 @@ def payment_process(request, package_id):
     }
     
     form = PayPalPaymentsForm(initial=paypal_dict)
-    company_settings = CompanySettings.objects.first()
     
     return render(request, 'myapp/payment_process.html', {
         'form': form, 
@@ -967,3 +998,81 @@ def payment_done(request):
 def payment_canceled(request):
     company_settings = CompanySettings.objects.first()
     return render(request, 'myapp/payment_canceled.html', {'company': company_settings})
+
+# --- SUBSCRIPTION VIEWS ---
+
+@login_required
+def subscription_plans(request):
+    company_settings = CompanySettings.objects.first()
+    
+    # --- NEW: Check if subscriptions are active ---
+    if company_settings and not company_settings.is_subscription_active:
+        return redirect('profile')
+        
+    plans = SubscriptionPlan.objects.filter(is_active=True)
+    
+    # Check current subscription
+    current_sub = None
+    try:
+        current_sub = request.user.subscription
+    except UserSubscription.DoesNotExist:
+        pass
+        
+    return render(request, 'myapp/subscription_plans.html', {
+        'plans': plans, 
+        'company': company_settings,
+        'current_sub': current_sub
+    })
+
+@login_required
+def subscription_process(request, plan_id):
+    company_settings = CompanySettings.objects.first()
+    
+    # --- NEW: Check if subscriptions are active ---
+    if company_settings and not company_settings.is_subscription_active:
+        return redirect('profile')
+
+    plan = get_object_or_404(SubscriptionPlan, id=plan_id)
+    host = request.get_host()
+    
+    # Create or update pending subscription record
+    sub, created = UserSubscription.objects.get_or_create(user=request.user)
+    sub.plan = plan
+    sub.status = 'PENDING'
+    sub.save()
+    
+    # PayPal Subscription Parameters
+    paypal_dict = {
+        'cmd': '_xclick-subscriptions',
+        'business': settings.PAYPAL_RECEIVER_EMAIL,
+        'a3': str(plan.price), # Regular subscription price
+        'p3': plan.billing_period, # Subscription duration
+        't3': plan.billing_period_unit, # Subscription duration unit (D, W, M, Y)
+        'src': '1', # Recurring payments
+        'sra': '1', # Reattempt on failure
+        'item_name': plan.name,
+        'invoice': str(uuid.uuid4()), # Unique invoice ID
+        'currency_code': 'USD',
+        'notify_url': f'http://{host}{reverse("paypal-ipn")}',
+        'return_url': f'http://{host}{reverse("subscription_done")}',
+        'cancel_return': f'http://{host}{reverse("subscription_canceled")}',
+        'custom': str(request.user.id), # Pass User ID to identify who is subscribing
+    }
+    
+    form = PayPalPaymentsForm(initial=paypal_dict)
+    
+    return render(request, 'myapp/subscription_process.html', {
+        'form': form, 
+        'plan': plan,
+        'company': company_settings
+    })
+
+@csrf_exempt
+def subscription_done(request):
+    company_settings = CompanySettings.objects.first()
+    return render(request, 'myapp/subscription_done.html', {'company': company_settings})
+
+@csrf_exempt
+def subscription_canceled(request):
+    company_settings = CompanySettings.objects.first()
+    return render(request, 'myapp/subscription_canceled.html', {'company': company_settings})
