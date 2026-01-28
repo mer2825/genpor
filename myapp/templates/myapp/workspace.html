@@ -732,7 +732,7 @@
             } else {
                 chatArea.scrollTop = chatArea.scrollHeight;
             }
-        }
+        };
 
         function scrollToBottomSmooth() {
             if (window.innerWidth <= 768) {
@@ -742,7 +742,7 @@
             } else {
                 chatArea.scrollTo({ top: chatArea.scrollHeight, behavior: 'smooth' });
             }
-        }
+        };
 
         // Detectar scroll para mostrar/ocultar botón
         function handleScroll() {
@@ -766,7 +766,7 @@
             } else {
                 scrollBottomBtn.style.display = 'none';
             }
-        }
+        };
 
         // Asignar listeners de scroll
         chatArea.addEventListener('scroll', handleScroll);
@@ -791,7 +791,7 @@
                 setTimeout(() => overlay.classList.add('show'), 10);
                 el.classList.add('open');
             }
-        }
+        };
 
         function closeAllSidebars() {
             document.getElementById('sidebar-left').classList.remove('open');
@@ -799,7 +799,7 @@
             const overlay = document.getElementById('sidebar-overlay');
             overlay.classList.remove('show');
             setTimeout(() => overlay.style.display = 'none', 300);
-        }
+        };
 
         // Modales
         const btnRef = document.getElementById('btn-show-reference');
@@ -815,7 +815,7 @@
             if (event.target.classList.contains('modal')) {
                 event.target.style.display = 'none';
             }
-        }
+        };
 
         // --- ASPECT RATIO LOGIC ---
         const ratioContainer = document.querySelector('.aspect-ratio-grid');
@@ -854,7 +854,7 @@
             let val = parseInt(input.value);
             if (isNaN(val) || val === -1) val = 0; // Si es random (-1) o vacío, empezar en 0
             input.value = val + delta;
-        }
+        };
 
         // --- GENERATION LOGIC ---
         let isGenerating = false; // Flag para evitar múltiples envíos
@@ -961,7 +961,7 @@
                 textarea.disabled = false; // Habilitar textarea
                 textarea.focus();
             });
-        }
+        };
 
         document.getElementById('send-btn').addEventListener('click', sendPrompt);
         textarea.addEventListener('keypress', (e) => {
@@ -985,13 +985,13 @@
                 deleteModalText.textContent = `Are you sure you want to delete this message?`;
             }
             deleteModal.style.display = 'block';
-        }
+        };
 
         function closeDeleteModal() {
             deleteModal.style.display = 'none';
             messageToDelete = null;
             isClearingChat = false;
-        }
+        };
 
         confirmDeleteBtn.onclick = function() {
             const deleteImages = deleteImagesCheckbox.checked;
@@ -1044,19 +1044,19 @@
                     grid.innerHTML = '<p style="color:gray;">No images.</p>';
                 }
             });
-        }
+        };
 
         function filterCharacters() {
             const searchVal = document.getElementById('char-search').value.toLowerCase();
             applyFilters();
-        }
+        };
 
         function filterCategory(categoryId, btn) {
             document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
             btn.classList.add('active');
             document.getElementById('char-list').dataset.activeCategory = categoryId;
             applyFilters();
-        }
+        };
 
         function toggleSubCategory(subId, btn) {
             btn.classList.toggle('active');
@@ -1069,7 +1069,7 @@
             }
             list.dataset.activeSubs = activeSubs.join(',');
             applyFilters();
-        }
+        };
 
         function applyFilters() {
             const searchVal = document.getElementById('char-search').value.toLowerCase();
@@ -1099,7 +1099,7 @@
 
                 item.style.display = (matchesSearch && matchesCategory && matchesSub) ? 'flex' : 'none';
             });
-        }
+        };
 
         function redeemCoupon() {
             const code = document.getElementById('coupon-code').value.trim();
@@ -1177,7 +1177,7 @@
                 messageDiv.style.color = '#ef4444';
                 messageDiv.textContent = 'Connection error.';
             });
-        }
+        };
 
         // --- IMAGE VIEWER LOGIC (LIGHTBOX) ---
         const viewerModal = document.getElementById('image-viewer');
@@ -1202,17 +1202,17 @@
             updateViewerImage();
             viewerModal.style.display = 'flex';
             resetZoom();
-        }
+        };
 
         function closeImageViewer() {
             viewerModal.style.display = 'none';
-        }
+        };
 
         function updateViewerImage() {
             viewerImg.src = allImages[currentImageIndex];
             resetZoom();
             updateNavButtons();
-        }
+        };
 
         function updateNavButtons() {
             // Ocultar flecha izquierda si estamos en el inicio
@@ -1228,7 +1228,7 @@
             } else {
                 nextArrow.style.display = 'flex';
             }
-        }
+        };
 
         function navigateImage(direction) {
             const newIndex = currentImageIndex + direction;
@@ -1237,18 +1237,18 @@
                 currentImageIndex = newIndex;
                 updateViewerImage();
             }
-        }
+        };
 
         function resetZoom() {
             zoomLevel = 1;
             translateX = 0;
             translateY = 0;
             updateTransform();
-        }
+        };
 
         function updateTransform() {
             viewerImg.style.transform = `translate(${translateX}px, ${translateY}px) scale(${zoomLevel})`;
-        }
+        };
 
         // Zoom con rueda del ratón
         viewerContainer.addEventListener('wheel', (e) => {
@@ -1354,7 +1354,7 @@
             if (event.target.classList.contains('modal')) {
                 event.target.style.display = 'none';
             }
-        }
+        };
     </script>
     <script src="{% static 'myapp/js/scripts.js' %}"></script>
 

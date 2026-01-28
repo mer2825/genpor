@@ -719,7 +719,7 @@
 
         // URL para canjear cupones (necesaria para el script)
         const redeemCouponUrl = "{% url 'redeem_coupon' %}";
-        const csrfToken = "{{ csrf_token }}"
+        const csrfToken = "{{ csrf_token }}";
 
         // --- LÓGICA DE FILTRADO ---
         function filterCategory(categoryId, btn) {
@@ -727,7 +727,7 @@
             btn.classList.add('active');
             document.getElementById('personajes-list').dataset.activeCategory = categoryId;
             applyFilters();
-        }
+        };
 
         function toggleSubCategory(subId, btn) {
             // 1. Verificar si el botón ya estaba activo
@@ -748,7 +748,7 @@
 
             // 5. Aplicar filtros
             applyFilters();
-        }
+        };
 
         function applyFilters() {
             const list = document.getElementById('personajes-list');
@@ -799,7 +799,7 @@
                     card.style.display = 'none';
                 }
             });
-        }
+        };
 
         // --- LÓGICA DE DESBLOQUEO DE PERSONAJE ---
         function unlockCharacter() {
@@ -883,7 +883,7 @@
                 messageDiv.style.color = '#ef4444';
                 messageDiv.textContent = 'Connection error.';
             });
-        }
+        };
 
         // --- ANIMACIÓN ESTELAR DEL BOTÓN ---
         document.addEventListener('DOMContentLoaded', function() {
@@ -1080,14 +1080,14 @@
                 messageDiv.style.color = '#ef4444';
                 messageDiv.textContent = 'Connection error.';
             });
-        }
+        };
 
         // Cerrar modal al hacer clic fuera
         window.onclick = function(event) {
             if (event.target.classList.contains('modal')) {
                 event.target.style.display = 'none';
             }
-        }
+        };
     </script>
     <script src="{% static 'myapp/js/scripts.js' %}"></script>
 
