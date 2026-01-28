@@ -90,7 +90,7 @@ MIDDLEWARE = [
     'csp.middleware.CSPMiddleware',
 
     # HTML Minification (Solo en Producción)
-    'myapp.middleware.HtmlMinificationMiddleware',
+    # 'myapp.middleware.HtmlMinificationMiddleware', # DESACTIVADO TEMPORALMENTE
 ]
 
 ROOT_URLCONF = 'myproject.urls'
