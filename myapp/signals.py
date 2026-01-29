@@ -91,16 +91,15 @@ def handle_subscription_ipn(ipn_obj):
                 # Otorgar beneficios (Tokens mensuales)
                 profile, _ = ClientProfile.objects.get_or_create(user=user)
                 
-                # Lógica: Ajustar bonus_tokens para que (Default + Bonus) = PlanTokens
-                profile.tokens_used = 0
+                # --- CORRECCIÓN: SUMAR TOKENS DIRECTAMENTE ---
+                # Antes se reseteaba, ahora se acumula.
+                tokens_to_add = sub.plan.tokens_per_period
+                profile.bonus_tokens += tokens_to_add
                 
-                settings = TokenSettings.load()
-                default = settings.default_token_allowance
+                # Opcional: Resetear el uso si es un nuevo ciclo, o dejarlo.
+                # Generalmente en suscripciones se resetea el uso mensual, pero si quieres acumular todo:
+                # profile.tokens_used = 0  <-- Descomenta si quieres que el contador de uso vuelva a 0 cada mes
                 
-                new_bonus = sub.plan.tokens_per_period - default
-                if new_bonus < 0: new_bonus = 0 
-                
-                profile.bonus_tokens = new_bonus
                 profile.last_reset_date = timezone.now()
                 profile.save()
                 
@@ -115,7 +114,7 @@ def handle_subscription_ipn(ipn_obj):
                     sub.next_payment_date = timezone.now() + timedelta(days=365 * sub.plan.billing_period)
             
             sub.save()
-            logger.info(f"Pago de suscripción procesado para {user.username}")
+            logger.info(f"Pago de suscripción procesado para {user.username}. Se añadieron {tokens_to_add} tokens.")
 
     elif ipn_obj.txn_type == 'subscr_cancel':
         sub.status = 'CANCELLED'
@@ -125,9 +124,12 @@ def handle_subscription_ipn(ipn_obj):
     elif ipn_obj.txn_type == 'subscr_eot':
         sub.status = 'EXPIRED'
         # Quitar beneficios (volver a free tier)
-        profile, _ = ClientProfile.objects.get_or_create(user=user)
-        profile.bonus_tokens = 0 # Quitar bonus del plan
-        profile.save()
+        # NOTA: Si quieres que mantengan los tokens que ya pagaron, comenta estas líneas.
+        # Si quieres que al expirar pierdan el "bonus", déjalas.
+        # Por ahora, asumo que si pagaron, se quedan con los tokens hasta gastarlos.
+        # profile, _ = ClientProfile.objects.get_or_create(user=user)
+        # profile.bonus_tokens = 0 
+        # profile.save()
         
         sub.save()
         logger.info(f"Suscripción expirada para {user.username}")
