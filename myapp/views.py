@@ -130,7 +130,7 @@ def get_characters_with_images(user=None):
 @sync_to_async
 def get_company_settings():
     # Prefetch to get hero carousel images
-    return CompanySettings.objects.prefetch_related('hero_images').first()
+    return CompanySettings.objects.prefetch_related('hero_images').last() # CAMBIO: .last()
 
 # --- HELPER FUNCTION TO GET USER SAFELY ---
 @sync_to_async
@@ -956,7 +956,7 @@ async def redeem_coupon_view(request):
 
 @login_required
 def token_packages(request):
-    company_settings = CompanySettings.objects.first()
+    company_settings = CompanySettings.objects.last() # CAMBIO: .last()
     
     # --- NEW: Check if token sales are active ---
     if company_settings and not company_settings.is_token_sale_active:
@@ -967,7 +967,7 @@ def token_packages(request):
 
 @login_required
 def payment_process(request, package_id):
-    company_settings = CompanySettings.objects.first()
+    company_settings = CompanySettings.objects.last() # CAMBIO: .last()
     
     # --- NEW: Check if token sales are active ---
     if company_settings and not company_settings.is_token_sale_active:
@@ -998,6 +998,9 @@ def payment_process(request, package_id):
         'custom': str(transaction.id), # Pasamos el ID de la transacción para recuperarlo en la señal
     }
     
+    # --- DEBUG LOG ---
+    print(f"DEBUG PAYPAL: Sandbox Mode in DB = {company_settings.paypal_is_sandbox}")
+    
     # --- USAR CLASE PERSONALIZADA PARA FORZAR ENDPOINT ---
     form = DynamicPayPalForm(initial=paypal_dict, is_sandbox=company_settings.paypal_is_sandbox)
     
@@ -1009,19 +1012,19 @@ def payment_process(request, package_id):
 
 @csrf_exempt
 def payment_done(request):
-    company_settings = CompanySettings.objects.first()
+    company_settings = CompanySettings.objects.last() # CAMBIO: .last()
     return render(request, 'myapp/payment_done.html', {'company': company_settings})
 
 @csrf_exempt
 def payment_canceled(request):
-    company_settings = CompanySettings.objects.first()
+    company_settings = CompanySettings.objects.last() # CAMBIO: .last()
     return render(request, 'myapp/payment_canceled.html', {'company': company_settings})
 
 # --- SUBSCRIPTION VIEWS ---
 
 @login_required
 def subscription_plans(request):
-    company_settings = CompanySettings.objects.first()
+    company_settings = CompanySettings.objects.last() # CAMBIO: .last()
     
     # --- NEW: Check if subscriptions are active ---
     if company_settings and not company_settings.is_subscription_active:
@@ -1044,7 +1047,7 @@ def subscription_plans(request):
 
 @login_required
 def subscription_process(request, plan_id):
-    company_settings = CompanySettings.objects.first()
+    company_settings = CompanySettings.objects.last() # CAMBIO: .last()
     
     # --- NEW: Check if subscriptions are active ---
     if company_settings and not company_settings.is_subscription_active:
@@ -1080,6 +1083,9 @@ def subscription_process(request, plan_id):
         'custom': str(request.user.id), # Pass User ID to identify who is subscribing
     }
     
+    # --- DEBUG LOG ---
+    print(f"DEBUG PAYPAL SUBSCRIPTION: Sandbox Mode in DB = {company_settings.paypal_is_sandbox}")
+
     # --- USAR CLASE PERSONALIZADA PARA FORZAR ENDPOINT ---
     form = DynamicPayPalForm(initial=paypal_dict, is_sandbox=company_settings.paypal_is_sandbox)
     
@@ -1091,10 +1097,10 @@ def subscription_process(request, plan_id):
 
 @csrf_exempt
 def subscription_done(request):
-    company_settings = CompanySettings.objects.first()
+    company_settings = CompanySettings.objects.last() # CAMBIO: .last()
     return render(request, 'myapp/subscription_done.html', {'company': company_settings})
 
 @csrf_exempt
 def subscription_canceled(request):
-    company_settings = CompanySettings.objects.first()
+    company_settings = CompanySettings.objects.last() # CAMBIO: .last()
     return render(request, 'myapp/subscription_canceled.html', {'company': company_settings})
