@@ -103,7 +103,7 @@
 
         <!-- PayPal Button Container (FORZADO MANUALMENTE) -->
         <div class="w-full flex justify-center mb-6">
-            <form action="{{ form.get_endpoint }}" method="post">
+            <form action="{{ paypal_endpoint }}" method="post">
                 {% csrf_token %} <!-- AGREGADO CSRF TOKEN -->
                 {{ form.as_p }}
                 <input type="image" src="https://www.paypalobjects.com/en_US/i/btn/btn_buynowCC_LG.gif" border="0" name="submit" alt="PayPal - The safer, easier way to pay online!">

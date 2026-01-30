@@ -985,10 +985,7 @@ def payment_process(request, package_id):
     
     # --- CONFIGURACIÓN DINÁMICA DE PAYPAL DESDE BD ---
     receiver_email = company_settings.paypal_receiver_email if company_settings.paypal_receiver_email else settings.PAYPAL_RECEIVER_EMAIL
-    
-    # --- DETERMINAR ENDPOINT MANUALMENTE ---
-    paypal_endpoint = "https://www.sandbox.paypal.com/cgi-bin/webscr" if company_settings.paypal_is_sandbox else "https://www.paypal.com/cgi-bin/webscr"
-    
+
     paypal_dict = {
         'business': receiver_email,
         'amount': str(package.price),
@@ -1001,14 +998,20 @@ def payment_process(request, package_id):
         'custom': str(transaction.id), # Pasamos el ID de la transacción para recuperarlo en la señal
     }
     
-    # Instanciar formulario normal (ya no necesitamos la clase dinámica porque pasaremos el endpoint al template)
-    form = PayPalPaymentsForm(initial=paypal_dict)
+    # --- DEBUG LOG ---
+    print(f"DEBUG PAYPAL: Sandbox Mode in DB = {company_settings.paypal_is_sandbox}")
+
+    # --- USAR CLASE PERSONALIZADA PARA FORZAR ENDPOINT ---
+    form = DynamicPayPalForm(initial=paypal_dict, is_sandbox=company_settings.paypal_is_sandbox)
     
+    # --- CALCULAR ENDPOINT EXPLÍCITAMENTE PARA EL TEMPLATE ---
+    paypal_endpoint = form.get_endpoint()
+
     return render(request, 'myapp/payment_process.html', {
         'form': form, 
         'package': package,
         'company': company_settings,
-        'paypal_endpoint': paypal_endpoint # PASAMOS EL ENDPOINT EXPLÍCITO
+        'paypal_endpoint': paypal_endpoint # PASAR VARIABLE AL CONTEXTO
     })
 
 @csrf_exempt
@@ -1065,9 +1068,6 @@ def subscription_process(request, plan_id):
     
     # --- CONFIGURACIÓN DINÁMICA DE PAYPAL DESDE BD ---
     receiver_email = company_settings.paypal_receiver_email if company_settings.paypal_receiver_email else settings.PAYPAL_RECEIVER_EMAIL
-    
-    # --- DETERMINAR ENDPOINT MANUALMENTE ---
-    paypal_endpoint = "https://www.sandbox.paypal.com/cgi-bin/webscr" if company_settings.paypal_is_sandbox else "https://www.paypal.com/cgi-bin/webscr"
 
     # PayPal Subscription Parameters
     paypal_dict = {
@@ -1087,14 +1087,20 @@ def subscription_process(request, plan_id):
         'custom': str(request.user.id), # Pass User ID to identify who is subscribing
     }
     
-    # Instanciar formulario normal
-    form = PayPalPaymentsForm(initial=paypal_dict)
+    # --- DEBUG LOG ---
+    print(f"DEBUG PAYPAL SUBSCRIPTION: Sandbox Mode in DB = {company_settings.paypal_is_sandbox}")
+
+    # --- USAR CLASE PERSONALIZADA PARA FORZAR ENDPOINT ---
+    form = DynamicPayPalForm(initial=paypal_dict, is_sandbox=company_settings.paypal_is_sandbox)
     
+    # --- CALCULAR ENDPOINT EXPLÍCITAMENTE PARA EL TEMPLATE ---
+    paypal_endpoint = form.get_endpoint()
+
     return render(request, 'myapp/subscription_process.html', {
         'form': form, 
         'plan': plan,
         'company': company_settings,
-        'paypal_endpoint': paypal_endpoint # PASAMOS EL ENDPOINT EXPLÍCITO
+        'paypal_endpoint': paypal_endpoint # PASAR VARIABLE AL CONTEXTO
     })
 
 @csrf_exempt
