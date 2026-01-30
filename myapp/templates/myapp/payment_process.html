@@ -61,6 +61,15 @@
             -webkit-text-fill-color: transparent;
             background-clip: text;
         }
+
+        /* Estilo para el botón de PayPal generado */
+        input[type="image"] {
+            transition: transform 0.2s;
+        }
+        input[type="image"]:hover {
+            transform: scale(1.05);
+            filter: brightness(1.1);
+        }
     </style>
 </head>
 <body class="min-h-screen flex items-center justify-center p-4">
@@ -92,9 +101,12 @@
             </div>
         </div>
 
-        <!-- PayPal Button Container -->
+        <!-- PayPal Button Container (FORZADO MANUALMENTE) -->
         <div class="w-full flex justify-center mb-6">
-            {{ form.render }}
+            <form action="{{ form.get_endpoint }}" method="post">
+                {{ form.as_p }}
+                <input type="image" src="https://www.paypalobjects.com/en_US/i/btn/btn_buynowCC_LG.gif" border="0" name="submit" alt="PayPal - The safer, easier way to pay online!">
+            </form>
         </div>
 
         <div class="text-center">
