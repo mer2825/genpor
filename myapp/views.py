@@ -25,6 +25,20 @@ import random # IMPORTANTE: Para seleccionar imágenes aleatorias
 from paypal.standard.forms import PayPalPaymentsForm # IMPORTANTE: Para PayPal
 from django.views.decorators.csrf import csrf_exempt # IMPORTANTE: Para PayPal
 
+# --- CLASE PERSONALIZADA PARA PAYPAL DINÁMICO ---
+class DynamicPayPalForm(PayPalPaymentsForm):
+    def __init__(self, *args, **kwargs):
+        # Extraemos el argumento 'is_sandbox' si existe, por defecto True
+        self.is_sandbox = kwargs.pop('is_sandbox', True)
+        super().__init__(*args, **kwargs)
+
+    def get_endpoint(self):
+        # Sobrescribimos el método para usar nuestra variable local
+        if self.is_sandbox:
+            return "https://www.sandbox.paypal.com/cgi-bin/webscr"
+        else:
+            return "https://www.paypal.com/cgi-bin/webscr"
+
 # --- SECURE MEDIA SERVING VIEW ---
 def serve_private_media(request, path):
     """
@@ -984,15 +998,8 @@ def payment_process(request, package_id):
         'custom': str(transaction.id), # Pasamos el ID de la transacción para recuperarlo en la señal
     }
     
-    # Instanciar formulario
-    form = PayPalPaymentsForm(initial=paypal_dict)
-    
-    # --- MONKEY PATCH PARA CAMBIAR ENDPOINT DINÁMICAMENTE ---
-    # Esto fuerza la URL de acción correcta basada en la configuración de la BD
-    if company_settings.paypal_is_sandbox:
-        form.get_endpoint = lambda: "https://www.sandbox.paypal.com/cgi-bin/webscr"
-    else:
-        form.get_endpoint = lambda: "https://www.paypal.com/cgi-bin/webscr"
+    # --- USAR CLASE PERSONALIZADA PARA FORZAR ENDPOINT ---
+    form = DynamicPayPalForm(initial=paypal_dict, is_sandbox=company_settings.paypal_is_sandbox)
     
     return render(request, 'myapp/payment_process.html', {
         'form': form, 
@@ -1073,13 +1080,8 @@ def subscription_process(request, plan_id):
         'custom': str(request.user.id), # Pass User ID to identify who is subscribing
     }
     
-    form = PayPalPaymentsForm(initial=paypal_dict)
-    
-    # --- MONKEY PATCH PARA CAMBIAR ENDPOINT DINÁMICAMENTE ---
-    if company_settings.paypal_is_sandbox:
-        form.get_endpoint = lambda: "https://www.sandbox.paypal.com/cgi-bin/webscr"
-    else:
-        form.get_endpoint = lambda: "https://www.paypal.com/cgi-bin/webscr"
+    # --- USAR CLASE PERSONALIZADA PARA FORZAR ENDPOINT ---
+    form = DynamicPayPalForm(initial=paypal_dict, is_sandbox=company_settings.paypal_is_sandbox)
     
     return render(request, 'myapp/subscription_process.html', {
         'form': form, 
