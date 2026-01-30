@@ -969,8 +969,11 @@ def payment_process(request, package_id):
         amount=package.price
     )
     
+    # --- CONFIGURACIÓN DINÁMICA DE PAYPAL DESDE BD ---
+    receiver_email = company_settings.paypal_receiver_email if company_settings.paypal_receiver_email else settings.PAYPAL_RECEIVER_EMAIL
+    
     paypal_dict = {
-        'business': settings.PAYPAL_RECEIVER_EMAIL,
+        'business': receiver_email,
         'amount': str(package.price),
         'item_name': package.name,
         'invoice': str(transaction.id),
@@ -981,7 +984,15 @@ def payment_process(request, package_id):
         'custom': str(transaction.id), # Pasamos el ID de la transacción para recuperarlo en la señal
     }
     
+    # Instanciar formulario
     form = PayPalPaymentsForm(initial=paypal_dict)
+    
+    # --- MONKEY PATCH PARA CAMBIAR ENDPOINT DINÁMICAMENTE ---
+    # Esto fuerza la URL de acción correcta basada en la configuración de la BD
+    if company_settings.paypal_is_sandbox:
+        form.get_endpoint = lambda: "https://www.sandbox.paypal.com/cgi-bin/webscr"
+    else:
+        form.get_endpoint = lambda: "https://www.paypal.com/cgi-bin/webscr"
     
     return render(request, 'myapp/payment_process.html', {
         'form': form, 
@@ -1041,10 +1052,13 @@ def subscription_process(request, plan_id):
     sub.status = 'PENDING'
     sub.save()
     
+    # --- CONFIGURACIÓN DINÁMICA DE PAYPAL DESDE BD ---
+    receiver_email = company_settings.paypal_receiver_email if company_settings.paypal_receiver_email else settings.PAYPAL_RECEIVER_EMAIL
+
     # PayPal Subscription Parameters
     paypal_dict = {
         'cmd': '_xclick-subscriptions',
-        'business': settings.PAYPAL_RECEIVER_EMAIL,
+        'business': receiver_email,
         'a3': str(plan.price), # Regular subscription price
         'p3': plan.billing_period, # Subscription duration
         't3': plan.billing_period_unit, # Subscription duration unit (D, W, M, Y)
@@ -1060,6 +1074,12 @@ def subscription_process(request, plan_id):
     }
     
     form = PayPalPaymentsForm(initial=paypal_dict)
+    
+    # --- MONKEY PATCH PARA CAMBIAR ENDPOINT DINÁMICAMENTE ---
+    if company_settings.paypal_is_sandbox:
+        form.get_endpoint = lambda: "https://www.sandbox.paypal.com/cgi-bin/webscr"
+    else:
+        form.get_endpoint = lambda: "https://www.paypal.com/cgi-bin/webscr"
     
     return render(request, 'myapp/subscription_process.html', {
         'form': form, 

@@ -179,6 +179,11 @@ class CompanySettingsAdmin(admin.ModelAdmin):
             'fields': ('is_token_sale_active', 'is_subscription_active'),
             'description': 'Enable or disable the ability for users to purchase token packages or subscriptions.'
         }),
+        # --- NEW: PAYPAL SETTINGS SECTION ---
+        ('PayPal Configuration', {
+            'fields': ('paypal_receiver_email', 'paypal_is_sandbox'),
+            'description': 'Configure your PayPal Business account for receiving payments.'
+        }),
         ('Contact & Social', {
             'fields': ('phone', 'email', 'facebook', 'discord')
         }),

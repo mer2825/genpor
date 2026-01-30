@@ -586,6 +586,29 @@ async def generate_image_from_character(character, user_prompt, width=None, heig
     # 3. Actualizar Workflow
     updated_workflow = update_workflow(prompt_workflow_base, final_config, lora_names, lora_strengths)
     
+    # --- OPTIMIZACIÓN: ELIMINAR NODOS DE SALIDA NO SOLICITADOS ---
+    # Al eliminar el nodo de Guardar/Preview, ComfyUI no ejecutará la cadena de procesamiento
+    # asociada si no es necesaria para otros nodos.
+    if allowed_types:
+        nodes_to_delete = []
+        for node_id, node in updated_workflow.items():
+            if not isinstance(node, dict): continue
+            
+            class_type = node.get("class_type", "")
+            # Detectar nodos de salida (Save o Preview)
+            if "Save" in class_type or "Preview" in class_type:
+                # Clasificar qué tipo de imagen produce este nodo
+                classification, _ = classify_image_node(node_id, updated_workflow)
+                
+                # Si la clasificación NO está en los tipos permitidos, lo borramos
+                if classification not in allowed_types:
+                    nodes_to_delete.append(node_id)
+        
+        for nid in nodes_to_delete:
+            print(f"OPTIMIZATION: Skipping unused output node {nid}")
+            del updated_workflow[nid]
+    # -------------------------------------------------------------
+
     # 4. Conectar y Generar
     client_id = str(uuid.uuid4())
     
@@ -641,4 +664,3 @@ async def generate_image_from_character(character, user_prompt, width=None, heig
                             images_data.append((image_bytes, classification))
 
     return images_data, prompt_id, updated_workflow
-# Limpieza final
