@@ -13,7 +13,7 @@ html, body {
     width: 100%;
     margin: 0;
     padding: 0;
-    overflow: hidden;
+    overflow: hidden; /* SIEMPRE OCULTO (App-like) */
 }
 
 /* ESCRITORIO: Grid de 3 columnas por defecto */
@@ -600,6 +600,100 @@ textarea:focus { outline: none; }
     font-size: 0.8rem;
 }
 
+/* --- MODALES (ESTILOS GLOBALES) --- */
+.modal {
+    display: none;
+    position: fixed;
+    z-index: 1000;
+    left: 0;
+    top: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.8);
+    backdrop-filter: blur(8px);
+    animation: fadeIn 0.3s ease;
+}
+
+.modal-content {
+    background-color: #141414;
+    margin: 10% auto;
+    padding: 0;
+    border-radius: 20px;
+    width: 90%;
+    max-width: 500px;
+    box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.8);
+    border: 1px solid var(--card-border);
+    animation: scaleUp 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+    overflow: hidden; /* Para que el header no se salga */
+}
+
+.modal-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 20px 24px;
+    border-bottom: 1px solid var(--card-border);
+    background-color: rgba(20, 20, 20, 0.95);
+}
+.modal-header h3 { margin: 0; font-size: 1.2rem; color: var(--text-main); }
+
+.close-btn { color: var(--text-muted); font-size: 24px; cursor: pointer; transition: color 0.2s; }
+.close-btn:hover { color: var(--primary-color); }
+
+/* MODAL BODY CON SCROLL INVISIBLE */
+.modal-body {
+    padding: 24px;
+    max-height: 60vh;
+    overflow-y: auto;
+    background-color: #141414;
+    /* Scroll invisible */
+    scrollbar-width: none; /* Firefox */
+    -ms-overflow-style: none; /* IE/Edge */
+}
+.modal-body::-webkit-scrollbar {
+    display: none; /* Chrome/Safari/Webkit */
+}
+
+.modal-footer {
+    padding: 15px 24px;
+    border-top: 1px solid var(--card-border);
+    display: flex;
+    justify-content: flex-end;
+    gap: 10px;
+    background-color: rgba(20, 20, 20, 0.95);
+}
+
+/* Botones del Modal */
+.modal-btn {
+    padding: 10px 20px;
+    border-radius: 10px;
+    border: none;
+    cursor: pointer;
+    font-weight: 600;
+    font-size: 0.9rem;
+    transition: all 0.2s;
+}
+
+.modal-btn-secondary {
+    background-color: rgba(255, 255, 255, 0.05);
+    color: var(--text-muted);
+    border: 1px solid var(--card-border);
+}
+.modal-btn-secondary:hover {
+    background-color: rgba(255, 255, 255, 0.1);
+    color: white;
+}
+
+.modal-btn-danger {
+    background: linear-gradient(135deg, #ef4444 0%, #b91c1c 100%);
+    color: white;
+    box-shadow: 0 4px 15px rgba(239, 68, 68, 0.3);
+}
+.modal-btn-danger:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 20px rgba(239, 68, 68, 0.4);
+}
+
 /* --- IMAGE VIEWER (LIGHTBOX) --- */
 .image-viewer-modal {
     display: none;
@@ -727,11 +821,29 @@ textarea:focus { outline: none; }
     cursor: pointer;
 }
 
+/* --- SIDEBAR OVERLAY (NUEVO) --- */
+.sidebar-overlay {
+    display: none;
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.7);
+    backdrop-filter: blur(5px);
+    z-index: 150; /* Debajo del sidebar (200) pero encima de todo lo demás */
+    opacity: 0;
+    transition: opacity 0.3s ease;
+}
+.sidebar-overlay.show {
+    opacity: 1;
+}
+
 /* --- RESPONSIVE (TABLET Y MÓVIL < 1024px) --- */
 @media (max-width: 1024px) {
     html, body {
         overflow-x: hidden;
-        overflow-y: auto;
+        /* overflow-y: auto;  <-- ELIMINADO PARA EVITAR SCROLL EN BODY */
     }
 
     .layout-grid {
@@ -760,6 +872,7 @@ textarea:focus { outline: none; }
     .main-content {
         padding-top: 130px; /* Espacio para los dos headers fijos */
         padding-bottom: 150px; /* Espacio para el input y nav fijos */
+        overflow-y: auto; /* Permitir scroll aquí si el contenido es largo */
     }
 
     /* MOSTRAR BOTONES TOGGLE */
@@ -784,7 +897,18 @@ textarea:focus { outline: none; }
         background-color: #080808;
         box-shadow: 0 0 50px rgba(0,0,0,0.8);
         padding: 20px;
+        padding-bottom: 100px; /* AÑADIDO: Espacio extra para que la barra inferior no tape contenido */
         box-sizing: border-box;
+        /* SCROLL INVISIBLE */
+        overflow-y: auto;
+        scrollbar-width: none; /* Firefox */
+        -ms-overflow-style: none; /* IE/Edge */
+    }
+
+    /* Ocultar barra de scroll en Webkit (Chrome/Safari/Android) */
+    #sidebar-left::-webkit-scrollbar,
+    #sidebar-right::-webkit-scrollbar {
+        display: none;
     }
 
     #sidebar-left { left: 0; transform: translateX(-100%); border-right: 1px solid var(--card-border); }

@@ -31,9 +31,11 @@ SECRET_KEY = os.getenv('SECRET_KEY', 'django-insecure-fallback-key-change-in-pro
 # DEBUG será True solo si en el .env dice 'True', de lo contrario será False (seguro para producción)
 DEBUG = os.getenv('DEBUG', 'False') == 'True'
 
-# Leemos los hosts permitidos del .env y los convertimos en una lista
-ALLOWED_HOSTS = os.getenv('ALLOWED_HOSTS', 'localhost,127.0.0.1').split(',')
+# Leemos los hosts permitidos del .env... (COMENTA ESTA LÍNEA PONIENDO UN # AL INICIO)
+# ALLOWED_HOSTS = os.getenv('ALLOWED_HOSTS', 'localhost,127.0.0.1').split(',')
 
+# AGREGA ESTA LÍNEA NUEVA PARA LA PRUEBA:
+ALLOWED_HOSTS = ['*']
 
 # Application definition
 

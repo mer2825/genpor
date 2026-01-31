@@ -409,6 +409,30 @@
                 opacity: 0;
             }
         }
+
+        /* --- AJUSTES PARA AVATAR EN MÓVIL --- */
+        @media (max-width: 768px) {
+            /* Ocultar avatar del header en móvil */
+            header .user-avatar {
+                display: none !important;
+            }
+        }
+
+        /* Estilo para el avatar en la barra inferior */
+        .bottom-nav-avatar {
+            width: 22px;
+            height: 22px;
+            border-radius: 50%;
+            background: var(--primary-gradient);
+            color: white;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 700;
+            font-size: 0.7rem;
+            margin-bottom: 4px;
+            border: 1px solid rgba(255,255,255,0.2);
+        }
     </style>
 </head>
 <body>
@@ -430,29 +454,6 @@
                 <a href="{% url 'gallery' %}" class="action-btn gallery-btn desktop-nav-btn">
                     <i class="fas fa-images"></i> Gallery
                 </a>
-
-                <!-- Botón CUPONES (NUEVO) -->
-                <button onclick="document.getElementById('modal-coupon').style.display='block'" class="action-btn desktop-nav-btn" style="background: rgba(251, 191, 36, 0.1); color: #fbbf24; border: 1px solid rgba(251, 191, 36, 0.3); cursor: pointer;">
-                    <i class="fas fa-ticket-alt"></i> Coupons
-                </button>
-
-                <!-- Contador de Tokens (CONDICIONAL) -->
-                {% if user.is_authenticated and not user.is_staff %}
-                    {% if company.is_token_sale_active %}
-                        <!-- Venta ACTIVA: Enlace a compra -->
-                        <a href="{% url 'token_packages' %}" class="token-badge" title="Buy more tokens" style="text-decoration: none; cursor: pointer; transition: transform 0.2s;">
-                            <i class="fas fa-coins"></i>
-                            <span>{{ user.clientprofile.tokens_remaining }} Tokens</span>
-                            <i class="fas fa-plus-circle" style="font-size: 0.8em; margin-left: 4px; color: #4ade80;"></i>
-                        </a>
-                    {% else %}
-                        <!-- Venta INACTIVA: Solo visualización -->
-                        <div class="token-badge" title="Tokens available" style="cursor: default;">
-                            <i class="fas fa-coins"></i>
-                            <span>{{ user.clientprofile.tokens_remaining }} Tokens</span>
-                        </div>
-                    {% endif %}
-                {% endif %}
 
                 <!-- AVATAR CLICABLE (PERFIL) -->
                 <a href="{% url 'profile' %}" class="user-avatar" style="text-decoration: none;">
@@ -663,33 +664,13 @@
             <i class="fas fa-images"></i>
             <span>Gallery</span>
         </a>
+        <a href="{% url 'profile' %}" class="bottom-nav-item">
+            <div class="bottom-nav-avatar">
+                {{ user.username|slice:":1"|upper }}
+            </div>
+            <span>Profile</span>
+        </a>
     </nav>
-
-    <!-- MODAL DE CANJE DE CUPÓN (TOKENS) -->
-    <div id="modal-coupon" class="modal">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h3 style="margin:0; color:white;">Redeem Coupon</h3>
-                <span onclick="document.getElementById('modal-coupon').style.display='none'" style="cursor:pointer; color:white;">&times;</span>
-            </div>
-            <div class="modal-body">
-                <div id="coupon-input-container">
-                    <p style="color:var(--text-muted); margin-bottom:15px;">Enter your coupon code to receive extra tokens.</p>
-                    <input type="text" id="coupon-code" placeholder="Enter code here..." style="width:100%; padding:10px; background:#0f172a; border:1px solid var(--border-subtle); color:white; border-radius:8px; margin-bottom:15px; box-sizing:border-box;">
-                    <div id="coupon-message" style="margin-top:10px; font-size:0.9rem;"></div>
-                </div>
-
-                <div id="coupon-success-container" class="success-animation-container" style="display:none;">
-                    <i class="fas fa-check-circle success-icon"></i>
-                    <div id="success-text" class="success-text"></div>
-                </div>
-            </div>
-            <div class="modal-footer" id="coupon-footer">
-                <button class="modal-btn modal-btn-secondary" onclick="document.getElementById('modal-coupon').style.display='none'">Cancel</button>
-                <button class="modal-btn" style="background-color:var(--primary-blue); color:white;" onclick="redeemCoupon()">Redeem</button>
-            </div>
-        </div>
-    </div>
 
     <!-- MODAL DE DESBLOQUEO DE PERSONAJE (NUEVO) -->
     <div id="modal-unlock" class="modal">
@@ -1011,85 +992,6 @@
                 isFabVisible = false;
             }
         });
-
-        // --- LÓGICA DE CUPONES (COPIADA DE WORKSPACE) ---
-        function redeemCoupon() {
-            const code = document.getElementById('coupon-code').value.trim();
-            const messageDiv = document.getElementById('coupon-message');
-            if (!code) {
-                messageDiv.style.color = '#ef4444';
-                messageDiv.textContent = 'Please enter a code.';
-                return;
-            }
-            const formData = new FormData();
-            formData.append('code', code);
-            fetch(redeemCouponUrl, {
-                method: 'POST',
-                headers: { 'X-CSRFToken': csrfToken, 'X-Requested-With': 'XMLHttpRequest' },
-                body: new URLSearchParams(formData)
-            })
-            .then(res => res.json())
-            .then(data => {
-                if (data.status === 'success') {
-                    document.getElementById('coupon-input-container').style.display = 'none';
-                    document.getElementById('coupon-footer').style.display = 'none';
-                    const successContainer = document.getElementById('coupon-success-container');
-                    successContainer.style.display = 'flex';
-                    document.getElementById('success-text').textContent = data.message;
-
-                    // --- ANIMACIÓN DE ESTRELLAS MEJORADA (CONFETTI) ---
-                    const colors = ['#fbbf24', '#f59e0b', '#fb923c', '#ffffff', '#fcd34d'];
-
-                    for(let i=0; i<50; i++) {
-                        const star = document.createElement('i');
-                        star.classList.add('fas', 'fa-star', 'unlock-particle');
-
-                        // Random Position (Explosion)
-                        const angle = Math.random() * Math.PI * 2;
-                        const velocity = 50 + Math.random() * 150; // Varying distance
-                        const tx = Math.cos(angle) * velocity;
-                        const ty = Math.sin(angle) * velocity;
-
-                        // Random Rotation
-                        const rot = -200 + Math.random() * 400;
-
-                        // Random Size
-                        const scale = 0.5 + Math.random() * 1.0;
-
-                        // Random Color
-                        star.style.color = colors[Math.floor(Math.random() * colors.length)];
-                        star.style.fontSize = `${10 * scale}px`;
-
-                        // Set CSS Variables
-                        star.style.setProperty('--tx', `${tx}px`);
-                        star.style.setProperty('--ty', `${ty}px`);
-                        star.style.setProperty('--rot', `${rot}deg`);
-
-                        // Position relative to center of container
-                        star.style.left = '50%';
-                        star.style.top = '50%';
-
-                        // Animation
-                        star.style.animation = `confetti-explosion ${0.8 + Math.random() * 0.5}s ease-out forwards`;
-
-                        // CAMBIO: Añadir al BODY para evitar recortes
-                        document.body.appendChild(star);
-
-                        // Limpieza
-                        setTimeout(() => star.remove(), 1500);
-                    }
-
-                    setTimeout(() => window.location.reload(), 2000);
-                } else {
-                    messageDiv.style.color = '#ef4444';
-                    messageDiv.textContent = data.message;
-                }
-            })
-            .catch(() => {
-                messageDiv.style.color = '#ef4444';
-                messageDiv.textContent = 'Connection error.';
-            });
-        };
 
         // Cerrar modal al hacer clic fuera
         window.onclick = function(event) {

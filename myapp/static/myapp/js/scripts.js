@@ -1,17 +1,22 @@
 // Función global para los chips
 function addTag(tag) {
     const textarea = document.getElementById('modal-prompt');
-    const currentVal = textarea.value.trim();
-    if (currentVal) {
-        textarea.value = currentVal + ', ' + tag;
-    } else {
-        textarea.value = tag;
+    if(textarea) {
+        const currentVal = textarea.value.trim();
+        if (currentVal) {
+            textarea.value = currentVal + ', ' + tag;
+        } else {
+            textarea.value = tag;
+        }
+        textarea.focus();
     }
-    textarea.focus();
 }
 
 document.addEventListener('DOMContentLoaded', function() {
     // Obtener contexto desde variables globales definidas en el HTML
+    // (Verificar si existen antes de usar)
+    if (!window.DjangoContext) return;
+
     const userIsAuthenticated = window.DjangoContext.userIsAuthenticated;
     const loginUrl = window.DjangoContext.loginUrl;
     const generateUrl = window.DjangoContext.generateUrl;
@@ -144,112 +149,116 @@ document.addEventListener('DOMContentLoaded', function() {
     window.addEventListener('resize', manageCarouselBehavior);
 
 
-    // --- LÓGICA MODALES ---
+    // --- LÓGICA MODALES (SOLO PARA HOME/CATÁLOGO) ---
+    // NOTA: En Workspace, la lógica de modales está en el propio HTML para evitar conflictos.
     const generationModal = document.getElementById('generation-modal');
     const galleryModal = document.getElementById('gallery-modal');
     let currentCharacterId = null;
 
-    const setupModal = (modal, openBtnsSelector, titleSelector, cardSelector, onOpen) => {
-        if (!modal) return;
+    if (generationModal || galleryModal) {
+        const setupModal = (modal, openBtnsSelector, titleSelector, cardSelector, onOpen) => {
+            if (!modal) return;
 
-        const closeBtn = modal.querySelector('.close-btn');
-        document.querySelectorAll(openBtnsSelector).forEach(btn => {
-            btn.addEventListener('click', event => {
-                if (!userIsAuthenticated) {
-                    window.location.href = loginUrl;
-                    return;
-                }
-
-                const card = event.target.closest(cardSelector);
-                const characterName = card.querySelector('h2').textContent;
-                currentCharacterId = card.dataset.characterId;
-                modal.querySelector(titleSelector).textContent = `${modal.id === 'gallery-modal' ? 'Galería de' : 'Generar para'} ${characterName}`;
-                if (onOpen) onOpen(card);
-                modal.style.display = 'block';
-            });
-        });
-        if (closeBtn) closeBtn.onclick = () => modal.style.display = 'none';
-    };
-
-    setupModal(generationModal, '.generate-btn', '#modal-title', '.character-card', () => {
-        document.getElementById('modal-prompt').value = '';
-        document.getElementById('modal-result').innerHTML = '';
-        document.getElementById('modal-loader').style.display = 'none';
-        document.getElementById('modal-generate-btn').style.display = 'flex';
-    });
-
-    setupModal(galleryModal, '.gallery-btn', '#gallery-modal-title', '.character-card', () => {
-        const grid = galleryModal.querySelector('.image-grid');
-        grid.innerHTML = '<p style="text-align:center; color: var(--text-muted);">Cargando...</p>';
-        fetch(`${generateUrl}?character_id=${currentCharacterId}`, { headers: { 'X-Requested-With': 'XMLHttpRequest' } })
-            .then(res => res.json())
-            .then(data => {
-                grid.innerHTML = '';
-                if (data.status === 'success' && data.images.length > 0) {
-                    data.images.forEach(url => {
-                        const img = document.createElement('img');
-                        img.src = url;
-                        img.onclick = () => window.open(url, '_blank');
-                        grid.appendChild(img);
-                    });
-                } else {
-                    grid.innerHTML = '<p style="text-align:center; color: var(--text-muted);">No hay imágenes generadas por ti para este personaje.</p>';
-                }
-            });
-    });
-
-    window.onclick = event => {
-        if (generationModal && event.target == generationModal) generationModal.style.display = 'none';
-        if (galleryModal && event.target == galleryModal) galleryModal.style.display = 'none';
-    };
-
-    const generateBtn = document.getElementById('modal-generate-btn');
-    if (generateBtn) {
-        generateBtn.addEventListener('click', () => {
-            const prompt = document.getElementById('modal-prompt').value;
-            if (!prompt) { alert('Por favor, escribe un prompt.'); return; }
-
-            const loader = document.getElementById('modal-loader');
-            const resultDiv = document.getElementById('modal-result');
-            const btn = document.getElementById('modal-generate-btn');
-
-            loader.style.display = 'block';
-            resultDiv.innerHTML = '';
-            btn.style.display = 'none';
-
-            const formData = new FormData();
-            formData.append('character_id', currentCharacterId);
-            formData.append('prompt', prompt);
-
-            fetch(generateUrl, {
-                method: 'POST',
-                headers: { 'X-CSRFToken': csrfToken, 'X-Requested-With': 'XMLHttpRequest' },
-                body: new URLSearchParams(formData)
-            })
-            .then(response => response.json())
-            .then(data => {
-                if (data.status === 'success') {
-                    let html = '<p style="color: var(--success-color); text-align: center; font-weight: bold;">¡Imagen completada!</p>';
-                    if (data.image_urls && data.image_urls.length > 0) {
-                        data.image_urls.forEach(url => {
-                            html += `<img src="${url}" alt="Imagen generada">`;
-                        });
-                    } else if (data.image_url) {
-                        html += `<img src="${data.image_url}" alt="Imagen generada">`;
+            const closeBtn = modal.querySelector('.close-btn');
+            document.querySelectorAll(openBtnsSelector).forEach(btn => {
+                btn.addEventListener('click', event => {
+                    if (!userIsAuthenticated) {
+                        window.location.href = loginUrl;
+                        return;
                     }
-                    resultDiv.innerHTML = html;
-                } else {
-                    resultDiv.innerHTML = `<p style="color: #ef4444; text-align: center;">Error: ${data.message}</p>`;
-                }
-            })
-            .catch(error => {
-                console.error('Error:', error);
-                resultDiv.innerHTML = `<p style="color: #ef4444; text-align: center;">Ocurrió un error de conexión.</p>`;
-            })
-            .finally(() => {
-                loader.style.display = 'none';
-                btn.style.display = 'flex';
+
+                    const card = event.target.closest(cardSelector);
+                    const characterName = card.querySelector('h2').textContent;
+                    currentCharacterId = card.dataset.characterId;
+                    modal.querySelector(titleSelector).textContent = `${modal.id === 'gallery-modal' ? 'Galería de' : 'Generar para'} ${characterName}`;
+                    if (onOpen) onOpen(card);
+                    modal.style.display = 'block';
+                });
             });
+            if (closeBtn) closeBtn.onclick = () => modal.style.display = 'none';
+        };
+
+        setupModal(generationModal, '.generate-btn', '#modal-title', '.character-card', () => {
+            document.getElementById('modal-prompt').value = '';
+            document.getElementById('modal-result').innerHTML = '';
+            document.getElementById('modal-loader').style.display = 'none';
+            document.getElementById('modal-generate-btn').style.display = 'flex';
         });
+
+        setupModal(galleryModal, '.gallery-btn', '#gallery-modal-title', '.character-card', () => {
+            const grid = galleryModal.querySelector('.image-grid');
+            grid.innerHTML = '<p style="text-align:center; color: var(--text-muted);">Cargando...</p>';
+            fetch(`${generateUrl}?character_id=${currentCharacterId}`, { headers: { 'X-Requested-With': 'XMLHttpRequest' } })
+                .then(res => res.json())
+                .then(data => {
+                    grid.innerHTML = '';
+                    if (data.status === 'success' && data.images.length > 0) {
+                        data.images.forEach(url => {
+                            const img = document.createElement('img');
+                            img.src = url;
+                            img.onclick = () => window.open(url, '_blank');
+                            grid.appendChild(img);
+                        });
+                    } else {
+                        grid.innerHTML = '<p style="text-align:center; color: var(--text-muted);">No hay imágenes generadas por ti para este personaje.</p>';
+                    }
+                });
+        });
+
+        // --- CORRECCIÓN: Usar addEventListener en lugar de sobrescribir window.onclick ---
+        window.addEventListener('click', (event) => {
+            if (generationModal && event.target == generationModal) generationModal.style.display = 'none';
+            if (galleryModal && event.target == galleryModal) galleryModal.style.display = 'none';
+        });
+
+        const generateBtn = document.getElementById('modal-generate-btn');
+        if (generateBtn) {
+            generateBtn.addEventListener('click', () => {
+                const prompt = document.getElementById('modal-prompt').value;
+                if (!prompt) { alert('Por favor, escribe un prompt.'); return; }
+
+                const loader = document.getElementById('modal-loader');
+                const resultDiv = document.getElementById('modal-result');
+                const btn = document.getElementById('modal-generate-btn');
+
+                loader.style.display = 'block';
+                resultDiv.innerHTML = '';
+                btn.style.display = 'none';
+
+                const formData = new FormData();
+                formData.append('character_id', currentCharacterId);
+                formData.append('prompt', prompt);
+
+                fetch(generateUrl, {
+                    method: 'POST',
+                    headers: { 'X-CSRFToken': csrfToken, 'X-Requested-With': 'XMLHttpRequest' },
+                    body: new URLSearchParams(formData)
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.status === 'success') {
+                        let html = '<p style="color: var(--success-color); text-align: center; font-weight: bold;">¡Imagen completada!</p>';
+                        if (data.image_urls && data.image_urls.length > 0) {
+                            data.image_urls.forEach(url => {
+                                html += `<img src="${url}" alt="Imagen generada">`;
+                            });
+                        } else if (data.image_url) {
+                            html += `<img src="${data.image_url}" alt="Imagen generada">`;
+                        }
+                        resultDiv.innerHTML = html;
+                    } else {
+                        resultDiv.innerHTML = `<p style="color: #ef4444; text-align: center;">Error: ${data.message}</p>`;
+                    }
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    resultDiv.innerHTML = `<p style="color: #ef4444; text-align: center;">Ocurrió un error de conexión.</p>`;
+                })
+                .finally(() => {
+                    loader.style.display = 'none';
+                    btn.style.display = 'flex';
+                });
+            });
+        }
     }
 });

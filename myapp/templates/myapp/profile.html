@@ -400,6 +400,30 @@
                 justify-content: center;
             }
         }
+
+        /* --- AJUSTES PARA AVATAR EN MÓVIL --- */
+        @media (max-width: 768px) {
+            /* Ocultar avatar del header en móvil */
+            header .user-avatar {
+                display: none !important;
+            }
+        }
+
+        /* Estilo para el avatar en la barra inferior */
+        .bottom-nav-avatar {
+            width: 22px;
+            height: 22px;
+            border-radius: 50%;
+            background: var(--primary-gradient);
+            color: white;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 700;
+            font-size: 0.7rem;
+            margin-bottom: 4px;
+            border: 1px solid rgba(255,255,255,0.2);
+        }
     </style>
 </head>
 <body>
@@ -437,6 +461,11 @@
                     <path d="M5 16L6 18L9 19L6 20L5 23L4 20L1 19L4 18L5 16Z" />
                 </svg>
                 Workspace
+            </a>
+
+            <!-- AVATAR CLICABLE (PERFIL) -->
+            <a href="{% url 'profile' %}" class="user-avatar" style="width:36px; height:36px; background:var(--primary-gradient); border-radius:50%; display:flex; align-items:center; justify-content:center; color:white; font-weight:700; font-size:0.9rem; box-shadow:0 0 10px var(--primary-glow); border:2px solid rgba(255,255,255,0.1); text-decoration:none;">
+                {{ user.username|slice:":1"|upper }}
             </a>
         </div>
     </header>
@@ -616,6 +645,12 @@
         <a href="{% url 'gallery' %}" class="bottom-nav-item">
             <i class="fas fa-images"></i>
             <span>Gallery</span>
+        </a>
+        <a href="{% url 'profile' %}" class="bottom-nav-item active">
+            <div class="bottom-nav-avatar">
+                {{ user.username|slice:":1"|upper }}
+            </div>
+            <span>Profile</span>
         </a>
     </nav>
 
