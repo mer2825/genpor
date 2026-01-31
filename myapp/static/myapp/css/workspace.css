@@ -872,7 +872,7 @@ textarea:focus { outline: none; }
 
     .main-content {
         height: 100%; /* CAMBIO: Ocupar todo el alto */
-        padding-top: 160px; /* AUMENTADO: 160px para asegurar que el primer mensaje se vea */
+        padding-top: 130px; /* Espacio para los dos headers fijos */
         padding-bottom: 150px; /* Espacio para el input y nav fijos */
         overflow-y: auto; /* CAMBIO: El scroll ocurre AQUÍ */
         -webkit-overflow-scrolling: touch; /* Suavidad en iOS */
@@ -968,6 +968,12 @@ textarea:focus { outline: none; }
 
     .close-sidebar-btn {
         display: block; /* Mostrar botón en móvil */
+    }
+
+    /* ESPACIADOR MÓVIL (NUEVO) */
+    .mobile-spacer {
+        display: block !important; /* Forzar visibilidad en móvil */
+        height: 40px !important; /* Altura suficiente para empujar el contenido */
     }
 }
 

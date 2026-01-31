@@ -290,7 +290,7 @@ class WorkflowAdmin(admin.ModelAdmin):
 
 @admin.register(CharacterImage)
 class CharacterImageAdmin(admin.ModelAdmin):
-    list_display = ('image_preview', 'character', 'user', 'generation_type_badge', 'download_workflow_link')
+    list_display = ('image_preview', 'character', 'user', 'generation_type_badge', 'truncated_description', 'download_workflow_link')
     list_filter = ('character', 'user', 'generation_type')
     search_fields = ('description', 'user__username', 'character__name')
     readonly_fields = ('image_preview', 'character', 'user', 'description', 'image', 'generation_type', 'width', 'height', 'download_workflow_link')
@@ -301,6 +301,12 @@ class CharacterImageAdmin(admin.ModelAdmin):
             return format_html('<img src="{}" width="100" height="auto" />', url)
         return "(No image)"
     image_preview.short_description = 'Thumbnail'
+
+    def truncated_description(self, obj):
+        if obj.description:
+            return obj.description[:50] + '...' if len(obj.description) > 50 else obj.description
+        return "-"
+    truncated_description.short_description = 'Prompt'
 
     def generation_type_badge(self, obj):
         colors = {

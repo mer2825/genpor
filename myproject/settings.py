@@ -32,10 +32,10 @@ SECRET_KEY = os.getenv('SECRET_KEY', 'django-insecure-fallback-key-change-in-pro
 DEBUG = os.getenv('DEBUG', 'False') == 'True'
 
 # Leemos los hosts permitidos del .env... (COMENTA ESTA LÍNEA PONIENDO UN # AL INICIO)
-# ALLOWED_HOSTS = os.getenv('ALLOWED_HOSTS', 'localhost,127.0.0.1').split(',')
+ALLOWED_HOSTS = os.getenv('ALLOWED_HOSTS', 'localhost,127.0.0.1').split(',')
 
 # AGREGA ESTA LÍNEA NUEVA PARA LA PRUEBA:
-ALLOWED_HOSTS = ['*']
+#ALLOWED_HOSTS = ['*']
 
 # Application definition
 
@@ -55,14 +55,14 @@ INSTALLED_APPS = [
     'allauth.socialaccount',
     'allauth.socialaccount.providers.google',
     
-    # CSP
-    'csp',
+    # CSP (COMENTADO PORQUE NO ESTÁ INSTALADO)
+    # 'csp',
     
-    # 2FA (Two-Factor Authentication)
-    'django_otp',
-    'django_otp.plugins.otp_static',
-    'django_otp.plugins.otp_totp',
-    'two_factor',
+    # 2FA (Two-Factor Authentication) (COMENTADO PORQUE NO ESTÁ INSTALADO)
+    # 'django_otp',
+    # 'django_otp.plugins.otp_static',
+    # 'django_otp.plugins.otp_totp',
+    # 'two_factor',
 
     # PayPal
     'paypal.standard.ipn',
@@ -82,14 +82,14 @@ MIDDLEWARE = [
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
     
-    # 2FA Middleware (después de AuthenticationMiddleware)
-    'django_otp.middleware.OTPMiddleware',
+    # 2FA Middleware (después de AuthenticationMiddleware) (COMENTADO)
+    # 'django_otp.middleware.OTPMiddleware',
     
     # Django Allauth Middleware
     "allauth.account.middleware.AccountMiddleware",
     
-    # CSP Middleware
-    'csp.middleware.CSPMiddleware',
+    # CSP Middleware (COMENTADO PORQUE NO ESTÁ INSTALADO)
+    # 'csp.middleware.CSPMiddleware',
 
     # HTML Minification (Solo en Producción)
     # 'myapp.middleware.HtmlMinificationMiddleware', # DESACTIVADO TEMPORALMENTE
@@ -236,60 +236,61 @@ EMAIL_HOST_PASSWORD = os.getenv('EMAIL_HOST_PASSWORD')
 DEFAULT_FROM_EMAIL = os.getenv('EMAIL_HOST_USER')
 
 # --- 2FA Settings ---
-LOGIN_URL = 'two_factor:login'
+# LOGIN_URL = 'two_factor:login' # COMENTADO
 # LOGIN_REDIRECT_URL = '/workspace/' # Esta línea ya está definida arriba, la dejamos ahí
-TWO_FACTOR_PATCH_ADMIN = True # Para integrar con el admin
+# TWO_FACTOR_PATCH_ADMIN = True # COMENTADO
 
 # ==========================================
 # 🛡️ CONFIGURACIÓN DE SEGURIDAD (HARDENING)
 # ==========================================
 
 # Content Security Policy (CSP) - FORMATO NUEVO (DJANGO-CSP 4.0+)
-CONTENT_SECURITY_POLICY = {
-    'DIRECTIVES': {
-        'default-src': ["'self'"],
-        'style-src': [
-            "'self'", 
-            "'unsafe-inline'", 
-            "https://cdn.tailwindcss.com", 
-            "https://cdnjs.cloudflare.com",
-            "https://fonts.googleapis.com"
-        ],
-        'script-src': [
-            "'self'", 
-            "'unsafe-inline'", 
-            "'unsafe-eval'", 
-            "https://cdn.tailwindcss.com", 
-            "https://cdnjs.cloudflare.com",
-            "https://www.paypal.com", # PayPal
-            "https://www.sandbox.paypal.com", # PayPal Sandbox
-            "https://accounts.google.com", # Google Auth
-            "https://www.google.com/recaptcha/", # ReCaptcha
-            "https://www.gstatic.com/recaptcha/" # ReCaptcha
-        ],
-        'font-src': [
-            "'self'", 
-            "https://cdnjs.cloudflare.com",
-            "https://fonts.gstatic.com"
-        ],
-        'img-src': [
-            "'self'", 
-            "data:", 
-            "https://*.googleusercontent.com", 
-            "https://images.unsplash.com", 
-            "https://www.svgrepo.com", 
-            "https://www.transparenttextures.com",
-            "https://www.paypalobjects.com" # PayPal Images
-        ],
-        'connect-src': ["'self'", "https://accounts.google.com"],
-        'form-action': ["'self'", "https://www.paypal.com", "https://www.sandbox.paypal.com", "https://accounts.google.com"], # Allow forms to post to PayPal & Google
-        'frame-src': ["'self'", "https://www.google.com/recaptcha/", "https://recaptcha.google.com/recaptcha/"], # ReCaptcha Frame
-    }
-}
+# (COMENTADO PORQUE NO ESTÁ INSTALADO)
+# CONTENT_SECURITY_POLICY = {
+#     'DIRECTIVES': {
+#         'default-src': ["'self'"],
+#         'style-src': [
+#             "'self'", 
+#             "'unsafe-inline'", 
+#             "https://cdn.tailwindcss.com", 
+#             "https://cdnjs.cloudflare.com",
+#             "https://fonts.googleapis.com"
+#         ],
+#         'script-src': [
+#             "'self'", 
+#             "'unsafe-inline'", 
+#             "'unsafe-eval'", 
+#             "https://cdn.tailwindcss.com", 
+#             "https://cdnjs.cloudflare.com",
+#             "https://www.paypal.com", # PayPal
+#             "https://www.sandbox.paypal.com", # PayPal Sandbox
+#             "https://accounts.google.com", # Google Auth
+#             "https://www.google.com/recaptcha/", # ReCaptcha
+#             "https://www.gstatic.com/recaptcha/" # ReCaptcha
+#         ],
+#         'font-src': [
+#             "'self'", 
+#             "https://cdnjs.cloudflare.com",
+#             "https://fonts.gstatic.com"
+#         ],
+#         'img-src': [
+#             "'self'", 
+#             "data:", 
+#             "https://*.googleusercontent.com", 
+#             "https://images.unsplash.com", 
+#             "https://www.svgrepo.com", 
+#             "https://www.transparenttextures.com",
+#             "https://www.paypalobjects.com" # PayPal Images
+#         ],
+#         'connect-src': ["'self'", "https://accounts.google.com"],
+#         'form-action': ["'self'", "https://www.paypal.com", "https://www.sandbox.paypal.com", "https://accounts.google.com"], # Allow forms to post to PayPal & Google
+#         'frame-src': ["'self'", "https://www.google.com/recaptcha/", "https://recaptcha.google.com/recaptcha/"], # ReCaptcha Frame
+#     }
+# }
 
 # --- CORRECCIÓN: Permitir que el admin cargue imágenes desde MEDIA_URL ---
 # Si no, el CSP bloquea la carga del favicon en el admin si viene de /media/
-CONTENT_SECURITY_POLICY['DIRECTIVES']['img-src'].append("'self'") # Ya está, pero aseguramos
+# CONTENT_SECURITY_POLICY['DIRECTIVES']['img-src'].append("'self'") # Ya está, pero aseguramos
 # En desarrollo local, a veces 'self' no cubre todo si se sirve desde otro puerto o protocolo, pero aquí debería bastar.
 # Lo importante es que MEDIA_URL sea accesible.
 

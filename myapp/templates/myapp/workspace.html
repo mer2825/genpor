@@ -448,6 +448,9 @@
                 </div>
 
                 <div class="chat-area" id="chat-area">
+                    <!-- ESPACIADOR INVISIBLE PARA MÓVIL -->
+                    <div class="mobile-spacer" style="height: 20px; display: none;"></div>
+
                     <div class="message ai">
                         Hello! I am <strong>{{ selected_character.name }}</strong>. What image would you like to create today? 🎨
                     </div>
@@ -873,14 +876,19 @@
             input.value = val + delta;
         };
 
-        // --- OUTPUT OPTION LOGIC (SINGLE SELECTION) ---
+        // --- OUTPUT OPTION LOGIC (CUMULATIVE SELECTION) ---
         function selectOutputOption(btn) {
-            // Remove active class from all buttons
             const container = document.getElementById('output-options-container');
-            container.querySelectorAll('.output-option-btn').forEach(b => b.classList.remove('active'));
+            const buttons = Array.from(container.querySelectorAll('.output-option-btn'));
+            const index = buttons.indexOf(btn);
 
-            // Add active class to clicked button
-            btn.classList.add('active');
+            buttons.forEach((b, i) => {
+                if (i <= index) {
+                    b.classList.add('active');
+                } else {
+                    b.classList.remove('active');
+                }
+            });
         }
 
         // --- GENERATION LOGIC ---
@@ -918,7 +926,8 @@
             const seed = document.getElementById('seed-input').value;
 
             // --- GET SELECTED GENERATION TYPE ---
-            const activeOption = document.querySelector('.output-option-btn.active');
+            const activeOptions = document.querySelectorAll('.output-option-btn.active');
+            const activeOption = activeOptions.length > 0 ? activeOptions[activeOptions.length - 1] : null;
             const generationType = activeOption ? activeOption.dataset.type : 'Gen_Normal';
 
             const formData = new FormData();
