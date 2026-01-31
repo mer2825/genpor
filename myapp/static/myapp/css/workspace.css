@@ -848,7 +848,8 @@ textarea:focus { outline: none; }
 
     .layout-grid {
         display: block;
-        height: auto;
+        height: 100%; /* CAMBIO: Forzar altura completa para que el hijo scrollee */
+        overflow: hidden; /* Evitar scroll en el grid */
     }
 
     .workspace-header {
@@ -870,9 +871,19 @@ textarea:focus { outline: none; }
     }
 
     .main-content {
-        padding-top: 130px; /* Espacio para los dos headers fijos */
+        height: 100%; /* CAMBIO: Ocupar todo el alto */
+        padding-top: 160px; /* AUMENTADO: 160px para asegurar que el primer mensaje se vea */
         padding-bottom: 150px; /* Espacio para el input y nav fijos */
-        overflow-y: auto; /* Permitir scroll aquí si el contenido es largo */
+        overflow-y: auto; /* CAMBIO: El scroll ocurre AQUÍ */
+        -webkit-overflow-scrolling: touch; /* Suavidad en iOS */
+        box-sizing: border-box;
+    }
+
+    /* Ajustar chat-area para que no tenga scroll interno en móvil */
+    .chat-area {
+        overflow: visible;
+        height: auto;
+        padding-bottom: 20px;
     }
 
     /* MOSTRAR BOTONES TOGGLE */
@@ -929,10 +940,6 @@ textarea:focus { outline: none; }
         box-sizing: border-box;
         border-top: 1px solid var(--card-border);
         z-index: 99;
-    }
-
-    .chat-area {
-        padding-bottom: 20px;
     }
 
     .mobile-toggle-btn { display: block; font-size: 1.2rem; color: white; background: none; border: none; padding: 5px; }
