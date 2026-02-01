@@ -1,4 +1,5 @@
 {% load static %}
+{% load custom_filters %}
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -36,10 +37,10 @@
         /* FONDO GLOBAL */
         body {
             background:
-                radial-gradient(circle at 50% -20%, color-mix(in srgb, var(--primary-start), transparent 85%) 0%, transparent 50%),
-                radial-gradient(circle at 0% 30%, color-mix(in srgb, var(--primary-mid), transparent 90%) 0%, transparent 40%),
-                radial-gradient(circle at 100% 70%, color-mix(in srgb, var(--primary-start), transparent 92%) 0%, transparent 40%),
-                linear-gradient(to bottom, #0f0505 0%, #020202 100%);
+                radial-gradient(circle at 50% -20%, color-mix(in srgb, var(--primary-start), transparent 90%) 0%, transparent 60%),
+                radial-gradient(circle at 0% 30%, color-mix(in srgb, var(--primary-mid), transparent 95%) 0%, transparent 50%),
+                radial-gradient(circle at 100% 70%, color-mix(in srgb, var(--primary-start), transparent 95%) 0%, transparent 50%),
+                linear-gradient(to bottom, #050505 0%, #0a0a0a 100%);
             background-attachment: fixed;
             color: white;
             font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
@@ -51,20 +52,46 @@
         ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.2); border-radius: 4px; }
         ::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.3); }
 
-        /* TARJETAS GLASSMORPHISM */
-        .glass-panel {
-            background: rgba(15, 23, 42, 0.6);
-            backdrop-filter: blur(12px);
-            -webkit-backdrop-filter: blur(12px);
-            border: 1px solid rgba(255, 255, 255, 0.08);
-            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
-            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        /* --- NUEVO DISEÑO DE TARJETAS (PREMIUM CARD) --- */
+        .premium-card {
+            background: linear-gradient(180deg, rgba(255, 255, 255, 0.03) 0%, rgba(255, 255, 255, 0.00) 100%);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border-radius: 24px;
+
+            /* BORDE PLATA LUMINOSO */
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            box-shadow:
+                0 0 15px -2px rgba(255, 255, 255, 0.15),
+                inset 0 0 20px -5px rgba(255, 255, 255, 0.05),
+                0 20px 40px -10px rgba(0,0,0,0.5);
+
+            transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            position: relative;
+            overflow: hidden;
         }
 
-        .glass-panel:hover {
-            border-color: rgba(255, 255, 255, 0.2);
-            transform: translateY(-5px);
-            box-shadow: 0 30px 60px -12px rgba(0, 0, 0, 0.6), 0 0 20px -5px var(--primary-glow);
+        .premium-card:hover {
+            transform: translateY(-10px);
+            border-color: rgba(255, 255, 255, 0.6);
+            box-shadow:
+                0 0 25px -2px rgba(255, 255, 255, 0.3),
+                inset 0 0 30px -5px rgba(255, 255, 255, 0.1),
+                0 30px 60px -15px rgba(0,0,0,0.7);
+        }
+
+        /* Efecto de brillo en hover */
+        .premium-card::before {
+            content: '';
+            position: absolute;
+            top: 0; left: -100%;
+            width: 100%; height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(255,255,255,0.1), transparent);
+            transition: 0.5s;
+            pointer-events: none;
+        }
+        .premium-card:hover::before {
+            left: 100%;
         }
 
         /* TEXTO GRADIENTE */
@@ -75,31 +102,74 @@
             background-clip: text;
         }
 
-        /* BOTÓN PRINCIPAL */
+        /* BOTÓN PRINCIPAL MEJORADO */
         .btn-primary {
             background: var(--primary-gradient);
             color: white;
             border: none;
             font-weight: 700;
-            box-shadow: 0 4px 15px -3px var(--primary-glow);
+            letter-spacing: 0.5px;
+            text-transform: uppercase;
+            font-size: 0.9rem;
+            box-shadow: 0 10px 20px -5px var(--primary-glow);
             transition: all 0.3s ease;
+            position: relative;
+            overflow: hidden;
+            z-index: 1;
+        }
+
+        .btn-primary::after {
+            content: '';
+            position: absolute;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: linear-gradient(to bottom, rgba(255,255,255,0.2), transparent);
+            opacity: 0;
+            transition: opacity 0.3s;
+            z-index: -1;
         }
 
         .btn-primary:hover {
-            transform: translateY(-2px) scale(1.02);
-            box-shadow: 0 8px 25px -5px var(--primary-glow);
-            filter: brightness(1.1);
+            transform: translateY(-2px);
+            box-shadow: 0 15px 30px -5px var(--primary-glow);
+        }
+        .btn-primary:hover::after { opacity: 1; }
+
+        /* ICONO DE MONEDA CON GLOW */
+        .icon-container {
+            width: 60px; height: 60px;
+            border-radius: 16px;
+            background: linear-gradient(135deg, rgba(255,255,255,0.1), rgba(255,255,255,0.02));
+            border: 1px solid rgba(255,255,255,0.1);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.5rem;
+            box-shadow: 0 10px 20px -5px rgba(0,0,0,0.3);
+            margin-bottom: 1rem;
+            transition: all 0.3s ease;
         }
 
-        .btn-primary:active {
-            transform: scale(0.98);
+        .premium-card:hover .icon-container {
+            background: rgba(255,255,255,0.1);
+            border-color: rgba(255,255,255,0.2);
+            transform: scale(1.1) rotate(-5deg);
         }
 
-        /* ICONO DE MONEDA */
-        .coin-icon-bg {
-            background: rgba(255, 255, 255, 0.05);
-            border: 1px solid rgba(255, 255, 255, 0.1);
-            color: var(--primary-mid);
+        /* --- ESTILO CORONA PLATA Y ORO (REUTILIZADO PARA MONEDAS) --- */
+        .silver-crown {
+            font-size: 2rem;
+            color: #e2e8f0;
+            -webkit-text-stroke: 1.5px #f59e0b;
+            filter: drop-shadow(0 0 5px rgba(245, 158, 11, 0.6));
+            paint-order: stroke fill;
+        }
+
+        /* SEPARADOR */
+        .divider {
+            height: 1px;
+            background: linear-gradient(90deg, transparent, rgba(255,255,255,0.1), transparent);
+            width: 100%;
+            margin: 20px 0;
         }
     </style>
 </head>
@@ -143,52 +213,79 @@
             </div>
 
             {% if packages %}
-                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 items-start">
                     {% for pkg in packages %}
-                    <div class="glass-panel rounded-3xl p-8 flex flex-col items-center relative overflow-hidden group">
 
-                        <!-- Glow Effect on Hover -->
-                        <div class="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-transparent via-white/50 to-transparent transform -translate-x-full group-hover:translate-x-full transition-transform duration-1000"></div>
+                    <div class="premium-card p-8 flex flex-col relative group">
 
-                        <div class="h-20 w-20 rounded-2xl flex items-center justify-center mb-6 text-3xl shadow-inner coin-icon-bg">
-                            <i class="fas fa-coins"></i>
+                        <!-- Header -->
+                        <div class="flex justify-between items-start mb-4">
+                            <!-- ICONO MONEDAS CON ESTILO CORONA -->
+                            <div class="icon-container">
+                                <i class="fas fa-coins silver-crown"></i>
+                            </div>
                         </div>
 
-                        <h3 class="text-2xl font-bold mb-2 text-white">{{ pkg.name }}</h3>
+                        <h3 class="text-2xl font-bold text-white mb-2">{{ pkg.name }}</h3>
 
-                        <div class="flex items-baseline gap-1 mb-2">
-                            <span class="text-4xl font-black text-white">${{ pkg.price }}</span>
-                            <span class="text-gray-400 text-sm">USD</span>
+                        <p class="text-gray-400 text-sm mb-6 min-h-[20px]">One-time purchase. No subscription.</p>
+
+                        <!-- Price -->
+                        <div class="flex items-baseline gap-1 mb-6">
+                            <span class="text-5xl font-black text-white tracking-tighter">${{ pkg.price|floatformat:0 }}</span>
+                            <div class="flex flex-col text-xs text-gray-400 font-semibold uppercase ml-1">
+                                <span>USD</span>
+                                <span>One-Time</span>
+                            </div>
                         </div>
 
-                        <div class="text-sm font-bold mb-8 px-3 py-1 rounded-full border border-white/10 bg-white/5" style="color: var(--primary-end);">
-                            {{ pkg.tokens }} Tokens
-                        </div>
+                        <div class="divider"></div>
 
-                        <ul class="text-gray-400 text-sm space-y-4 mb-8 w-full px-4">
+                        <!-- Features List -->
+                        <ul class="space-y-4 mb-8 flex-grow">
+                            <!-- Token Feature (Highlighted) -->
                             <li class="flex items-center gap-3">
-                                <div class="h-5 w-5 rounded-full bg-green-500/20 flex items-center justify-center text-green-400 text-xs"><i class="fas fa-check"></i></div>
-                                <span>Instant Delivery</span>
+                                <div class="h-6 w-6 rounded-full bg-white/10 flex items-center justify-center text-white text-xs shrink-0">
+                                    <i class="fas fa-bolt"></i>
+                                </div>
+                                <span class="text-white font-bold">{{ pkg.tokens }} Tokens <span class="text-gray-500 font-normal">added instantly</span></span>
                             </li>
-                            <li class="flex items-center gap-3">
-                                <div class="h-5 w-5 rounded-full bg-green-500/20 flex items-center justify-center text-green-400 text-xs"><i class="fas fa-check"></i></div>
-                                <span>Secure PayPal Payment</span>
-                            </li>
-                            <li class="flex items-center gap-3">
-                                <div class="h-5 w-5 rounded-full bg-green-500/20 flex items-center justify-center text-green-400 text-xs"><i class="fas fa-check"></i></div>
-                                <span>Never Expires</span>
-                            </li>
+
+                            {% if pkg.features_list %}
+                                {% for feature in pkg.features_list|split:"," %}
+                                    <li class="flex items-start gap-3">
+                                        <div class="h-6 w-6 rounded-full bg-blue-500/10 flex items-center justify-center text-blue-400 text-xs shrink-0 mt-0.5">
+                                            <i class="fas fa-check"></i>
+                                        </div>
+                                        <span class="text-gray-300 text-sm">{{ feature }}</span>
+                                    </li>
+                                {% endfor %}
+                            {% else %}
+                                <!-- Default Features -->
+                                <li class="flex items-start gap-3">
+                                    <div class="h-6 w-6 rounded-full bg-blue-500/10 flex items-center justify-center text-blue-400 text-xs shrink-0 mt-0.5">
+                                        <i class="fas fa-check"></i>
+                                    </div>
+                                    <span class="text-gray-300 text-sm">Never Expires</span>
+                                </li>
+                                <li class="flex items-start gap-3">
+                                    <div class="h-6 w-6 rounded-full bg-blue-500/10 flex items-center justify-center text-blue-400 text-xs shrink-0 mt-0.5"><i class="fas fa-check"></i></div>
+                                    <span class="text-gray-300 text-sm">Secure Payment</span>
+                                </li>
+                            {% endif %}
                         </ul>
 
-                        <a href="{% url 'payment_process' pkg.id %}" class="w-full py-4 px-6 rounded-xl text-center btn-primary">
+                        <!-- Action Button -->
+                        <a href="{% url 'payment_process' pkg.id %}" class="w-full py-4 rounded-xl text-center btn-primary">
                             Buy Now
                         </a>
+
                     </div>
                     {% endfor %}
                 </div>
             {% else %}
-                <div class="text-center py-20 glass-panel rounded-3xl max-w-2xl mx-auto">
-                    <div class="h-20 w-20 rounded-full bg-gray-800/50 flex items-center justify-center mx-auto mb-4 text-gray-500 text-3xl">
+                <div class="text-center py-20 premium-card max-w-2xl mx-auto">
+                    <div class="h-20 w-20 rounded-full bg-white/5 flex items-center justify-center mx-auto mb-4 text-gray-500 text-3xl">
                         <i class="fas fa-box-open"></i>
                     </div>
                     <div class="text-gray-300 text-xl font-bold">No packages available</div>

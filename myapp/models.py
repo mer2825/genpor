@@ -151,15 +151,25 @@ def delete_character_image_files(sender, instance, **kwargs):
             except Exception as e:
                 print(f"Error deleting workflow file: {e}")
 
-# --- NEW: GLOBAL TOKEN SETTINGS PANEL ---
+# --- NEW: GLOBAL CLIENT SETTINGS (Renamed from TokenSettings) ---
 class TokenSettings(models.Model):
     INTERVAL_CHOICES = [('DAILY', 'Daily'), ('WEEKLY', 'Weekly'), ('MONTHLY', 'Monthly'), ('NEVER', 'Never')]
     
+    # --- TOKEN CONFIGURATION ---
     default_token_allowance = models.PositiveIntegerField(default=100, help_text="Default tokens assigned to all clients on reset.")
     reset_interval = models.CharField(max_length=10, choices=INTERVAL_CHOICES, default='MONTHLY', help_text="How often tokens are reset for all clients.")
 
+    # --- BASE PLAN PERMISSIONS (FREE USERS) ---
+    allow_upscale_free = models.BooleanField(default=False, verbose_name="Allow Upscale (Free Tier)", help_text="If checked, users without a subscription can use Upscale.")
+    allow_face_detail_free = models.BooleanField(default=False, verbose_name="Allow Face Detailer (Free Tier)", help_text="If checked, users without a subscription can use Face Detailer.")
+    allow_eye_detail_free = models.BooleanField(default=False, verbose_name="Allow Eye Detailer (Free Tier)", help_text="If checked, users without a subscription can use Eye Detailer.")
+
     def __str__(self):
-        return "Global Token Settings"
+        return "Global Client Configuration"
+
+    class Meta:
+        verbose_name = "Client Configuration"
+        verbose_name_plural = "Client Configuration"
 
     def save(self, *args, **kwargs):
         # Ensure there is only one instance of this model
@@ -486,6 +496,15 @@ class TokenPackage(models.Model):
     name = models.CharField(max_length=100, verbose_name="Package Name", help_text="Ex: Starter Pack")
     tokens = models.PositiveIntegerField(verbose_name="Tokens to Grant", help_text="Amount of tokens in this package")
     price = models.DecimalField(max_digits=10, decimal_places=2, verbose_name="Price (USD)", help_text="Price in USD")
+    
+    # --- NEW: CUSTOM FEATURES LIST ---
+    features_list = models.TextField(
+        blank=True, 
+        null=True, 
+        verbose_name="Custom Features List", 
+        help_text="Enter features separated by commas (e.g., 'Instant Delivery, Secure Payment'). If empty, defaults will be used."
+    )
+
     is_active = models.BooleanField(default=True, verbose_name="Active")
     created_at = models.DateTimeField(auto_now_add=True)
 
@@ -531,11 +550,32 @@ class SubscriptionPlan(models.Model):
     
     tokens_per_period = models.PositiveIntegerField(verbose_name="Tokens per Period", help_text="Tokens granted each renewal")
     
+    # --- NEW: PLAN PERMISSIONS ---
+    allow_upscale = models.BooleanField(default=False, verbose_name="Allow Upscale", help_text="Does this plan include Upscale?")
+    allow_face_detail = models.BooleanField(default=False, verbose_name="Allow Face Detailer", help_text="Does this plan include Face Detailer?")
+    allow_eye_detail = models.BooleanField(default=False, verbose_name="Allow Eye Detailer", help_text="Does this plan include Eye Detailer?")
+
+    # --- NEW: CUSTOM FEATURES LIST ---
+    features_list = models.TextField(
+        blank=True, 
+        null=True, 
+        verbose_name="Custom Features List", 
+        help_text="Enter features separated by commas (e.g., 'Priority Support, Cancel Anytime'). If empty, defaults will be used."
+    )
+
     is_active = models.BooleanField(default=True, verbose_name="Active")
     paypal_plan_id = models.CharField(max_length=100, blank=True, null=True, help_text="Optional: ID from PayPal Dashboard if needed")
 
     def __str__(self):
         return f"{self.name} - ${self.price} / {self.billing_period}{self.billing_period_unit}"
+
+    # --- NEW: HELPER METHOD FOR CAPABILITIES DISPLAY ---
+    def get_capabilities_display(self):
+        caps = []
+        if self.allow_upscale: caps.append("Upscaler")
+        if self.allow_face_detail: caps.append("Face Detailer")
+        if self.allow_eye_detail: caps.append("Eye Detailer")
+        return " + ".join(caps)
 
 class UserSubscription(models.Model):
     STATUS_CHOICES = [

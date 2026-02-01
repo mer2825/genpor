@@ -99,11 +99,23 @@ class AdminUserAdmin(UserAdmin):
 
 # --- END USER CUSTOMIZATION ---
 
-# --- GLOBAL TOKEN SETTINGS REGISTRATION ---
+# --- GLOBAL CLIENT SETTINGS REGISTRATION (UPDATED) ---
 @admin.register(TokenSettings)
 class TokenSettingsAdmin(admin.ModelAdmin):
-    list_display = ('default_token_allowance', 'reset_interval')
+    list_display = ('default_token_allowance', 'reset_interval', 'allow_upscale_free', 'allow_face_detail_free', 'allow_eye_detail_free')
     
+    # Organize fields into sections
+    fieldsets = (
+        ('Token Configuration', {
+            'fields': ('default_token_allowance', 'reset_interval'),
+            'description': 'Set the default token allowance and reset interval for all clients.'
+        }),
+        ('Free Tier Permissions (Base Plan)', {
+            'fields': ('allow_upscale_free', 'allow_face_detail_free', 'allow_eye_detail_free'),
+            'description': 'Control which advanced features are available to users without an active subscription.'
+        }),
+    )
+
     def has_add_permission(self, request):
         # Only allow creating if none exists
         if self.model.objects.exists():
@@ -647,6 +659,17 @@ class TokenPackageAdmin(admin.ModelAdmin):
     list_display = ('name', 'tokens', 'price', 'is_active')
     list_editable = ('is_active',)
     search_fields = ('name',)
+    
+    # --- NEW: CUSTOM FEATURES FIELDSET ---
+    fieldsets = (
+        (None, {
+            'fields': ('name', 'tokens', 'price', 'is_active')
+        }),
+        ('Custom Features List', {
+            'fields': ('features_list',),
+            'description': 'Customize the bullet points shown on the pricing card.'
+        }),
+    )
 
 @admin.register(PaymentTransaction)
 class PaymentTransactionAdmin(admin.ModelAdmin):
@@ -658,13 +681,31 @@ class PaymentTransactionAdmin(admin.ModelAdmin):
     def has_add_permission(self, request):
         return False
 
-# --- SUBSCRIPTION ADMIN ---
+# --- SUBSCRIPTION ADMIN (UPDATED) ---
 
 @admin.register(SubscriptionPlan)
 class SubscriptionPlanAdmin(admin.ModelAdmin):
-    list_display = ('name', 'price', 'billing_period', 'billing_period_unit', 'tokens_per_period', 'is_active')
-    list_editable = ('is_active',)
+    list_display = ('name', 'price', 'billing_period', 'billing_period_unit', 'tokens_per_period', 'is_active', 'allow_upscale', 'allow_face_detail', 'allow_eye_detail')
+    list_editable = ('is_active', 'allow_upscale', 'allow_face_detail', 'allow_eye_detail')
     search_fields = ('name',)
+    
+    fieldsets = (
+        ('Plan Details', {
+            'fields': ('name', 'description', 'price', 'is_active')
+        }),
+        ('Billing Cycle', {
+            'fields': ('billing_period', 'billing_period_unit', 'tokens_per_period', 'paypal_plan_id')
+        }),
+        ('Feature Permissions', {
+            'fields': ('allow_upscale', 'allow_face_detail', 'allow_eye_detail'),
+            'description': 'Check the features included in this plan.'
+        }),
+        # --- NEW: CUSTOM FEATURES FIELDSET ---
+        ('Custom Features List', {
+            'fields': ('features_list',),
+            'description': 'Customize the bullet points shown on the pricing card.'
+        }),
+    )
 
 @admin.register(UserSubscription)
 class UserSubscriptionAdmin(admin.ModelAdmin):

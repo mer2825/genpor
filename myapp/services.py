@@ -409,7 +409,8 @@ def classify_image_node(node_id, workflow):
     if "FACE" in title or "DETAILER" in title:
         return "Gen_FaceDetailer", True
     
-    if "UPSCALE" in title:
+    # --- CAMBIO: AÑADIDO "UPSCALER" EXPLÍCITAMENTE ---
+    if "UPSCALE" in title or "UPSCALER" in title:
         return "Gen_UpScaler", True
         
     if "NORMAL" in title or "BASE" in title:
@@ -470,7 +471,9 @@ def classify_image_node(node_id, workflow):
             return "Gen_EyeDetailer", True
         if "face" in class_type or "detailer" in class_type or "segs" in class_type:
             return "Gen_FaceDetailer", True
-        if "upscale" in class_type or "upscale" in title:
+        
+        # --- CAMBIO: AÑADIDO "UPSCALER" EXPLÍCITAMENTE ---
+        if "upscale" in class_type or "upscale" in title or "upscaler" in title:
             return "Gen_UpScaler", True
         
         # --- CORRECCIÓN: No detenerse en Preview, seguir rastreando ---

@@ -408,7 +408,8 @@
                 <button class="output-option-btn active" data-type="Gen_Normal" onclick="selectOutputOption(this)">Generate Normal (Fast)</button>
 
                 {% if workflow_capabilities.can_upscale %}
-                <button class="output-option-btn" data-type="Gen_UpScaler" onclick="selectOutputOption(this)">Generate Upscale (HD)</button>
+                <!-- CAMBIO: Nombre actualizado a Upscaler -->
+                <button class="output-option-btn" data-type="Gen_UpScaler" onclick="selectOutputOption(this)">Generate Upscaler (HD)</button>
                 {% endif %}
 
                 {% if workflow_capabilities.can_facedetail %}

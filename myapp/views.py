@@ -1,6 +1,6 @@
 from django.shortcuts import render, redirect, get_object_or_404
 from django.db import models
-from .models import Workflow, Character, CharacterImage, ConnectionConfig, CompanySettings, ChatMessage, CharacterCategory, CharacterSubCategory, ClientProfile, Coupon, CouponRedemption, CharacterAccessCode, UserCharacterAccess, TokenPackage, PaymentTransaction, SubscriptionPlan, UserSubscription
+from .models import Workflow, Character, CharacterImage, ConnectionConfig, CompanySettings, ChatMessage, CharacterCategory, CharacterSubCategory, ClientProfile, Coupon, CouponRedemption, CharacterAccessCode, UserCharacterAccess, TokenPackage, PaymentTransaction, SubscriptionPlan, UserSubscription, TokenSettings
 import json
 import os
 import uuid
@@ -139,6 +139,40 @@ def get_user_from_request(request):
     if user.is_authenticated:
         pass 
     return user
+
+# --- HELPER: CHECK USER PERMISSIONS (UPDATED) ---
+@sync_to_async
+def get_user_permissions(user):
+    """
+    Returns a dict of permissions based on subscription status and global settings.
+    """
+    settings = TokenSettings.load()
+    
+    # Default: Assume Free Tier (Base Plan)
+    perms = {
+        'can_upscale': settings.allow_upscale_free,
+        'can_facedetail': settings.allow_face_detail_free,
+        'can_eyedetailer': settings.allow_eye_detail_free,
+    }
+    
+    # If user is staff, they can do everything
+    if user.is_staff:
+        return {'can_upscale': True, 'can_facedetail': True, 'can_eyedetailer': True}
+
+    # Check Subscription
+    try:
+        sub = user.subscription
+        if sub.status == 'ACTIVE' and sub.plan:
+            # --- NEW: Use permissions from the specific plan ---
+            perms = {
+                'can_upscale': sub.plan.allow_upscale,
+                'can_facedetail': sub.plan.allow_face_detail,
+                'can_eyedetailer': sub.plan.allow_eye_detail,
+            }
+    except UserSubscription.DoesNotExist:
+        pass
+        
+    return perms
 
 # --- PROFILE VIEW ---
 async def profile_view(request):
@@ -495,6 +529,10 @@ async def workspace_view(request):
         'can_eyedetailer': False # NUEVO: Por defecto False
     }
 
+    # --- NEW: Get User Permissions ---
+    user_permissions = await get_user_permissions(user)
+    print(f"DEBUG PERMISSIONS: User={user.username}, Staff={user.is_staff}, Perms={user_permissions}") # LOG
+
     # --- NEW: Get list of recent chats WITH IMAGES ---
     @sync_to_async
     def get_recent_chats_list():
@@ -582,6 +620,19 @@ async def workspace_view(request):
                     wf_json = await get_workflow_json()
                     # analyze_workflow_outputs needs the node structure, so we use the base.
                     workflow_capabilities = analyze_workflow_outputs(wf_json)
+                    print(f"DEBUG WORKFLOW (RAW): {workflow_capabilities}") # LOG
+                    
+                    # --- NEW: FILTER CAPABILITIES BASED ON USER PERMISSIONS ---
+                    # If user doesn't have permission, disable the capability even if the workflow supports it
+                    if not user_permissions['can_upscale']:
+                        workflow_capabilities['can_upscale'] = False
+                    if not user_permissions['can_facedetail']:
+                        workflow_capabilities['can_facedetail'] = False
+                    if not user_permissions['can_eyedetailer']:
+                        workflow_capabilities['can_eyedetailer'] = False
+                    # ----------------------------------------------------------
+                    print(f"DEBUG WORKFLOW (FILTERED): {workflow_capabilities}") # LOG
+                    
                 except Exception as e:
                     print(f"Error analyzing workflow: {e}")
 
@@ -714,7 +765,18 @@ async def generate_image_view(request):
             valid_types = ["Gen_Normal", "Gen_UpScaler", "Gen_FaceDetailer", "Gen_EyeDetailer"]
             if generation_type not in valid_types:
                 generation_type = "Gen_Normal"
-                
+            
+            # --- NEW: SECURITY CHECK FOR PERMISSIONS ---
+            user_permissions = await get_user_permissions(user)
+            
+            if generation_type == "Gen_UpScaler" and not user_permissions['can_upscale']:
+                return JsonResponse({'status': 'error', 'message': 'Upscale is not available in your plan.'}, status=403)
+            if generation_type == "Gen_FaceDetailer" and not user_permissions['can_facedetail']:
+                return JsonResponse({'status': 'error', 'message': 'Face Detailer is not available in your plan.'}, status=403)
+            if generation_type == "Gen_EyeDetailer" and not user_permissions['can_eyedetailer']:
+                return JsonResponse({'status': 'error', 'message': 'Eye Detailer is not available in your plan.'}, status=403)
+            # -------------------------------------------
+
             allowed_types = [generation_type] # Pass as a list with one item
             # ------------------------------
 
