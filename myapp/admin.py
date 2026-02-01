@@ -640,35 +640,23 @@ class CouponAdmin(admin.ModelAdmin):
     def has_add_permission(self, request):
         return True
 
-# --- PAYPAL ADMIN (CONDITIONAL) ---
+# --- PAYPAL ADMIN (ALWAYS VISIBLE) ---
 
-# Helper to get settings safely, avoiding errors during migrations
-def are_token_sales_active():
-    try:
-        settings = CompanySettings.objects.first()
-        if settings:
-            return settings.is_token_sale_active
-    except (ProgrammingError, CompanySettings.DoesNotExist):
-        # If table doesn't exist yet or no settings object, default to False
+@admin.register(TokenPackage)
+class TokenPackageAdmin(admin.ModelAdmin):
+    list_display = ('name', 'tokens', 'price', 'is_active')
+    list_editable = ('is_active',)
+    search_fields = ('name',)
+
+@admin.register(PaymentTransaction)
+class PaymentTransactionAdmin(admin.ModelAdmin):
+    list_display = ('user', 'package', 'amount', 'status', 'created_at')
+    list_filter = ('status', 'created_at')
+    search_fields = ('user__username', 'paypal_transaction_id')
+    readonly_fields = ('user', 'package', 'amount', 'status', 'paypal_transaction_id', 'created_at', 'updated_at')
+    
+    def has_add_permission(self, request):
         return False
-    return True # Default to True if settings exist but field is not set (for backward compatibility)
-
-if are_token_sales_active():
-    @admin.register(TokenPackage)
-    class TokenPackageAdmin(admin.ModelAdmin):
-        list_display = ('name', 'tokens', 'price', 'is_active')
-        list_editable = ('is_active',)
-        search_fields = ('name',)
-
-    @admin.register(PaymentTransaction)
-    class PaymentTransactionAdmin(admin.ModelAdmin):
-        list_display = ('user', 'package', 'amount', 'status', 'created_at')
-        list_filter = ('status', 'created_at')
-        search_fields = ('user__username', 'paypal_transaction_id')
-        readonly_fields = ('user', 'package', 'amount', 'status', 'paypal_transaction_id', 'created_at', 'updated_at')
-        
-        def has_add_permission(self, request):
-            return False
 
 # --- SUBSCRIPTION ADMIN ---
 
