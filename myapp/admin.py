@@ -14,7 +14,8 @@ from .models import (
     ConnectionConfig, CompanySettings, HeroCarouselImage, AuthPageImage, 
     CharacterCategory, CharacterSubCategory, ClientProfile, TokenSettings, 
     Coupon, CouponRedemption, CharacterAccessCode, UserCharacterAccess, 
-    TokenPackage, PaymentTransaction, SubscriptionPlan, UserSubscription
+    TokenPackage, PaymentTransaction, SubscriptionPlan, UserSubscription,
+    UserPremiumGrant
 )
 from .services import generate_image_from_character, get_active_comfyui_address, get_comfyui_object_info, analyze_workflow
 import json
@@ -67,12 +68,21 @@ class ClientProfileInline(admin.StackedInline):
         return obj.tokens_remaining
     tokens_remaining_display.short_description = "Tokens Remaining (Based on Global Settings)"
 
+# --- NEW: INLINE FOR PREMIUM GRANTS (BECAS) ---
+class UserPremiumGrantInline(admin.TabularInline):
+    model = UserPremiumGrant
+    extra = 0
+    fields = ('grant_name', 'expires_at', 'grant_upscale', 'grant_face_detail', 'grant_eye_detail')
+    readonly_fields = ('created_at',)
+    verbose_name = "Premium Grant (Beca)"
+    verbose_name_plural = "Premium Grants (Becas)"
+
 @admin.register(ClientUser)
 class ClientUserAdmin(UserAdmin):
     list_display = ('username', 'email', 'first_name', 'last_name', 'is_active', 'date_joined', 'get_tokens_remaining')
     list_filter = ('is_active', 'date_joined')
     actions = [activate_users, deactivate_users] 
-    inlines = [ClientProfileInline] 
+    inlines = [ClientProfileInline, UserPremiumGrantInline] # AÑADIDO: UserPremiumGrantInline
 
     fieldsets = (
         (None, {'fields': ('username', 'password')}),
@@ -643,11 +653,25 @@ class CouponRedemptionInline(admin.TabularInline):
 
 @admin.register(Coupon)
 class CouponAdmin(admin.ModelAdmin):
-    list_display = ('code', 'tokens', 'max_redemptions', 'times_redeemed', 'created_at')
+    list_display = ('code', 'tokens', 'duration_days', 'max_redemptions', 'times_redeemed', 'created_at')
     list_filter = ('created_at',)
     search_fields = ('code',)
     readonly_fields = ('times_redeemed', 'created_at')
     inlines = [CouponRedemptionInline]
+    
+    fieldsets = (
+        ('Coupon Details', {
+            'fields': ('code', 'max_redemptions', 'times_redeemed')
+        }),
+        ('Rewards', {
+            'fields': ('tokens', 'duration_days'),
+            'description': 'Set tokens to grant and/or duration of premium access.'
+        }),
+        ('Premium Features (If Duration > 0)', {
+            'fields': ('unlock_upscale', 'unlock_face_detail', 'unlock_eye_detail'),
+            'description': 'Select which features are unlocked during the premium period.'
+        }),
+    )
 
     def has_add_permission(self, request):
         return True
@@ -716,3 +740,11 @@ class UserSubscriptionAdmin(admin.ModelAdmin):
 
     def has_add_permission(self, request):
         return False
+
+# --- NEW: REGISTER USER PREMIUM GRANT ---
+@admin.register(UserPremiumGrant)
+class UserPremiumGrantAdmin(admin.ModelAdmin):
+    list_display = ('user', 'grant_name', 'expires_at', 'is_active')
+    list_filter = ('expires_at',)
+    search_fields = ('user__username', 'grant_name')
+    readonly_fields = ('created_at',)

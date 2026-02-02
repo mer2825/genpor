@@ -385,7 +385,14 @@ def generate_coupon_code():
 # --- UPDATED COUPON SYSTEM ---
 class Coupon(models.Model):
     code = models.CharField(max_length=20, unique=True, default=generate_coupon_code, editable=True) # Editable to allow custom codes
-    tokens = models.PositiveIntegerField(verbose_name="Tokens to Grant")
+    tokens = models.PositiveIntegerField(verbose_name="Tokens to Grant", default=0)
+    
+    # --- NEW: PREMIUM FEATURES GRANT ---
+    duration_days = models.PositiveIntegerField(default=0, verbose_name="Duration (Days)", help_text="How many days the premium features last. 0 = No time limit (or just tokens).")
+    
+    unlock_upscale = models.BooleanField(default=False, verbose_name="Unlock Upscaler", help_text="Does this coupon unlock Upscaler?")
+    unlock_face_detail = models.BooleanField(default=False, verbose_name="Unlock Face Detailer", help_text="Does this coupon unlock Face Detailer?")
+    unlock_eye_detail = models.BooleanField(default=False, verbose_name="Unlock Eye Detailer", help_text="Does this coupon unlock Eye Detailer?")
     
     # --- NEW FIELDS FOR MULTI-USER ---
     max_redemptions = models.PositiveIntegerField(null=True, blank=True, verbose_name="Max Users", help_text="Maximum number of users who can redeem this coupon. Leave empty for infinite.")
@@ -395,7 +402,13 @@ class Coupon(models.Model):
 
     def __str__(self):
         limit_str = f"{self.times_redeemed}/{self.max_redemptions}" if self.max_redemptions else f"{self.times_redeemed}/∞"
-        return f"{self.code} - {self.tokens} Tokens (Users: {limit_str})"
+        features = []
+        if self.unlock_upscale: features.append("Upscale")
+        if self.unlock_face_detail: features.append("Face")
+        if self.unlock_eye_detail: features.append("Eye")
+        feature_str = f" + {', '.join(features)}" if features else ""
+        
+        return f"{self.code} - {self.tokens} Tokens{feature_str} ({self.duration_days} Days) (Users: {limit_str})"
 
 class CouponRedemption(models.Model):
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='coupon_redemptions')
@@ -409,6 +422,33 @@ class CouponRedemption(models.Model):
 
     def __str__(self):
         return f"{self.user.username} redeemed {self.coupon.code}"
+
+# --- NEW: USER PREMIUM GRANT (BECAS) ---
+class UserPremiumGrant(models.Model):
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='premium_grants')
+    coupon = models.ForeignKey(Coupon, on_delete=models.SET_NULL, null=True, blank=True, help_text="Source coupon (optional)")
+    
+    grant_name = models.CharField(max_length=100, default="Premium Access", help_text="Reason for the grant")
+    
+    expires_at = models.DateTimeField(verbose_name="Expiration Date")
+    
+    # Snapshot of permissions granted
+    grant_upscale = models.BooleanField(default=False)
+    grant_face_detail = models.BooleanField(default=False)
+    grant_eye_detail = models.BooleanField(default=False)
+    
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        verbose_name = "User Premium Grant"
+        verbose_name_plural = "User Premium Grants"
+
+    def __str__(self):
+        return f"{self.user.username} - {self.grant_name} (Expires: {self.expires_at.strftime('%Y-%m-%d')})"
+
+    @property
+    def is_active(self):
+        return timezone.now() < self.expires_at
 
 # --- NEW: PRIVATE CHARACTER ACCESS SYSTEM ---
 

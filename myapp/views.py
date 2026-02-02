@@ -1,6 +1,6 @@
 from django.shortcuts import render, redirect, get_object_or_404
 from django.db import models
-from .models import Workflow, Character, CharacterImage, ConnectionConfig, CompanySettings, ChatMessage, CharacterCategory, CharacterSubCategory, ClientProfile, Coupon, CouponRedemption, CharacterAccessCode, UserCharacterAccess, TokenPackage, PaymentTransaction, SubscriptionPlan, UserSubscription, TokenSettings
+from .models import Workflow, Character, CharacterImage, ConnectionConfig, CompanySettings, ChatMessage, CharacterCategory, CharacterSubCategory, ClientProfile, Coupon, CouponRedemption, CharacterAccessCode, UserCharacterAccess, TokenPackage, PaymentTransaction, SubscriptionPlan, UserSubscription, TokenSettings, UserPremiumGrant
 import json
 import os
 import uuid
@@ -24,6 +24,7 @@ from allauth.account.models import EmailAddress # IMPORTANTE: Para limpiar email
 import random # IMPORTANTE: Para seleccionar imágenes aleatorias
 from paypal.standard.forms import PayPalPaymentsForm # IMPORTANTE: Para PayPal
 from django.views.decorators.csrf import csrf_exempt # IMPORTANTE: Para PayPal
+from datetime import timedelta
 
 # --- CLASE PERSONALIZADA PARA PAYPAL DINÁMICO ---
 class DynamicPayPalForm(PayPalPaymentsForm):
@@ -144,7 +145,7 @@ def get_user_from_request(request):
 @sync_to_async
 def get_user_permissions(user):
     """
-    Returns a dict of permissions based on subscription status and global settings.
+    Returns a dict of permissions based on subscription status, grants, and global settings.
     """
     settings = TokenSettings.load()
     
@@ -159,19 +160,25 @@ def get_user_permissions(user):
     if user.is_staff:
         return {'can_upscale': True, 'can_facedetail': True, 'can_eyedetailer': True}
 
-    # Check Subscription
+    # 1. Check Subscription (Highest Priority)
     try:
         sub = user.subscription
         if sub.status == 'ACTIVE' and sub.plan:
-            # --- NEW: Use permissions from the specific plan ---
-            perms = {
-                'can_upscale': sub.plan.allow_upscale,
-                'can_facedetail': sub.plan.allow_face_detail,
-                'can_eyedetailer': sub.plan.allow_eye_detail,
-            }
+            perms['can_upscale'] = perms['can_upscale'] or sub.plan.allow_upscale
+            perms['can_facedetail'] = perms['can_facedetail'] or sub.plan.allow_face_detail
+            perms['can_eyedetailer'] = perms['can_eyedetailer'] or sub.plan.allow_eye_detail
     except UserSubscription.DoesNotExist:
         pass
         
+    # 2. Check Active Grants (Becas) - Additive Permissions
+    now = timezone.now()
+    active_grants = UserPremiumGrant.objects.filter(user=user, expires_at__gt=now)
+    
+    for grant in active_grants:
+        if grant.grant_upscale: perms['can_upscale'] = True
+        if grant.grant_face_detail: perms['can_facedetail'] = True
+        if grant.grant_eye_detail: perms['can_eyedetailer'] = True
+
     return perms
 
 # --- PROFILE VIEW ---
@@ -941,9 +948,9 @@ async def redeem_coupon_view(request):
         try:
             @sync_to_async
             def process_redemption(user_obj, input_code):
-                # 1. Try to redeem as Token Coupon
+                # 1. Try to redeem as Token/Premium Coupon
                 try:
-                    coupon = Coupon.objects.get(code=input_code) # Removed is_redeemed=False check here
+                    coupon = Coupon.objects.get(code=input_code)
                     
                     # Check if user already redeemed this coupon
                     if CouponRedemption.objects.filter(user=user_obj, coupon=coupon).exists():
@@ -958,17 +965,33 @@ async def redeem_coupon_view(request):
                     
                     # Update coupon stats
                     coupon.times_redeemed += 1
-                    # Optional: Mark as fully redeemed if limit reached (for visual purposes in admin)
-                    if coupon.max_redemptions and coupon.times_redeemed >= coupon.max_redemptions:
-                        coupon.is_redeemed = True 
                     coupon.save()
                     
-                    # Grant tokens
-                    profile, _ = ClientProfile.objects.get_or_create(user=user_obj)
-                    profile.bonus_tokens += coupon.tokens
-                    profile.save()
+                    # Grant tokens (if any)
+                    if coupon.tokens > 0:
+                        profile, _ = ClientProfile.objects.get_or_create(user=user_obj)
+                        profile.bonus_tokens += coupon.tokens
+                        profile.save()
                     
-                    return {"success": True, "message": f"Successfully redeemed {coupon.tokens} tokens!"}
+                    # Grant Premium Features (if duration > 0)
+                    if coupon.duration_days > 0:
+                        expires = timezone.now() + timedelta(days=coupon.duration_days)
+                        UserPremiumGrant.objects.create(
+                            user=user_obj,
+                            coupon=coupon,
+                            grant_name=f"Coupon: {coupon.code}",
+                            expires_at=expires,
+                            grant_upscale=coupon.unlock_upscale,
+                            grant_face_detail=coupon.unlock_face_detail,
+                            grant_eye_detail=coupon.unlock_eye_detail
+                        )
+                    
+                    msg_parts = []
+                    if coupon.tokens > 0: msg_parts.append(f"{coupon.tokens} Tokens")
+                    if coupon.duration_days > 0: msg_parts.append(f"{coupon.duration_days} Days Premium Access")
+                    
+                    return {"success": True, "message": f"Successfully redeemed: {' + '.join(msg_parts)}!"}
+
                 except Coupon.DoesNotExist:
                     pass # Continue to check Character Codes
 
