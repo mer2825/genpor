@@ -15,7 +15,7 @@ from .models import (
     CharacterCategory, CharacterSubCategory, ClientProfile, TokenSettings, 
     Coupon, CouponRedemption, CharacterAccessCode, UserCharacterAccess, 
     TokenPackage, PaymentTransaction, SubscriptionPlan, UserSubscription,
-    UserPremiumGrant
+    UserPremiumGrant, PaymentMethod
 )
 from .services import generate_image_from_character, get_active_comfyui_address, get_comfyui_object_info, analyze_workflow
 import json
@@ -205,6 +205,11 @@ class CompanySettingsAdmin(admin.ModelAdmin):
         ('PayPal Configuration', {
             'fields': ('paypal_receiver_email', 'paypal_is_sandbox'),
             'description': 'Configure your PayPal Business account for receiving payments.'
+        }),
+        # --- NEW: STRIPE SETTINGS SECTION ---
+        ('Stripe Configuration', {
+            'fields': ('stripe_publishable_key', 'stripe_secret_key'),
+            'description': 'Configure your Stripe account for card payments. Get these keys from dashboard.stripe.com.'
         }),
         ('Contact & Social', {
             'fields': ('phone', 'email', 'facebook', 'discord')
@@ -748,3 +753,27 @@ class UserPremiumGrantAdmin(admin.ModelAdmin):
     list_filter = ('expires_at',)
     search_fields = ('user__username', 'grant_name')
     readonly_fields = ('created_at',)
+
+# --- NEW: PAYMENT METHOD ADMIN ---
+@admin.register(PaymentMethod)
+class PaymentMethodAdmin(admin.ModelAdmin):
+    list_display = ('name', 'config_key', 'is_active')
+    list_editable = ('is_active',)
+    # readonly_fields = ('config_key',) # REMOVIDO: Esto bloqueaba la creación
+    
+    def get_readonly_fields(self, request, obj=None):
+        # Si el objeto ya existe (edición), el campo es readonly
+        if obj:
+            return ('config_key',)
+        # Si es nuevo (creación), el campo es editable
+        return ()
+
+    def has_add_permission(self, request):
+        # Optional: Prevent adding new methods if you only want the predefined ones
+        # return False 
+        return True
+
+    def has_delete_permission(self, request, obj=None):
+        # Optional: Prevent deleting methods
+        # return False
+        return True

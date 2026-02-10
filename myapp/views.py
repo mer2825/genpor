@@ -1,6 +1,6 @@
 from django.shortcuts import render, redirect, get_object_or_404
 from django.db import models
-from .models import Workflow, Character, CharacterImage, ConnectionConfig, CompanySettings, ChatMessage, CharacterCategory, CharacterSubCategory, ClientProfile, Coupon, CouponRedemption, CharacterAccessCode, UserCharacterAccess, TokenPackage, PaymentTransaction, SubscriptionPlan, UserSubscription, TokenSettings, UserPremiumGrant
+from .models import Workflow, Character, CharacterImage, ConnectionConfig, CompanySettings, ChatMessage, CharacterCategory, CharacterSubCategory, ClientProfile, Coupon, CouponRedemption, CharacterAccessCode, UserCharacterAccess, TokenPackage, PaymentTransaction, SubscriptionPlan, UserSubscription, TokenSettings, UserPremiumGrant, PaymentMethod
 import json
 import os
 import uuid
@@ -25,6 +25,7 @@ import random # IMPORTANTE: Para seleccionar imágenes aleatorias
 from paypal.standard.forms import PayPalPaymentsForm # IMPORTANTE: Para PayPal
 from django.views.decorators.csrf import csrf_exempt # IMPORTANTE: Para PayPal
 from datetime import timedelta
+import stripe # IMPORTANTE: Para Stripe
 
 # --- CLASE PERSONALIZADA PARA PAYPAL DINÁMICO ---
 class DynamicPayPalForm(PayPalPaymentsForm):
@@ -1092,12 +1093,75 @@ def payment_process(request, package_id):
     # --- CALCULAR ENDPOINT EXPLÍCITAMENTE PARA EL TEMPLATE ---
     paypal_endpoint = form.get_endpoint()
 
+    # --- NUEVO: OBTENER MÉTODOS DE PAGO ACTIVOS ---
+    active_methods = list(PaymentMethod.objects.filter(is_active=True).values_list('config_key', flat=True))
+    
+    # Stripe Config (Dynamic from DB)
+    stripe_key = None
+    if 'stripe' in active_methods:
+        if company_settings and company_settings.stripe_publishable_key:
+            stripe_key = company_settings.stripe_publishable_key
+        else:
+            stripe_key = settings.STRIPE_PUBLISHABLE_KEY # Fallback
+
     return render(request, 'myapp/payment_process.html', {
         'form': form, 
         'package': package,
         'company': company_settings,
-        'paypal_endpoint': paypal_endpoint # PASAR VARIABLE AL CONTEXTO
+        'paypal_endpoint': paypal_endpoint, # PASAR VARIABLE AL CONTEXTO
+        'active_methods': active_methods, # NUEVO
+        'stripe_key': stripe_key # NUEVO
     })
+
+# --- NUEVA VISTA: CREAR SESIÓN DE STRIPE ---
+@login_required
+def create_checkout_session(request, package_id):
+    if request.method == 'POST':
+        company_settings = CompanySettings.objects.last()
+        
+        # Obtener clave secreta
+        stripe_secret_key = None
+        if company_settings and company_settings.stripe_secret_key:
+            stripe_secret_key = company_settings.stripe_secret_key
+        else:
+            stripe_secret_key = settings.STRIPE_SECRET_KEY
+            
+        if not stripe_secret_key:
+             return JsonResponse({'error': 'Stripe is not configured correctly.'}, status=500)
+             
+        stripe.api_key = stripe_secret_key
+        
+        package = get_object_or_404(TokenPackage, id=package_id)
+        host = request.get_host()
+        protocol = "https" if request.is_secure() else "http"
+        
+        try:
+            checkout_session = stripe.checkout.Session.create(
+                payment_method_types=['card'],
+                line_items=[{
+                    'price_data': {
+                        'currency': 'usd',
+                        'product_data': {
+                            'name': package.name,
+                        },
+                        'unit_amount': int(package.price * 100), # Centavos
+                    },
+                    'quantity': 1,
+                }],
+                mode='payment',
+                success_url=f'{protocol}://{host}{reverse("payment_done")}',
+                cancel_url=f'{protocol}://{host}{reverse("payment_canceled")}',
+                client_reference_id=str(request.user.id), # Para identificar al usuario en el webhook
+                metadata={
+                    'package_id': package.id,
+                    'user_id': request.user.id
+                }
+            )
+            return JsonResponse({'id': checkout_session.id})
+        except Exception as e:
+            return JsonResponse({'error': str(e)}, status=400)
+            
+    return JsonResponse({'error': 'Invalid request'}, status=400)
 
 @csrf_exempt
 def payment_done(request):
@@ -1181,12 +1245,88 @@ def subscription_process(request, plan_id):
     # --- CALCULAR ENDPOINT EXPLÍCITAMENTE PARA EL TEMPLATE ---
     paypal_endpoint = form.get_endpoint()
 
+    # --- NUEVO: OBTENER MÉTODOS DE PAGO ACTIVOS ---
+    active_methods = list(PaymentMethod.objects.filter(is_active=True).values_list('config_key', flat=True))
+    
+    # Stripe Config (Dynamic from DB)
+    stripe_key = None
+    if 'stripe' in active_methods:
+        if company_settings and company_settings.stripe_publishable_key:
+            stripe_key = company_settings.stripe_publishable_key
+        else:
+            stripe_key = settings.STRIPE_PUBLISHABLE_KEY # Fallback
+
     return render(request, 'myapp/subscription_process.html', {
         'form': form, 
         'plan': plan,
         'company': company_settings,
-        'paypal_endpoint': paypal_endpoint # PASAR VARIABLE AL CONTEXTO
+        'paypal_endpoint': paypal_endpoint, # PASAR VARIABLE AL CONTEXTO
+        'active_methods': active_methods, # NUEVO
+        'stripe_key': stripe_key # NUEVO
     })
+
+# --- NUEVA VISTA: CREAR SESIÓN DE SUSCRIPCIÓN STRIPE ---
+@login_required
+def create_subscription_checkout_session(request, plan_id):
+    if request.method == 'POST':
+        company_settings = CompanySettings.objects.last()
+        
+        # Obtener clave secreta
+        stripe_secret_key = None
+        if company_settings and company_settings.stripe_secret_key:
+            stripe_secret_key = company_settings.stripe_secret_key
+        else:
+            stripe_secret_key = settings.STRIPE_SECRET_KEY
+            
+        if not stripe_secret_key:
+             return JsonResponse({'error': 'Stripe is not configured correctly.'}, status=500)
+             
+        stripe.api_key = stripe_secret_key
+        
+        plan = get_object_or_404(SubscriptionPlan, id=plan_id)
+        host = request.get_host()
+        protocol = "https" if request.is_secure() else "http"
+        
+        # Mapear unidad de tiempo de Django a Stripe
+        interval_map = {
+            'D': 'day',
+            'W': 'week',
+            'M': 'month',
+            'Y': 'year'
+        }
+        stripe_interval = interval_map.get(plan.billing_period_unit, 'month')
+        
+        try:
+            checkout_session = stripe.checkout.Session.create(
+                payment_method_types=['card'],
+                line_items=[{
+                    'price_data': {
+                        'currency': 'usd',
+                        'product_data': {
+                            'name': plan.name,
+                        },
+                        'unit_amount': int(plan.price * 100), # Centavos
+                        'recurring': {
+                            'interval': stripe_interval,
+                            'interval_count': plan.billing_period
+                        }
+                    },
+                    'quantity': 1,
+                }],
+                mode='subscription', # MODO SUSCRIPCIÓN
+                success_url=f'{protocol}://{host}{reverse("subscription_done")}',
+                cancel_url=f'{protocol}://{host}{reverse("subscription_canceled")}',
+                client_reference_id=str(request.user.id),
+                metadata={
+                    'plan_id': plan.id,
+                    'user_id': request.user.id
+                }
+            )
+            return JsonResponse({'id': checkout_session.id})
+        except Exception as e:
+            return JsonResponse({'error': str(e)}, status=400)
+            
+    return JsonResponse({'error': 'Invalid request'}, status=400)
 
 @csrf_exempt
 def subscription_done(request):

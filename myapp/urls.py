@@ -26,6 +26,12 @@ urlpatterns = [
     path('payment/done/', views.payment_done, name='payment_done'),
     path('payment/canceled/', views.payment_canceled, name='payment_canceled'),
 
+    # Rutas de Stripe (Pagos Únicos)
+    path('payment/stripe/create-checkout-session/<int:package_id>/', views.create_checkout_session, name='create_checkout_session'),
+    
+    # Rutas de Stripe (Suscripciones)
+    path('subscription/stripe/create-checkout-session/<int:plan_id>/', views.create_subscription_checkout_session, name='create_subscription_checkout_session'),
+
     # Rutas de Suscripciones (PayPal)
     path('subscriptions/', views.subscription_plans, name='subscription_plans'),
     path('subscription/process/<int:plan_id>/', views.subscription_process, name='subscription_process'),

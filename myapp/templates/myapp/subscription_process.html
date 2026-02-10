@@ -15,6 +15,11 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
 
+    <!-- STRIPE JS -->
+    {% if stripe_key %}
+    <script src="https://js.stripe.com/v3/"></script>
+    {% endif %}
+
     {% if company %}
     <style>
         :root {
@@ -44,13 +49,6 @@
             -webkit-background-clip: text;
             -webkit-text-fill-color: transparent;
         }
-        /* Estilo para el botón de PayPal si es posible, aunque viene del form */
-        input[type="image"] {
-            transition: transform 0.2s;
-        }
-        input[type="image"]:hover {
-            transform: scale(1.05);
-        }
     </style>
 </head>
 <body class="min-h-screen flex items-center justify-center p-4">
@@ -58,10 +56,10 @@
     <div class="glass-panel rounded-3xl p-8 max-w-md w-full text-center relative overflow-hidden">
 
         <div class="mb-6">
-            <div class="h-16 w-16 rounded-full bg-blue-500/20 flex items-center justify-center mx-auto text-blue-400 text-2xl mb-4">
-                <i class="fab fa-paypal"></i>
+            <div class="h-16 w-16 rounded-full bg-white/5 flex items-center justify-center mx-auto text-white text-2xl mb-4 border border-white/10">
+                <i class="fas fa-sync-alt"></i>
             </div>
-            <h2 class="text-2xl font-bold mb-2">Subscribe with PayPal</h2>
+            <h2 class="text-2xl font-bold mb-2">Confirm Subscription</h2>
             <p class="text-gray-400 text-sm">You are about to subscribe to:</p>
         </div>
 
@@ -87,18 +85,90 @@
             </p>
         </div>
 
-        <!-- PayPal Button Container (FORZADO MANUALMENTE) -->
-        <div class="mb-6 flex justify-center">
-            <form action="{{ paypal_endpoint }}" method="post">
-                {% csrf_token %} <!-- AGREGADO CSRF TOKEN -->
-                {{ form.as_p }}
-                <input type="image" src="https://www.paypalobjects.com/en_US/i/btn/btn_subscribeCC_LG.gif" border="0" name="submit" alt="PayPal - The safer, easier way to pay online!">
-            </form>
+        <!-- Payment Buttons Container -->
+        <div class="w-full flex flex-col gap-3 justify-center mb-6">
+
+            {% if 'stripe' in active_methods %}
+            <!-- STRIPE BUTTON -->
+            <button id="stripe-sub-btn" class="w-full py-3 rounded-xl bg-[#635bff] hover:bg-[#544de0] text-white font-bold transition-all flex items-center justify-center gap-2 shadow-lg shadow-indigo-500/20">
+                <i class="fab fa-stripe text-3xl"></i>
+                <span class="ml-1">Subscribe with Card</span>
+            </button>
+            {% endif %}
+
+            {% if 'paypal' in active_methods %}
+            <!-- PAYPAL BUTTON -->
+            <div class="w-full">
+                <form action="{{ paypal_endpoint }}" method="post" class="w-full">
+                    {% csrf_token %}
+                    {{ form.as_p }}
+                    <!-- Custom Styled Button -->
+                    <button type="submit" class="w-full py-3 rounded-xl bg-[#0070ba] hover:bg-[#005ea6] text-white font-bold transition-all flex items-center justify-center gap-2 shadow-lg shadow-blue-500/20">
+                        <i class="fab fa-paypal text-xl"></i>
+                        <span>Subscribe with PayPal</span>
+                    </button>
+                </form>
+            </div>
+            {% endif %}
+
+            {% if not active_methods %}
+            <div class="p-4 rounded-xl bg-red-500/10 border border-red-500/20 text-red-400 text-center text-sm">
+                <i class="fas fa-exclamation-circle mr-2"></i>
+                No payment methods are currently available.
+            </div>
+            {% endif %}
+
         </div>
 
         <a href="{% url 'subscription_plans' %}" class="text-sm text-gray-500 hover:text-white transition-colors">Cancel</a>
 
     </div>
+
+    <!-- STRIPE LOGIC -->
+    {% if stripe_key and 'stripe' in active_methods %}
+    <script>
+        const stripe = Stripe('{{ stripe_key }}');
+        const checkoutButton = document.getElementById('stripe-sub-btn');
+
+        checkoutButton.addEventListener('click', function () {
+            // Disable button
+            checkoutButton.disabled = true;
+            checkoutButton.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Processing...';
+
+            // Call backend to create Subscription Session
+            fetch("{% url 'create_subscription_checkout_session' plan.id %}", {
+                method: 'POST',
+                headers: {
+                    'X-CSRFToken': '{{ csrf_token }}',
+                },
+            })
+            .then(function (response) {
+                return response.json();
+            })
+            .then(function (session) {
+                if (session.error) {
+                    alert(session.error);
+                    checkoutButton.disabled = false;
+                    checkoutButton.innerHTML = '<i class="fab fa-stripe text-3xl"></i> <span class="ml-1">Subscribe with Card</span>';
+                } else {
+                    return stripe.redirectToCheckout({ sessionId: session.id });
+                }
+            })
+            .then(function (result) {
+                if (result.error) {
+                    alert(result.error.message);
+                    checkoutButton.disabled = false;
+                    checkoutButton.innerHTML = '<i class="fab fa-stripe text-3xl"></i> <span class="ml-1">Subscribe with Card</span>';
+                }
+            })
+            .catch(function (error) {
+                console.error('Error:', error);
+                checkoutButton.disabled = false;
+                checkoutButton.innerHTML = '<i class="fab fa-stripe text-3xl"></i> <span class="ml-1">Subscribe with Card</span>';
+            });
+        });
+    </script>
+    {% endif %}
 
 </body>
 </html>

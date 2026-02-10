@@ -328,3 +328,7 @@ RECAPTCHA_PUBLIC_KEY = os.getenv('RECAPTCHA_PUBLIC_KEY')
 RECAPTCHA_PRIVATE_KEY = os.getenv('RECAPTCHA_PRIVATE_KEY')
 # Usar formulario personalizado para Signup
 ACCOUNT_FORMS = {'signup': 'myapp.forms.CustomSignupForm'}
+
+# Stripe Settings
+STRIPE_PUBLISHABLE_KEY = os.getenv('STRIPE_PUBLISHABLE_KEY')
+STRIPE_SECRET_KEY = os.getenv('STRIPE_SECRET_KEY')

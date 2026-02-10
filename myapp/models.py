@@ -291,6 +291,10 @@ class CompanySettings(models.Model):
     paypal_receiver_email = models.EmailField(verbose_name="PayPal Receiver Email", blank=True, null=True, help_text="The email of the PayPal Business account that receives payments.")
     paypal_is_sandbox = models.BooleanField(default=True, verbose_name="PayPal Sandbox Mode", help_text="If checked, payments will be processed in Sandbox (Test) mode. Uncheck for Live (Real Money).")
 
+    # --- NEW: STRIPE SETTINGS (ADMIN CONFIGURABLE) ---
+    stripe_publishable_key = models.CharField(max_length=255, verbose_name="Stripe Publishable Key", blank=True, null=True, help_text="Starts with pk_test_ or pk_live_")
+    stripe_secret_key = models.CharField(max_length=255, verbose_name="Stripe Secret Key", blank=True, null=True, help_text="Starts with sk_test_ or sk_live_")
+
     class Meta:
         verbose_name = "Company Settings"
         verbose_name_plural = "Company Settings"
@@ -640,3 +644,17 @@ class UserSubscription(models.Model):
 
     def __str__(self):
         return f"{self.user.username} - {self.plan.name if self.plan else 'No Plan'} ({self.status})"
+
+# --- NEW: PAYMENT METHOD CONFIGURATION ---
+class PaymentMethod(models.Model):
+    name = models.CharField(max_length=50, verbose_name="Method Name", help_text="Ex: Stripe, PayPal")
+    config_key = models.CharField(max_length=50, unique=True, verbose_name="Config Key", help_text="Internal key (e.g., 'stripe', 'paypal'). DO NOT CHANGE once set.")
+    is_active = models.BooleanField(default=True, verbose_name="Active", help_text="Uncheck to disable this payment method globally.")
+    
+    class Meta:
+        verbose_name = "Payment Method"
+        verbose_name_plural = "Payment Methods"
+
+    def __str__(self):
+        status = " (ACTIVE)" if self.is_active else " (INACTIVE)"
+        return f"{self.name}{status}"
