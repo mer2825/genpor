@@ -90,6 +90,180 @@
     {% endif %}
 
     <style>
+        /* --- AGE GATE STYLES (VERIFICACIÓN DE EDAD - DISEÑO PREMIUM) --- */
+        #age-gate-overlay {
+            position: fixed;
+            inset: 0;
+            z-index: 99999; /* Por encima de TODO */
+            /* Fondo oscuro pero con un toque sutil de la marca */
+            background: radial-gradient(circle at center, #1a0b1a 0%, #000000 100%);
+            display: none; /* Se activa con JS */
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+            overflow-y: auto;
+            backdrop-filter: blur(5px);
+        }
+
+        .age-gate-content {
+            /* Estilo Glassmorphism Oscuro */
+            background: rgba(15, 15, 15, 0.9);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 24px;
+            max-width: 550px;
+            width: 100%;
+            text-align: center;
+            padding: 40px 30px;
+            color: #d1d5db;
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.8), 0 0 30px rgba(0,0,0,0.5);
+            position: relative;
+            overflow: hidden;
+        }
+
+        /* Borde superior brillante sutil */
+        .age-gate-content::before {
+            content: '';
+            position: absolute;
+            top: 0; left: 0; right: 0;
+            height: 1px;
+            background: linear-gradient(90deg, transparent, rgba(255,255,255,0.3), transparent);
+        }
+
+        .age-gate-logo {
+            max-height: 70px;
+            margin-bottom: 25px;
+            filter: drop-shadow(0 0 10px rgba(255,255,255,0.1));
+        }
+
+        .age-gate-title {
+            color: white;
+            font-size: 1.4rem;
+            font-weight: 800;
+            margin-bottom: 8px;
+            text-transform: uppercase;
+            letter-spacing: -0.5px;
+            text-shadow: 0 2px 4px rgba(0,0,0,0.5);
+        }
+
+        .age-gate-subtitle {
+            color: var(--primary-mid); /* Color de acento de la marca */
+            font-size: 0.9rem;
+            margin-bottom: 25px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+        }
+
+        .age-gate-text {
+            font-size: 0.9rem;
+            line-height: 1.6;
+            margin-bottom: 30px;
+            color: #9ca3af;
+            background: rgba(0,0,0,0.3);
+            padding: 15px;
+            border-radius: 12px;
+            border: 1px solid rgba(255,255,255,0.05);
+        }
+
+        .age-gate-buttons {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+            margin-bottom: 30px;
+        }
+
+        .btn-enter {
+            /* Gradiente de la marca */
+            background: var(--primary-gradient);
+            color: white;
+            font-weight: 800;
+            padding: 16px;
+            border-radius: 12px;
+            border: none;
+            cursor: pointer;
+            font-size: 1rem;
+            text-transform: uppercase;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.3);
+            letter-spacing: 0.5px;
+        }
+        .btn-enter:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 25px rgba(239, 68, 68, 0.4); /* Glow rojizo */
+            filter: brightness(1.1);
+        }
+
+        .btn-exit {
+            /* Estilo Ghost moderno */
+            background: rgba(255, 255, 255, 0.03);
+            color: #9ca3af;
+            font-weight: 600;
+            padding: 16px;
+            border-radius: 12px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            cursor: pointer;
+            font-size: 0.95rem;
+            text-transform: uppercase;
+            transition: all 0.2s ease;
+        }
+        .btn-exit:hover {
+            background: rgba(255, 255, 255, 0.08);
+            color: white;
+            border-color: rgba(255, 255, 255, 0.3);
+        }
+
+        .age-gate-footer {
+            font-size: 0.75rem;
+            color: #555;
+            border-top: 1px solid rgba(255,255,255,0.05);
+            padding-top: 20px;
+        }
+        .age-gate-footer a { color: #777; text-decoration: none; transition: color 0.2s; }
+        .age-gate-footer a:hover { color: #aaa; text-decoration: underline; }
+
+        /* CAMBIO: Estilo para el logo RTA CSS */
+        .rta-logo-container {
+            display: inline-flex;
+            align-items: center;
+            border: 1px solid #444;
+            background: #111;
+            padding: 6px 12px;
+            border-radius: 6px;
+            color: #888;
+            transition: all 0.3s;
+            margin-top: 15px;
+        }
+        .rta-logo-container:hover {
+            border-color: #666;
+            background: #1a1a1a;
+            color: #ccc;
+            transform: scale(1.02);
+        }
+        .rta-big-text {
+            font-size: 1.4rem;
+            font-weight: 900;
+            letter-spacing: 1px;
+            margin-right: 10px;
+            color: #ccc;
+        }
+        .rta-small-text {
+            display: flex;
+            flex-direction: column;
+            align-items: flex-start;
+            font-size: 0.5rem;
+            text-transform: uppercase;
+            line-height: 1.2;
+            border-left: 1px solid #555;
+            padding-left: 8px;
+            font-weight: 700;
+            text-align: left;
+        }
+
+        @media (min-width: 640px) {
+            .age-gate-buttons { flex-direction: row; }
+            .btn-enter, .btn-exit { flex: 1; }
+        }
+
         /* --- NUEVO ESTILO HERO: IMAGEN DE FONDO + TEXTO ENCIMA --- */
 
         .hero-section {
@@ -205,9 +379,19 @@
             color: #888;
             line-height: 1.4;
         }
+
+        /* CAMBIO: Habilitar visibilidad del copyright */
         .copyright {
-            display: none !important;
+            display: block !important; /* FORZAR VISIBILIDAD */
+            text-align: center;
+            margin-top: 20px;
+            padding-top: 15px;
+            border-top: 1px solid rgba(255,255,255,0.05);
+            font-size: 0.75rem;
+            color: #555;
+            width: 100%;
         }
+
         /* Iconos sociales */
         .social-links {
             display: flex;
@@ -433,9 +617,98 @@
             margin-bottom: 4px;
             border: 1px solid rgba(255,255,255,0.2);
         }
+
+        /* --- ESTILOS PARA MODALES LEGALES --- */
+        .legal-modal-overlay {
+            position: fixed; inset: 0;
+            z-index: 100000; /* CAMBIO: Mayor que el Age Gate (99999) */
+            background-color: rgba(0, 0, 0, 0.8);
+            backdrop-filter: blur(5px);
+            display: flex; align-items: center; justify-content: center;
+            opacity: 0; pointer-events: none; transition: opacity 0.3s ease;
+        }
+        .legal-modal-overlay.active { opacity: 1; pointer-events: auto; }
+
+        .legal-modal-content {
+            background: #1a1a1a; border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 16px; width: 90%; max-width: 600px; max-height: 80vh;
+            display: flex; flex-direction: column;
+            box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.5), 0 10px 10px -5px rgba(0, 0, 0, 0.4);
+            transform: scale(0.95); transition: transform 0.3s ease;
+        }
+        .legal-modal-overlay.active .legal-modal-content { transform: scale(1); }
+
+        .legal-modal-header {
+            padding: 16px 24px; border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+            display: flex; justify-content: space-between; align-items: center;
+        }
+        .legal-modal-title { font-size: 1.25rem; font-weight: bold; color: white; margin: 0; }
+        .legal-modal-close {
+            background: none; border: none; color: rgba(255, 255, 255, 0.6);
+            cursor: pointer; font-size: 1.5rem; transition: color 0.2s;
+        }
+        .legal-modal-close:hover { color: white; }
+
+        .legal-modal-body {
+            padding: 24px; overflow-y: auto; color: #d1d5db; font-size: 0.95rem; line-height: 1.6; text-align: left;
+        }
+        /* Estilos básicos para el contenido HTML dentro del modal */
+        .legal-modal-body h1, .legal-modal-body h2, .legal-modal-body h3 { color: white; margin-top: 1em; margin-bottom: 0.5em; font-weight: bold; }
+        .legal-modal-body p { margin-bottom: 1em; }
+        .legal-modal-body ul { list-style-type: disc; padding-left: 1.5em; margin-bottom: 1em; }
+        .legal-modal-body a { color: var(--primary-mid); text-decoration: underline; }
     </style>
 </head>
 <body>
+
+    <!-- AGE GATE MODAL (VERIFICACIÓN DE EDAD) -->
+    <div id="age-gate-overlay">
+        <div class="age-gate-content">
+            {% if company.logo %}
+                <img src="{{ company.logo.url }}" alt="Logo" class="age-gate-logo">
+            {% else %}
+                <h2 style="color:white; margin-bottom:20px;">{{ company.name|default:"Nayelina AI" }}</h2>
+            {% endif %}
+
+            <div class="age-gate-title">This is an Adult Website</div>
+            <div class="age-gate-subtitle">Notice to Users</div>
+
+            <div class="age-gate-text">
+                This website contains age-restricted materials, including nudity and explicit depictions of sexual activity. By entering, you affirm that you are at least 18 years of age or the age of majority in the jurisdiction you are accessing the website from and you consent to viewing sexually explicit content.
+            </div>
+
+            <div style="margin-bottom: 20px; color: #aaa; font-size: 0.8rem; text-transform: uppercase;">
+                Notice to Law Enforcement
+            </div>
+
+            <div class="age-gate-buttons">
+                <button class="btn-enter" onclick="enterSite()">I am 18 or older - Enter</button>
+                <button class="btn-exit" onclick="exitSite()">I am under 18 - Exit</button>
+            </div>
+
+            <div class="age-gate-footer">
+                <p style="margin-bottom: 10px;">
+                    Our parental controls page explains how you can easily block access to this site.
+                </p>
+                <p>
+                    <button onclick="openLegalModal('termsModal')" style="background:none; border:none; color:#888; text-decoration:underline; cursor:pointer;">Terms of Service</button>
+                </p>
+                <p style="margin-top: 15px;">
+                    &copy; {% if company.name %}{{ company.name }}{% else %}Nayelina AI{% endif %}, 2026
+                </p>
+                <!-- CAMBIO: Logo RTA CSS (Indestructible) -->
+                <a href="http://www.rtalabel.org/" target="_blank" style="text-decoration: none;">
+                    <div class="rta-logo-container">
+                        <span class="rta-big-text">RTA</span>
+                        <div class="rta-small-text">
+                            <span>Restricted</span>
+                            <span>To Adults</span>
+                        </div>
+                    </div>
+                </a>
+            </div>
+        </div>
+    </div>
 
     <!-- Cabecera -->
     <header>
@@ -642,6 +915,12 @@
         </div>
         <div class="copyright">
             &copy; {% now "Y" %} {% if company.name %}{{ company.name }}{% else %}Nayelina AI{% endif %}. All rights reserved.
+            <br>
+            <span style="font-size: 0.75rem; color: #666;">
+                <button onclick="openLegalModal('termsModal')" style="color: #888; text-decoration: underline; background: none; border: none; cursor: pointer;">Terms of Service</button>
+                &bull;
+                <button onclick="openLegalModal('privacyModal')" style="color: #888; text-decoration: underline; background: none; border: none; cursor: pointer;">Privacy Policy</button>
+            </span>
         </div>
     </footer>
 
@@ -698,6 +977,32 @@
         </div>
     </div>
 
+    <!-- TERMS MODAL -->
+    <div id="termsModal" class="legal-modal-overlay" onclick="closeLegalModal('termsModal')">
+        <div class="legal-modal-content" onclick="event.stopPropagation()">
+            <div class="legal-modal-header">
+                <h3 class="legal-modal-title">Terms of Service</h3>
+                <button class="legal-modal-close" onclick="closeLegalModal('termsModal')">&times;</button>
+            </div>
+            <div class="legal-modal-body">
+                {{ company.terms_content|safe }}
+            </div>
+        </div>
+    </div>
+
+    <!-- PRIVACY MODAL -->
+    <div id="privacyModal" class="legal-modal-overlay" onclick="closeLegalModal('privacyModal')">
+        <div class="legal-modal-content" onclick="event.stopPropagation()">
+            <div class="legal-modal-header">
+                <h3 class="legal-modal-title">Privacy Policy</h3>
+                <button class="legal-modal-close" onclick="closeLegalModal('privacyModal')">&times;</button>
+            </div>
+            <div class="legal-modal-body">
+                {{ company.privacy_content|safe }}
+            </div>
+        </div>
+    </div>
+
     <!-- Scripts -->
     <script>
         window.DjangoContext = {
@@ -710,6 +1015,36 @@
         // URL para canjear cupones (necesaria para el script)
         const redeemCouponUrl = "{% url 'redeem_coupon' %}";
         const csrfToken = "{{ csrf_token }}";
+
+        // --- AGE GATE LOGIC ---
+        document.addEventListener('DOMContentLoaded', function() {
+            // Verificar si ya se aceptó la edad
+            if (!localStorage.getItem('ageVerified')) {
+                document.getElementById('age-gate-overlay').style.display = 'flex';
+                document.body.style.overflow = 'hidden'; // Bloquear scroll
+            }
+        });
+
+        function enterSite() {
+            localStorage.setItem('ageVerified', 'true');
+            document.getElementById('age-gate-overlay').style.display = 'none';
+            document.body.style.overflow = ''; // Restaurar scroll
+        }
+
+        function exitSite() {
+            window.location.href = 'https://www.google.com';
+        }
+
+        // --- FUNCIONES PARA MODALES LEGALES ---
+        function openLegalModal(modalId) {
+            document.getElementById(modalId).classList.add('active');
+            document.body.style.overflow = 'hidden';
+        }
+
+        function closeLegalModal(modalId) {
+            document.getElementById(modalId).classList.remove('active');
+            document.body.style.overflow = '';
+        }
 
         // --- LÓGICA DE FILTRADO ---
         function filterCategory(categoryId, btn) {
@@ -997,6 +1332,11 @@
         window.onclick = function(event) {
             if (event.target.classList.contains('modal')) {
                 event.target.style.display = 'none';
+            }
+            // Cerrar modales legales también
+            if (event.target.classList.contains('legal-modal-overlay')) {
+                event.target.classList.remove('active');
+                document.body.style.overflow = '';
             }
         };
     </script>

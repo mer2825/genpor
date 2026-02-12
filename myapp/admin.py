@@ -211,6 +211,11 @@ class CompanySettingsAdmin(admin.ModelAdmin):
             'fields': ('stripe_publishable_key', 'stripe_secret_key'),
             'description': 'Configure your Stripe account for card payments. Get these keys from dashboard.stripe.com.'
         }),
+        # --- NEW: LEGAL CONTENT SECTION ---
+        ('Legal Content', {
+            'fields': ('terms_content', 'privacy_content'),
+            'description': 'HTML content for Terms of Service and Privacy Policy modals.'
+        }),
         ('Contact & Social', {
             'fields': ('phone', 'email', 'facebook', 'discord')
         }),

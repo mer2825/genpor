@@ -2,12 +2,12 @@
 {% load i18n %}
 {% load account socialaccount %}
 
-{% block title %}{% trans "Registrarse" %}{% endblock %}
+{% block title %}{% trans "Sign Up" %}{% endblock %}
 
 {% block navbar %}{% endblock %}
 {% block footer %}{% endblock %}
 
-{# --- ANULAR MENSAJES HEREDADOS DE BASE.HTML --- #}
+{# --- OVERRIDE MESSAGES FROM BASE.HTML --- #}
 {% block messages %}{% endblock %}
 
 {% block content %}
@@ -17,18 +17,18 @@
         --primary-start: {{ company_settings.primary_color_start|default:"#a855f7" }};
         --primary-mid: {{ company_settings.primary_color_mid|default:"#ef4444" }};
         --primary-end: {{ company_settings.primary_color_end|default:"#ff9068" }};
-        /* Mismo gradiente que en generate.html */
+        /* Same gradient as generate.html */
         --primary-gradient: linear-gradient(135deg, var(--primary-start) 0%, var(--primary-mid) 50%, var(--primary-end) 100%);
     }
 
-    /* --- SCROLLBAR PERSONALIZADO --- */
+    /* --- CUSTOM SCROLLBAR --- */
     ::-webkit-scrollbar { width: 6px; height: 6px; }
     ::-webkit-scrollbar-track { background: rgba(0, 0, 0, 0.2); }
     ::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.15); border-radius: 10px; }
     ::-webkit-scrollbar-thumb:hover { background: rgba(255, 255, 255, 0.3); }
     * { scrollbar-width: thin; scrollbar-color: rgba(255, 255, 255, 0.15) rgba(0, 0, 0, 0.2); }
 
-    /* 1. FONDO GENERAL */
+    /* 1. GENERAL BACKGROUND */
     .page-background {
         position: fixed; inset: 0; z-index: -1;
         background:
@@ -39,7 +39,7 @@
         background-size: cover;
     }
 
-    /* 2. TARJETA CENTRAL */
+    /* 2. CENTER CARD */
     .login-card {
         position: relative; width: 100%; max-width: 450px;
         border-radius: 24px; overflow: hidden;
@@ -56,24 +56,63 @@
         transition: opacity 1s ease-in-out; z-index: 0;
     }
 
-    /* Contenido */
+    /* Content */
     .card-content { position: relative; z-index: 2; padding: 40px; color: white; }
     @media (max-width: 640px) {
         .card-content { padding: 24px 20px; }
         .login-card { border-radius: 16px; }
     }
 
-    /* CLASE PARA DELINEADO DE TEXTO */
+    /* TEXT OUTLINE CLASS */
     .text-outline {
         text-shadow: 0 1px 3px rgba(0,0,0,0.9), 0 0 2px rgba(0,0,0,0.8);
     }
+
+    /* --- MODAL STYLES --- */
+    .modal-overlay {
+        position: fixed; inset: 0; z-index: 100;
+        background-color: rgba(0, 0, 0, 0.8);
+        backdrop-filter: blur(5px);
+        display: flex; align-items: center; justify-content: center;
+        opacity: 0; pointer-events: none; transition: opacity 0.3s ease;
+    }
+    .modal-overlay.active { opacity: 1; pointer-events: auto; }
+
+    .modal-content {
+        background: #1a1a1a; border: 1px solid rgba(255, 255, 255, 0.1);
+        border-radius: 16px; width: 90%; max-width: 600px; max-height: 80vh;
+        display: flex; flex-direction: column;
+        box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.5), 0 10px 10px -5px rgba(0, 0, 0, 0.4);
+        transform: scale(0.95); transition: transform 0.3s ease;
+    }
+    .modal-overlay.active .modal-content { transform: scale(1); }
+
+    .modal-header {
+        padding: 16px 24px; border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        display: flex; justify-content: space-between; align-items: center;
+    }
+    .modal-title { font-size: 1.25rem; font-weight: bold; color: white; }
+    .modal-close {
+        background: none; border: none; color: rgba(255, 255, 255, 0.6);
+        cursor: pointer; font-size: 1.5rem; transition: color 0.2s;
+    }
+    .modal-close:hover { color: white; }
+
+    .modal-body {
+        padding: 24px; overflow-y: auto; color: #d1d5db; font-size: 0.95rem; line-height: 1.6;
+    }
+    /* Basic styles for HTML content inside modal */
+    .modal-body h1, .modal-body h2, .modal-body h3 { color: white; margin-top: 1em; margin-bottom: 0.5em; font-weight: bold; }
+    .modal-body p { margin-bottom: 1em; }
+    .modal-body ul { list-style-type: disc; padding-left: 1.5em; margin-bottom: 1em; }
+    .modal-body a { color: var(--primary-mid); text-decoration: underline; }
 </style>
 
 <div class="page-background"></div>
 
 <div class="fixed inset-0 z-50 flex justify-center items-center p-4 overflow-y-auto">
     <a href="/" class="absolute top-6 right-6 text-white/80 hover:text-white transition-colors flex items-center gap-2 text-sm font-medium z-50 bg-black/30 px-3 py-1 rounded-full backdrop-blur-md border border-white/10 text-outline">
-        <span>Volver</span>
+        <span>Back</span>
         <i class="fas fa-times"></i>
     </a>
 
@@ -81,7 +120,7 @@
         {% if auth_images %}
             {% for img in auth_images %}
                 <div class="card-background-slide {% if not forloop.first %}opacity-0{% endif %}" style="background-image: url('{{ img.image.url }}');">
-                    <!-- OVERLAY CONDICIONAL: Solo aplica blur si la opacidad es mayor a 0 -->
+                    <!-- CONDITIONAL OVERLAY: Only applies blur if opacity > 0 -->
                     <div class="absolute inset-0"
                          style="background-color: rgba(0,0,0, {{ img.overlay_opacity|default:'0.5' }});
                                 {% if img.overlay_opacity > 0.0 %}backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);{% endif %}">
@@ -106,19 +145,19 @@
                     <img src="{{ company_settings.logo.url }}" alt="Logo" class="h-14 mx-auto mb-3 object-contain drop-shadow-lg">
                 {% endif %}
                 <h1 class="text-2xl font-black tracking-tight text-white drop-shadow-md text-outline">
-                    {{ company_settings.name|default:"Mi App" }}
+                    {{ company_settings.name|default:"My App" }}
                 </h1>
             </div>
 
             <div class="text-center mb-6">
-                <h2 class="text-xl font-bold mb-1 text-outline">Crear Cuenta</h2>
+                <h2 class="text-xl font-bold mb-1 text-outline">Create Account</h2>
                 <p class="text-xs text-gray-200 text-outline">
-                    ¿Ya tienes cuenta?
-                    <a href="{{ login_url }}" class="font-bold hover:underline" style="color: var(--primary-start);">Inicia sesión</a>.
+                    Already have an account?
+                    <a href="{{ login_url }}" class="font-bold hover:underline" style="color: var(--primary-start);">Log in</a>.
                 </p>
             </div>
 
-            <!-- MENSAJES FLASH (ESTILO DARK GLASS) -->
+            <!-- FLASH MESSAGES (DARK GLASS STYLE) -->
             {% if messages %}
                 <div class="mb-6 space-y-2">
                     {% for message in messages %}
@@ -145,7 +184,7 @@
                             {% csrf_token %}
                             <button type="submit" class="w-full flex items-center justify-center gap-3 px-4 py-3 border border-white/30 rounded-xl shadow-sm text-sm font-semibold text-white bg-white/10 hover:bg-white/20 focus:outline-none transition-all duration-200 text-outline">
                                 <img src="https://www.svgrepo.com/show/475656/google-color.svg" class="h-5 w-5" alt="Google">
-                                <span>Registrarse con Google</span>
+                                <span>Sign up with Google</span>
                             </button>
                         </form>
                         {% endif %}
@@ -156,7 +195,7 @@
                             <div class="w-full border-t border-white/30"></div>
                         </div>
                         <div class="relative flex justify-center text-xs">
-                            <span class="px-2 text-gray-200 font-medium text-outline" style="text-shadow: 0 0 4px rgba(0,0,0,0.8);">o regístrate con tu correo</span>
+                            <span class="px-2 text-gray-200 font-medium text-outline" style="text-shadow: 0 0 4px rgba(0,0,0,0.8);">or sign up with email</span>
                         </div>
                     </div>
                 {% endif %}
@@ -167,7 +206,7 @@
 
                 {% if form.errors %}
                     <div class="rounded-lg bg-red-500/40 p-3 border border-red-500/60 mb-4 backdrop-blur-sm">
-                        <p class="text-xs text-white text-center font-medium text-outline">Por favor corrige los errores abajo.</p>
+                        <p class="text-xs text-white text-center font-medium text-outline">Please correct the errors below.</p>
                         {% for field in form %}
                             {% for error in field.errors %}
                                 <p class="text-[10px] text-white text-center">{{ error }}</p>
@@ -202,17 +241,46 @@
                     {% endif %}
                 {% endfor %}
 
-                <!-- BOTÓN CON GRADIENTE -->
+                <!-- GRADIENT BUTTON -->
                 <button type="submit" class="w-full flex justify-center py-3.5 px-4 border border-transparent rounded-xl shadow-lg text-sm font-bold text-white transition-all duration-200 transform hover:scale-[1.02] mt-6 text-outline"
                         style="background: var(--primary-gradient); box-shadow: 0 4px 20px -5px rgba(0,0,0,0.5);">
-                    Crear Cuenta
+                    Create Account
                 </button>
 
                 <p class="text-[10px] text-center text-gray-300 mt-4 text-outline">
-                    Al registrarte, aceptas nuestros <a href="#" class="hover:text-white hover:underline">Términos de Servicio</a>.
+                    By signing up, you agree to our
+                    <button type="button" onclick="openModal('termsModal')" class="hover:text-white hover:underline font-bold text-gray-200">Terms of Service</button>
+                    and our
+                    <button type="button" onclick="openModal('privacyModal')" class="hover:text-white hover:underline font-bold text-gray-200">Privacy Policy</button>.
                 </p>
             </form>
 
+        </div>
+    </div>
+</div>
+
+<!-- TERMS MODAL -->
+<div id="termsModal" class="modal-overlay" onclick="closeModal('termsModal')">
+    <div class="modal-content" onclick="event.stopPropagation()">
+        <div class="modal-header">
+            <h3 class="modal-title">Terms of Service</h3>
+            <button class="modal-close" onclick="closeModal('termsModal')">&times;</button>
+        </div>
+        <div class="modal-body">
+            {{ company_settings.terms_content|safe }}
+        </div>
+    </div>
+</div>
+
+<!-- PRIVACY MODAL -->
+<div id="privacyModal" class="modal-overlay" onclick="closeModal('privacyModal')">
+    <div class="modal-content" onclick="event.stopPropagation()">
+        <div class="modal-header">
+            <h3 class="modal-title">Privacy Policy</h3>
+            <button class="modal-close" onclick="closeModal('privacyModal')">&times;</button>
+        </div>
+        <div class="modal-body">
+            {{ company_settings.privacy_content|safe }}
         </div>
     </div>
 </div>
@@ -229,5 +297,16 @@
             }, 5000);
         }
     });
+
+    // Modal Functions
+    function openModal(modalId) {
+        document.getElementById(modalId).classList.add('active');
+        document.body.style.overflow = 'hidden'; // Prevent body scroll
+    }
+
+    function closeModal(modalId) {
+        document.getElementById(modalId).classList.remove('active');
+        document.body.style.overflow = ''; // Restore body scroll
+    }
 </script>
 {% endblock %}

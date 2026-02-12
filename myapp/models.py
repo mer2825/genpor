@@ -295,6 +295,10 @@ class CompanySettings(models.Model):
     stripe_publishable_key = models.CharField(max_length=255, verbose_name="Stripe Publishable Key", blank=True, null=True, help_text="Starts with pk_test_ or pk_live_")
     stripe_secret_key = models.CharField(max_length=255, verbose_name="Stripe Secret Key", blank=True, null=True, help_text="Starts with sk_test_ or sk_live_")
 
+    # --- NEW: LEGAL CONTENT ---
+    terms_content = models.TextField(verbose_name="Terms & Conditions", blank=True, default="<p>Please add your Terms & Conditions here.</p>", help_text="HTML content for Terms & Conditions modal.")
+    privacy_content = models.TextField(verbose_name="Privacy Policy", blank=True, default="<p>Please add your Privacy Policy here.</p>", help_text="HTML content for Privacy Policy modal.")
+
     class Meta:
         verbose_name = "Company Settings"
         verbose_name_plural = "Company Settings"
