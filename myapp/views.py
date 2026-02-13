@@ -716,6 +716,24 @@ async def workspace_view(request):
     }
     return await sync_to_async(render)(request, 'myapp/workspace.html', context)
 
+# --- NEW: GET MODELS VIEW ---
+async def get_models_view(request):
+    """
+    Returns a list of available checkpoints from the active ComfyUI instance.
+    """
+    # --- FIX: Use async helper to get user safely ---
+    user = await get_user_from_request(request)
+    if not user.is_authenticated:
+        return JsonResponse({'status': 'error', 'message': 'Unauthorized'}, status=401)
+    
+    try:
+        address = await get_active_comfyui_address()
+        info = await get_comfyui_object_info(address)
+        checkpoints = info.get('checkpoints', [])
+        return JsonResponse({'status': 'success', 'checkpoints': checkpoints})
+    except Exception as e:
+        return JsonResponse({'status': 'error', 'message': str(e)}, status=500)
+
 # --- GENERATE IMAGE VIEW (RESTORED) ---
 async def generate_image_view(request):
     is_ajax = request.headers.get('X-Requested-With') == 'XMLHttpRequest'
@@ -766,6 +784,12 @@ async def generate_image_view(request):
             height = request.POST.get('height')
             seed = request.POST.get('seed')
             
+            # Get selected model
+            checkpoint = request.POST.get('checkpoint') # NUEVO: Obtener checkpoint del POST
+            
+            # Get LoRA Strength
+            lora_strength = request.POST.get('lora_strength') # NUEVO: Obtener fuerza del LoRA
+
             # --- SINGLE SELECTION LOGIC ---
             generation_type = request.POST.get('generation_type', 'Gen_Normal')
             
@@ -795,10 +819,10 @@ async def generate_image_view(request):
                 if character.is_private and not user.is_staff:
                     try:
                         access = await sync_to_async(UserCharacterAccess.objects.get)(user=user, character=character)
-                        await access.check_and_reset_quota()
+                        # await access.check_and_reset_quota() # REMOVED: No quota for private chars anymore
                         
-                        if access.remaining_generations <= 0:
-                            return JsonResponse({'status': 'error', 'message': 'You have reached the generation limit for this private character.'}, status=403)
+                        # if access.remaining_generations <= 0:
+                        #     return JsonResponse({'status': 'error', 'message': 'You have reached the generation limit for this private character.'}, status=403)
                     except UserCharacterAccess.DoesNotExist:
                         return JsonResponse({'status': 'error', 'message': 'You do not have access to this private character.'}, status=403)
                 # ------------------------------------------
@@ -809,7 +833,8 @@ async def generate_image_view(request):
                 user_msg = await save_user_message()
                 
                 images_data_list, prompt_id, final_workflow_json = await generate_image_from_character(
-                    character, user_prompt, width, height, seed=seed, allowed_types=allowed_types
+                    character, user_prompt, width, height, seed=seed, allowed_types=allowed_types, 
+                    checkpoint=checkpoint, lora_strength=lora_strength # PASAR NUEVOS PARÁMETROS
                 )
 
                 if images_data_list:
@@ -822,17 +847,17 @@ async def generate_image_view(request):
                             p.save()
                         await deduct_token(user)
                         
-                        # --- DEDUCT PRIVATE QUOTA ---
-                        if character.is_private:
-                            @sync_to_async
-                            def deduct_private_quota(u, c):
-                                try:
-                                    acc = UserCharacterAccess.objects.get(user=u, character=c)
-                                    acc.images_generated_current_period += 1
-                                    acc.save()
-                                except UserCharacterAccess.DoesNotExist:
-                                    pass
-                            await deduct_private_quota(user, character)
+                        # --- DEDUCT PRIVATE QUOTA (REMOVED) ---
+                        # if character.is_private:
+                        #     @sync_to_async
+                        #     def deduct_private_quota(u, c):
+                        #         try:
+                        #             acc = UserCharacterAccess.objects.get(user=u, character=c)
+                        #             acc.images_generated_current_period += 1
+                        #             acc.save()
+                        #         except UserCharacterAccess.DoesNotExist:
+                        #             pass
+                        #     await deduct_private_quota(user, character)
                     # -------------------------------
 
                     generated_results = []
@@ -1013,8 +1038,8 @@ async def redeem_coupon_view(request):
                         user=user_obj,
                         character=char_code.character,
                         source_code=char_code,
-                        limit_amount=char_code.limit_amount,
-                        reset_interval=char_code.reset_interval
+                        # limit_amount=char_code.limit_amount, # REMOVED
+                        # reset_interval=char_code.reset_interval # REMOVED
                     )
                     
                     # Increment counter

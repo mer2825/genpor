@@ -387,7 +387,7 @@ class CharacterAccessCodeInline(admin.StackedInline): # Changed to StackedInline
     can_delete = False # Optional: Prevent deleting the key once created if desired
     verbose_name = "Access Code (Key)"
     verbose_name_plural = "Access Code (Key)"
-    fields = ('code', 'limit_amount', 'reset_interval', 'max_redemptions', 'times_redeemed', 'is_active')
+    fields = ('code', 'max_redemptions', 'times_redeemed', 'is_active')
     readonly_fields = ('times_redeemed',)
 
 # --- NEW: CATEGORY AND SUBCATEGORY REGISTRATION ---
@@ -641,8 +641,8 @@ class PrivateCharacterAdmin(BaseCharacterAdmin):
 
 @admin.register(UserCharacterAccess)
 class UserCharacterAccessAdmin(admin.ModelAdmin):
-    list_display = ('user', 'character', 'remaining_generations', 'reset_interval', 'view_images_link')
-    list_filter = ('reset_interval', 'character')
+    list_display = ('user', 'character', 'view_images_link')
+    list_filter = ('character',)
     search_fields = ('user__username', 'character__name')
     readonly_fields = ('unlocked_at',)
 

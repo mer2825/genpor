@@ -505,7 +505,7 @@ def classify_image_node(node_id, workflow):
 
     return "Gen_Normal", True
 
-async def generate_image_from_character(character, user_prompt, width=None, height=None, seed=None, allowed_types=None):
+async def generate_image_from_character(character, user_prompt, width=None, height=None, seed=None, allowed_types=None, checkpoint=None, lora_strength=None):
     """
     Genera imágenes usando la configuración del personaje y el prompt del usuario.
     Retorna (lista_de_imagenes_bytes, prompt_id, workflow_final) o ([], None, None) si falla.
@@ -557,6 +557,9 @@ async def generate_image_from_character(character, user_prompt, width=None, heig
     if width: final_config['width'] = width
     if height: final_config['height'] = height
     
+    # --- NUEVO: Sobrescribir checkpoint si se proporciona ---
+    if checkpoint: final_config['checkpoint'] = checkpoint
+    
     # --- NUEVO: Manejo de Seed desde el Cliente ---
     # Si el usuario envió una semilla válida (distinta de -1 o vacío), la usamos.
     # Si no, usamos la lógica por defecto (random o fija del config).
@@ -585,6 +588,14 @@ async def generate_image_from_character(character, user_prompt, width=None, heig
     
     lora_names = final_config.pop('lora_names', [])
     lora_strengths = final_config.pop('lora_strengths', [])
+    
+    # --- NUEVO: Sobrescribir fuerza del LoRA principal (índice 0) ---
+    if lora_strength is not None and lora_strengths:
+        try:
+            # Asumimos que el primer LoRA es el del personaje
+            lora_strengths[0] = float(lora_strength)
+        except ValueError:
+            pass
 
     # 3. Actualizar Workflow
     updated_workflow = update_workflow(prompt_workflow_base, final_config, lora_names, lora_strengths)

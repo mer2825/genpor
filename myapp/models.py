@@ -461,16 +461,11 @@ class UserPremiumGrant(models.Model):
 # --- NEW: PRIVATE CHARACTER ACCESS SYSTEM ---
 
 class CharacterAccessCode(models.Model):
-    INTERVAL_CHOICES = [('DAILY', 'Daily'), ('WEEKLY', 'Weekly'), ('MONTHLY', 'Monthly'), ('NEVER', 'Lifetime/One-time')]
-    
     # CHANGE: Removed default=generate_coupon_code to handle it in save() properly
     code = models.CharField(max_length=20, unique=True, blank=True, help_text="Code to unlock the character. Leave empty to auto-generate.")
     
     # CHANGE: ForeignKey -> OneToOneField to enforce 1 key per character
     character = models.OneToOneField(Character, on_delete=models.CASCADE, related_name='access_code', limit_choices_to={'is_private': True})
-    
-    limit_amount = models.PositiveIntegerField(default=50, help_text="How many images can be generated per interval.")
-    reset_interval = models.CharField(max_length=10, choices=INTERVAL_CHOICES, default='MONTHLY', help_text="How often the limit resets.")
     
     # --- NEW FIELDS FOR GLOBAL LIMIT ---
     max_redemptions = models.PositiveIntegerField(null=True, blank=True, verbose_name="Max Users", help_text="Maximum number of users who can redeem this code. Leave empty for infinite.")
@@ -498,12 +493,6 @@ class UserCharacterAccess(models.Model):
     character = models.ForeignKey(Character, on_delete=models.CASCADE)
     source_code = models.ForeignKey(CharacterAccessCode, on_delete=models.SET_NULL, null=True, blank=True)
     
-    # Quota Logic
-    images_generated_current_period = models.PositiveIntegerField(default=0)
-    limit_amount = models.PositiveIntegerField(default=50)
-    reset_interval = models.CharField(max_length=10, choices=CharacterAccessCode.INTERVAL_CHOICES, default='MONTHLY')
-    last_reset_date = models.DateTimeField(default=timezone.now)
-    
     unlocked_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
@@ -513,30 +502,6 @@ class UserCharacterAccess(models.Model):
 
     def __str__(self):
         return f"{self.user.username} -> {self.character.name}"
-
-    @sync_to_async
-    def check_and_reset_quota(self):
-        now = timezone.now()
-        should_reset = False
-        
-        if self.reset_interval == 'NEVER':
-            return # No reset logic for lifetime, just a hard cap
-
-        if self.reset_interval == 'DAILY':
-            if (now - self.last_reset_date).days >= 1: should_reset = True
-        elif self.reset_interval == 'WEEKLY':
-            if (now - self.last_reset_date).days >= 7: should_reset = True
-        elif self.reset_interval == 'MONTHLY':
-            if (now - self.last_reset_date).days >= 30: should_reset = True
-        
-        if should_reset:
-            self.images_generated_current_period = 0
-            self.last_reset_date = now
-            self.save()
-
-    @property
-    def remaining_generations(self):
-        return max(0, self.limit_amount - self.images_generated_current_period)
 
 # --- PAYPAL PAYMENT MODELS ---
 
