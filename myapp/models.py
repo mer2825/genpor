@@ -66,7 +66,10 @@ class Character(models.Model):
     description = models.TextField(blank=True, null=True, help_text="Internal character description, style notes, etc.")
     category = models.ForeignKey(CharacterCategory, on_delete=models.SET_NULL, null=True, blank=False, related_name="characters", help_text="Mandatory: The main classification (e.g., Realistic, Anime).")
     subcategory = models.ForeignKey(CharacterSubCategory, on_delete=models.SET_NULL, null=True, blank=True, related_name="characters", help_text="Optional: A specific sub-classification (e.g., Cyberpunk, Fantasy). Only one allowed.")
-    base_workflow = models.ForeignKey(Workflow, on_delete=models.CASCADE, related_name="characters")
+    
+    # --- CAMBIO DE SEGURIDAD: CASCADE -> PROTECT ---
+    base_workflow = models.ForeignKey(Workflow, on_delete=models.PROTECT, related_name="characters")
+
     character_config = models.TextField(blank=True, null=True, help_text="Specific JSON configuration for this character.")
     
     # --- NEW FIELDS ---

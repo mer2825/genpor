@@ -529,7 +529,7 @@ async def workspace_view(request):
     default_width = 1024
     default_height = 1024
     default_seed = -1 # -1 means random
-    
+
     # Workflow capabilities (to show/hide checkboxes)
     workflow_capabilities = {
         'can_upscale': False,
@@ -615,7 +615,7 @@ async def workspace_view(request):
                             default_seed = int(config['seed'])
                         else:
                             default_seed = -1
-                            
+
                     except (json.JSONDecodeError, ValueError):
                         pass 
 

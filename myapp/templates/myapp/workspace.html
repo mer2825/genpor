@@ -281,51 +281,6 @@
             margin-bottom: 4px;
             border: 1px solid rgba(255,255,255,0.2);
         }
-
-        /* --- ESTILOS PARA EL SELECT DE MODELOS --- */
-        .model-select {
-            width: 100%;
-            padding: 10px;
-            background: rgba(255, 255, 255, 0.05);
-            border: 1px solid var(--border-subtle);
-            border-radius: 8px;
-            color: white;
-            font-size: 0.9rem;
-            margin-bottom: 15px;
-            cursor: pointer;
-        }
-        .model-select:focus {
-            outline: none;
-            border-color: var(--primary-color);
-        }
-        .model-select option {
-            background: #1e293b; /* Color oscuro para las opciones */
-            color: white;
-        }
-
-        /* --- ESTILOS PARA EL SLIDER DE LORA --- */
-        input[type=range] {
-            -webkit-appearance: none;
-            width: 100%;
-            background: transparent;
-        }
-        input[type=range]::-webkit-slider-thumb {
-            -webkit-appearance: none;
-            height: 16px;
-            width: 16px;
-            border-radius: 50%;
-            background: var(--primary-color);
-            cursor: pointer;
-            margin-top: -6px;
-            box-shadow: 0 0 5px rgba(0,0,0,0.5);
-        }
-        input[type=range]::-webkit-slider-runnable-track {
-            width: 100%;
-            height: 4px;
-            cursor: pointer;
-            background: rgba(255,255,255,0.2);
-            border-radius: 2px;
-        }
     </style>
 
     <!-- Ajustes para el modal de selección de personajes -->
@@ -432,19 +387,6 @@
                 <button class="aspect-ratio-btn" data-width="1280" data-height="1024"><div class="silhouette" style="width: 24px; height: 19.2px;"></div><span>5:4</span></button>
                 <button class="aspect-ratio-btn" data-width="720" data-height="1280"><div class="silhouette" style="width: 13.5px; height: 24px;"></div><span>9:16</span></button>
                 <button class="aspect-ratio-btn" data-width="1280" data-height="720"><div class="silhouette" style="width: 24px; height: 13.5px;"></div><span>16:9</span></button>
-            </div>
-
-            <!-- NUEVO: SECCIÓN DE MODELOS (CHECKPOINTS) -->
-            <div class="sidebar-title">Models</div>
-            <select id="model-select" class="model-select">
-                <option value="" disabled selected>Loading models...</option>
-            </select>
-
-            <!-- NUEVO: SECCIÓN DE LORA STRENGTH -->
-            <div class="sidebar-title">Character Strength</div>
-            <div class="range-container" style="display: flex; align-items: center; gap: 10px; margin-bottom: 15px;">
-                <input type="range" id="lora-strength-input" min="0" max="2" step="0.1" value="1.0" style="flex-grow: 1;">
-                <span id="lora-strength-value" style="color: white; font-size: 0.9rem; width: 30px; text-align: right;">1.0</span>
             </div>
 
             <!-- Input de Semilla (MEJORADO) -->
@@ -936,15 +878,6 @@
             input.value = val + delta;
         };
 
-        // --- LORA STRENGTH LOGIC (NUEVO) ---
-        const loraSlider = document.getElementById('lora-strength-input');
-        const loraValue = document.getElementById('lora-strength-value');
-        if (loraSlider && loraValue) {
-            loraSlider.addEventListener('input', function() {
-                loraValue.textContent = this.value;
-            });
-        }
-
         // --- OUTPUT OPTION LOGIC (CUMULATIVE SELECTION) ---
         function selectOutputOption(btn) {
             const container = document.getElementById('output-options-container');
@@ -983,47 +916,6 @@
             }
         });
 
-        // --- LOAD MODELS (CHECKPOINTS) ---
-        document.addEventListener('DOMContentLoaded', function() {
-            const modelSelect = document.getElementById('model-select');
-            if (modelSelect) {
-                // Fetch available models from backend (needs a new endpoint or pass via context)
-                // For now, we'll assume we need to fetch them.
-                // Since we don't have a dedicated endpoint yet, we'll create one or use a placeholder.
-                // Let's try to fetch from a new endpoint we'll create: 'get_models'
-
-                fetch("{% url 'get_models' %}", {
-                    headers: { 'X-Requested-With': 'XMLHttpRequest' }
-                })
-                .then(response => response.json())
-                .then(data => {
-                    modelSelect.innerHTML = ''; // Clear loading message
-                    if (data.checkpoints && data.checkpoints.length > 0) {
-                        data.checkpoints.forEach(ckpt => {
-                            const option = document.createElement('option');
-                            option.value = ckpt;
-                            option.textContent = ckpt;
-                            modelSelect.appendChild(option);
-                        });
-
-                        // Select current model if available in context (passed from backend)
-                        const currentModel = "{{ current_checkpoint|default:'' }}";
-                        if (currentModel) {
-                            modelSelect.value = currentModel;
-                        }
-                    } else {
-                        const option = document.createElement('option');
-                        option.textContent = "No models found";
-                        modelSelect.appendChild(option);
-                    }
-                })
-                .catch(error => {
-                    console.error('Error loading models:', error);
-                    modelSelect.innerHTML = '<option>Error loading models</option>';
-                });
-            }
-        });
-
         // --- GENERATION LOGIC ---
         let isGenerating = false; // Flag para evitar múltiples envíos
 
@@ -1058,13 +950,6 @@
             const height = document.getElementById('height-input').value;
             const seed = document.getElementById('seed-input').value;
 
-            // Get selected model
-            const modelSelect = document.getElementById('model-select');
-            const selectedModel = modelSelect ? modelSelect.value : '';
-
-            // Get LoRA Strength
-            const loraStrength = document.getElementById('lora-strength-input').value;
-
             // --- GET SELECTED GENERATION TYPE ---
             const activeOptions = document.querySelectorAll('.output-option-btn.active');
             const activeOption = activeOptions.length > 0 ? activeOptions[activeOptions.length - 1] : null;
@@ -1077,8 +962,6 @@
             formData.append('height', height);
             formData.append('seed', seed);
             formData.append('generation_type', generationType); // Send single type
-            if (selectedModel) formData.append('checkpoint', selectedModel); // Send selected model
-            formData.append('lora_strength', loraStrength); // Send LoRA Strength
 
             fetch(generateUrl, {
                 method: 'POST',
