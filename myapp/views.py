@@ -1,6 +1,6 @@
 from django.shortcuts import render, redirect, get_object_or_404
 from django.db import models
-from .models import Workflow, Character, CharacterImage, ConnectionConfig, CompanySettings, ChatMessage, CharacterCategory, CharacterSubCategory, ClientProfile, Coupon, CouponRedemption, CharacterAccessCode, UserCharacterAccess, TokenPackage, PaymentTransaction, SubscriptionPlan, UserSubscription, TokenSettings, UserPremiumGrant, PaymentMethod, GeneratedVideo, VideoWorkflow
+from .models import Workflow, Character, CharacterImage, ConnectionConfig, CompanySettings, ChatMessage, CharacterCategory, CharacterSubCategory, ClientProfile, Coupon, CouponRedemption, CharacterAccessCode, UserCharacterAccess, TokenPackage, PaymentTransaction, SubscriptionPlan, UserSubscription, TokenSettings, UserPremiumGrant, PaymentMethod, GeneratedVideo, VideoWorkflow, VideoConfiguration # IMPORTAR NUEVO MODELO
 import json
 import os
 import uuid
@@ -560,6 +560,14 @@ async def workspace_view(request):
     all_categories = await sync_to_async(list)(CharacterCategory.objects.all().order_by('name'))
     all_subcategories = await sync_to_async(list)(CharacterSubCategory.objects.all().order_by('name'))
     
+    # --- NEW: Get Video Configuration Options ---
+    # Usamos el método load() para obtener la configuración global
+    video_config = await sync_to_async(VideoConfiguration.load)()
+    
+    # Obtenemos las opciones relacionadas
+    video_durations = await sync_to_async(list)(video_config.durations.filter(is_active=True).order_by('duration'))
+    video_resolutions = await sync_to_async(list)(video_config.resolutions.filter(is_active=True))
+    
     # Check if a character is selected
     character_id = request.GET.get('character_id')
     
@@ -774,7 +782,9 @@ async def workspace_view(request):
         'chat_history_video': chat_history_video, # NUEVO: Historial separado
         'recent_chats': recent_chats, # Pass recent chats list
         'workflow_capabilities': workflow_capabilities, # Pass capabilities
-        'random_preview_images': random_preview_images # Pass random images
+        'random_preview_images': random_preview_images, # Pass random images
+        'video_durations': video_durations, # NUEVO
+        'video_resolutions': video_resolutions, # NUEVO
     }
     return await sync_to_async(render)(request, 'myapp/workspace.html', context)
 
@@ -983,12 +993,23 @@ async def generate_image_view(request):
                  return JsonResponse({'status': 'success', 'images': []})
 
             character_id = request.GET.get('character_id')
+            media_type = request.GET.get('media_type', 'image') # NUEVO
+
             try:
-                images_qs = await sync_to_async(list)(
-                    CharacterImage.objects.filter(character_id=character_id, user=user).values_list('image', flat=True).order_by('-id')
-                )
-                image_urls = [reverse('serve_private_media', kwargs={'path': name}) for name in images_qs]
-                return JsonResponse({'status': 'success', 'images': image_urls})
+                if media_type == 'video':
+                    # Lógica para videos
+                    videos_qs = await sync_to_async(list)(
+                        GeneratedVideo.objects.filter(character_id=character_id, user=user).order_by('-created_at')
+                    )
+                    video_urls = [reverse('serve_private_media', kwargs={'path': v.video_file.name}) for v in videos_qs]
+                    return JsonResponse({'status': 'success', 'videos': video_urls})
+                else:
+                    # Lógica existente para imágenes
+                    images_qs = await sync_to_async(list)(
+                        CharacterImage.objects.filter(character_id=character_id, user=user).values_list('image', flat=True).order_by('-id')
+                    )
+                    image_urls = [reverse('serve_private_media', kwargs={'path': name}) for name in images_qs]
+                    return JsonResponse({'status': 'success', 'images': image_urls})
             except Exception as e:
                 return JsonResponse({'status': 'error', 'message': str(e)}, status=500)
 

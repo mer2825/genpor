@@ -15,7 +15,7 @@
 
             <!-- UNET High -->
             <div class="form-row">
-                <label for="unet_high">UNET High (Node 5):</label>
+                <label for="unet_high">UNET High (Node 5/52):</label>
                 <select name="unet_high" id="unet_high">
                     <option value="">-- Select UNET High --</option>
                     {% for ckpt in comfyui_info.checkpoints %}
@@ -26,7 +26,7 @@
 
             <!-- UNET Low -->
             <div class="form-row">
-                <label for="unet_low">UNET Low (Node 4):</label>
+                <label for="unet_low">UNET Low (Node 4/53):</label>
                 <select name="unet_low" id="unet_low">
                     <option value="">-- Select UNET Low --</option>
                     {% for ckpt in comfyui_info.checkpoints %}
@@ -37,7 +37,7 @@
 
             <!-- VAE -->
             <div class="form-row">
-                <label for="vae">VAE (Node 1):</label>
+                <label for="vae">VAE (Node 1/48):</label>
                 <select name="vae" id="vae">
                     <option value="">-- Select VAE --</option>
                     {% for vae in comfyui_info.vaes %}
@@ -48,31 +48,55 @@
 
             <!-- CLIP -->
             <div class="form-row">
-                <label for="clip">CLIP (Node 7):</label>
+                <label for="clip">CLIP (Node 7/57):</label>
                 <input type="text" name="clip" id="clip" value="{{ saved_config.clip|default:workflow_params.clip|default:'' }}" placeholder="Enter CLIP name manually">
                 <p class="help">Example: umt5_xxl_fp8_e4m3fn_scaled.safetensors</p>
             </div>
         </fieldset>
 
         <fieldset class="module aligned">
-            <h2>LoRA Stack (Nodes 15, 16)</h2>
-            <div class="description" style="padding: 10px; color: #666;">Configure up to 6 LoRAs to be applied via the LoRA Stack nodes.</div>
+            <h2>LoRA Stack HIGH (Node 51)</h2>
+            <div class="description" style="padding: 10px; color: #666;">Configure up to 6 LoRAs for the HIGH stack.</div>
 
-            <div id="lora-container">
+            <div id="lora-container-high">
                 {% for i in "123456" %}
                     <div class="form-row">
                         <label>LoRA {{ i }}:</label>
-                        <select name="lora_names" style="margin-right: 10px;">
+                        <select name="lora_names_high" style="margin-right: 10px;">
                             <option value="None">None</option>
                             {% for lora in comfyui_info.loras %}
                                 <option value="{{ lora }}"
-                                    {% if saved_config.lora_names and saved_config.lora_names|length >= forloop.counter and saved_config.lora_names|slice:forloop.counter0|first == lora %}selected{% endif %}>
+                                    {% if saved_config.lora_names_high and saved_config.lora_names_high|length >= forloop.counter and saved_config.lora_names_high|slice:forloop.counter0|first == lora %}selected{% endif %}>
                                     {{ lora }}
                                 </option>
                             {% endfor %}
                         </select>
 
-                        <input type="number" name="lora_strengths" step="0.1" min="-2.0" max="2.0" value="{% if saved_config.lora_strengths and saved_config.lora_strengths|length >= forloop.counter %}{{ saved_config.lora_strengths|slice:forloop.counter0|first }}{% else %}1.0{% endif %}" style="width: 80px; flex: 0;">
+                        <input type="number" name="lora_strengths_high" step="0.1" min="-2.0" max="2.0" value="{% if saved_config.lora_strengths_high and saved_config.lora_strengths_high|length >= forloop.counter %}{{ saved_config.lora_strengths_high|slice:forloop.counter0|first }}{% else %}1.0{% endif %}" style="width: 80px; flex: 0;">
+                    </div>
+                {% endfor %}
+            </div>
+        </fieldset>
+
+        <fieldset class="module aligned">
+            <h2>LoRA Stack LOW (Node 56)</h2>
+            <div class="description" style="padding: 10px; color: #666;">Configure up to 6 LoRAs for the LOW stack.</div>
+
+            <div id="lora-container-low">
+                {% for i in "123456" %}
+                    <div class="form-row">
+                        <label>LoRA {{ i }}:</label>
+                        <select name="lora_names_low" style="margin-right: 10px;">
+                            <option value="None">None</option>
+                            {% for lora in comfyui_info.loras %}
+                                <option value="{{ lora }}"
+                                    {% if saved_config.lora_names_low and saved_config.lora_names_low|length >= forloop.counter and saved_config.lora_names_low|slice:forloop.counter0|first == lora %}selected{% endif %}>
+                                    {{ lora }}
+                                </option>
+                            {% endfor %}
+                        </select>
+
+                        <input type="number" name="lora_strengths_low" step="0.1" min="-2.0" max="2.0" value="{% if saved_config.lora_strengths_low and saved_config.lora_strengths_low|length >= forloop.counter %}{{ saved_config.lora_strengths_low|slice:forloop.counter0|first }}{% else %}1.0{% endif %}" style="width: 80px; flex: 0;">
                     </div>
                 {% endfor %}
             </div>

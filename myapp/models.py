@@ -726,3 +726,55 @@ class PaymentMethod(models.Model):
     def __str__(self):
         status = " (ACTIVE)" if self.is_active else " (INACTIVE)"
         return f"{self.name}{status}"
+
+# --- VIDEO CONFIGURATION (GROUPED) ---
+
+class VideoConfiguration(models.Model):
+    # Este modelo actúa como contenedor
+    def __str__(self):
+        return "Video General Settings"
+
+    class Meta:
+        verbose_name = "Video Configuration"
+        verbose_name_plural = "Video Configuration"
+
+    def save(self, *args, **kwargs):
+        self.pk = 1
+        super().save(*args, **kwargs)
+
+    def delete(self, *args, **kwargs):
+        pass
+
+    @classmethod
+    def load(cls):
+        obj, created = cls.objects.get_or_create(pk=1)
+        return obj
+
+class VideoDurationOption(models.Model):
+    # Vinculamos al padre
+    config = models.ForeignKey(VideoConfiguration, on_delete=models.CASCADE, related_name='durations', default=1)
+    duration = models.PositiveIntegerField(verbose_name="Duration (seconds)", help_text="Ex: 3, 5, 9")
+    is_active = models.BooleanField(default=True)
+    
+    class Meta:
+        ordering = ['duration']
+        verbose_name = "Duration Option"
+        verbose_name_plural = "Duration Options"
+
+    def __str__(self):
+        return f"{self.duration}s"
+
+class VideoResolutionOption(models.Model):
+    # Vinculamos al padre
+    config = models.ForeignKey(VideoConfiguration, on_delete=models.CASCADE, related_name='resolutions', default=1)
+    name = models.CharField(max_length=50, verbose_name="Label", help_text="Ex: SD, HD, FHD")
+    width = models.PositiveIntegerField(default=1024)
+    height = models.PositiveIntegerField(default=576)
+    is_active = models.BooleanField(default=True)
+    
+    class Meta:
+        verbose_name = "Resolution Option"
+        verbose_name_plural = "Resolution Options"
+
+    def __str__(self):
+        return f"{self.name} ({self.width}x{self.height})"

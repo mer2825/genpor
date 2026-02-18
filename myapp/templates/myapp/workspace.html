@@ -327,6 +327,36 @@
             text-align: center;
         }
 
+        /* NUEVOS ESTILOS PARA BOTONES DE VIDEO */
+        .video-options-grid {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+            width: 100%;
+        }
+        .video-option-btn {
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid var(--border-subtle);
+            color: var(--text-muted);
+            padding: 8px 12px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 0.9rem;
+            flex: 1;
+            text-align: center;
+            transition: all 0.2s;
+        }
+        .video-option-btn:hover {
+            background: rgba(255, 255, 255, 0.1);
+            color: white;
+        }
+        .video-option-btn.active {
+            background: var(--primary-gradient);
+            color: white;
+            border-color: transparent;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+        }
+
         .image-selector-btn {
             background: rgba(255,255,255,0.1);
             border: 1px dashed var(--border-subtle);
@@ -586,26 +616,44 @@
 
             <!-- CONFIGURACIÓN DE VIDEO (OCULTO POR DEFECTO) -->
             <div id="config-panel-video" style="display: none;">
-                <div class="sidebar-title">Video Settings</div>
+                <div class="sidebar-title">Video Configuration</div>
 
-                <div class="video-config-row">
-                    <span class="video-config-label">Duration (s)</span>
-                    <input type="number" id="video-duration" class="video-config-input" value="3" min="1" max="10">
+                <!-- DURACIÓN -->
+                <div class="video-config-row" style="flex-direction: column; align-items: flex-start;">
+                    <span class="video-config-label" style="margin-bottom: 5px;">Duration</span>
+                    <input type="hidden" id="video-duration" value="3"> <!-- Hidden input para el valor -->
+                    <div class="video-options-grid">
+                        {% for opt in video_durations %}
+                            <button class="video-option-btn {% if forloop.first %}active{% endif %}"
+                                    onclick="selectVideoOption('duration', {{ opt.duration }}, this)">
+                                {{ opt.duration }}s
+                            </button>
+                        {% empty %}
+                            <!-- Fallback si no hay opciones en BD -->
+                            <button class="video-option-btn active" onclick="selectVideoOption('duration', 3, this)">3s</button>
+                            <button class="video-option-btn" onclick="selectVideoOption('duration', 5, this)">5s</button>
+                        {% endfor %}
+                    </div>
                 </div>
 
-                <div class="video-config-row">
-                    <span class="video-config-label">FPS</span>
-                    <input type="number" id="video-fps" class="video-config-input" value="24" min="1" max="60">
+                <!-- CALIDAD (RESOLUCIÓN) -->
+                <div class="video-config-row" style="flex-direction: column; align-items: flex-start; margin-top: 15px;">
+                    <span class="video-config-label" style="margin-bottom: 5px;">Video Quality</span>
+                    <input type="hidden" id="video-resolution" value="1024"> <!-- Hidden input para width -->
+                    <div class="video-options-grid">
+                        {% for opt in video_resolutions %}
+                            <button class="video-option-btn {% if forloop.first %}active{% endif %}"
+                                    onclick="selectVideoOption('resolution', {{ opt.width }}, this)">
+                                {{ opt.name }}
+                            </button>
+                        {% empty %}
+                            <button class="video-option-btn active" onclick="selectVideoOption('resolution', 1024, this)">HD</button>
+                        {% endfor %}
+                    </div>
                 </div>
 
-                <div class="video-config-row">
-                    <span class="video-config-label">Resolution</span>
-                    <select id="video-resolution" class="video-config-input" style="width: auto;">
-                        <option value="1024">1024x576</option>
-                        <option value="768">768x768</option>
-                        <option value="576">576x1024</option>
-                    </select>
-                </div>
+                <!-- FPS (Oculto/Fijo por ahora) -->
+                <input type="hidden" id="video-fps" value="24">
             </div>
 
             <!-- Input de Semilla (COMPARTIDO) -->
@@ -788,8 +836,12 @@
                 <button id="btn-show-reference" class="resource-btn">
                     <i class="fas fa-images" style="color:#60a5fa;"></i> References
                 </button>
-                <button id="btn-show-gallery" class="resource-btn">
-                    <i class="fas fa-photo-video" style="color:#34d399;"></i> Generated Gallery
+                <!-- NUEVOS BOTONES -->
+                <button id="btn-show-gallery-images" class="resource-btn">
+                    <i class="fas fa-image" style="color:#34d399;"></i> Image Gallery
+                </button>
+                <button id="btn-show-gallery-videos" class="resource-btn">
+                    <i class="fas fa-video" style="color:#f472b6;"></i> Video Gallery
                 </button>
             {% else %}
                 <p style="color:var(--text-muted); text-align:center; font-size:0.9rem; margin-top: 20px;">Select a character to see resources.</p>
@@ -920,7 +972,7 @@
     <div id="modal-gallery" class="modal">
         <div class="modal-content">
             <div class="modal-header">
-                <h3 style="margin:0; color:white;">Your Gallery</h3>
+                <h3 id="modal-gallery-title" style="margin:0; color:white;">Your Gallery</h3>
                 <span onclick="document.getElementById('modal-gallery').style.display='none'" style="cursor:pointer; color:white;">&times;</span>
             </div>
             <div class="modal-body">
@@ -1137,11 +1189,21 @@
 
         // Modales
         const btnRef = document.getElementById('btn-show-reference');
-        const btnGal = document.getElementById('btn-show-gallery');
+        const btnGalImg = document.getElementById('btn-show-gallery-images');
+        const btnGalVid = document.getElementById('btn-show-gallery-videos');
+
         if(btnRef) btnRef.onclick = () => document.getElementById('modal-reference').style.display = 'block';
-        if(btnGal) btnGal.onclick = () => {
+
+        if(btnGalImg) btnGalImg.onclick = () => {
             document.getElementById('modal-gallery').style.display = 'block';
-            loadUserGallery();
+            document.getElementById('modal-gallery-title').textContent = "Image Gallery";
+            loadUserGallery('image');
+        };
+
+        if(btnGalVid) btnGalVid.onclick = () => {
+            document.getElementById('modal-gallery').style.display = 'block';
+            document.getElementById('modal-gallery-title').textContent = "Video Gallery";
+            loadUserGallery('video');
         };
 
         // --- CERRAR MODALES AL CLIC FUERA (ROBUSTO) ---
@@ -1285,6 +1347,17 @@
             // Restaurar visibilidad: Mostrar botón, ocultar preview
             document.getElementById('btn-select-video-source').style.display = 'flex';
             document.getElementById('preview-video-source').style.display = 'none';
+        }
+
+        // --- NUEVA FUNCIÓN PARA SELECCIONAR OPCIONES DE VIDEO ---
+        function selectVideoOption(type, value, btn) {
+            // Actualizar input hidden
+            document.getElementById(`video-${type}`).value = value;
+
+            // Actualizar clases visuales
+            const container = btn.parentElement;
+            container.querySelectorAll('.video-option-btn').forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
         }
 
         // --- GENERATION LOGIC ---
@@ -1475,24 +1548,42 @@
             }
         };
 
-        function loadUserGallery() {
+        function loadUserGallery(type = 'image') {
             const grid = document.getElementById('user-gallery-grid');
             grid.innerHTML = '<p style="color:gray;">Loading...</p>';
-            fetch(`${generateUrl}?character_id=${characterId}`, { headers: { 'X-Requested-With': 'XMLHttpRequest' } })
+
+            // Añadir media_type a la URL
+            fetch(`${generateUrl}?character_id=${characterId}&media_type=${type}`, { headers: { 'X-Requested-With': 'XMLHttpRequest' } })
             .then(res => res.json())
             .then(data => {
                 grid.innerHTML = '';
-                if(data.images && data.images.length > 0) {
-                    data.images.forEach(url => {
-                        const img = document.createElement('img');
-                        img.src = url;
-                        img.style.width = '100%';
-                        img.style.borderRadius = '8px';
-                        img.onclick = () => window.open(url);
-                        grid.appendChild(img);
-                    });
-                } else {
-                    grid.innerHTML = '<p style="color:gray;">No images.</p>';
+
+                if (type === 'image') {
+                    if(data.images && data.images.length > 0) {
+                        data.images.forEach(url => {
+                            const img = document.createElement('img');
+                            img.src = url;
+                            img.style.width = '100%';
+                            img.style.borderRadius = '8px';
+                            img.onclick = () => window.open(url);
+                            grid.appendChild(img);
+                        });
+                    } else {
+                        grid.innerHTML = '<p style="color:gray;">No images found.</p>';
+                    }
+                } else if (type === 'video') {
+                    if(data.videos && data.videos.length > 0) {
+                        data.videos.forEach(url => {
+                            const vid = document.createElement('video');
+                            vid.src = url;
+                            vid.controls = true;
+                            vid.style.width = '100%';
+                            vid.style.borderRadius = '8px';
+                            grid.appendChild(vid);
+                        });
+                    } else {
+                        grid.innerHTML = '<p style="color:gray;">No videos found.</p>';
+                    }
                 }
             });
         };

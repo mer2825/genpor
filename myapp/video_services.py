@@ -112,6 +112,10 @@ async def queue_prompt(client, prompt_workflow, client_id, address):
         response = await client.post(f"{protocol}://{address}/prompt", json=p)
         response.raise_for_status()
         return response.json()
+    except httpx.HTTPStatusError as e:
+        # --- CAMBIO: Log simplificado ---
+        print("ComfyUI Error: 400 Bad Request (Validation Failed)")
+        raise Exception("ComfyUI Error: Validation Failed")
     except Exception as e:
         print(f"Error queueing prompt: {e}")
         raise
@@ -142,7 +146,8 @@ def analyze_video_workflow(workflow_json):
     analysis = {
         "unet_high": None,
         "unet_low": None,
-        "loras": [],
+        "loras_high": [], # CAMBIO: Lista separada para HIGH
+        "loras_low": [],  # CAMBIO: Lista separada para LOW
         "vae": None,
         "clip": None
     }
@@ -174,21 +179,38 @@ def analyze_video_workflow(workflow_json):
 
         # 4. LoRAs (DW_LoRAStackApplySimple)
         elif class_type == "DW_LoRAStackApplySimple":
-            for i in range(1, 7):
-                lora_name = inputs.get(f"lora_{i}_name")
-                if lora_name and lora_name != "None":
-                    analysis["loras"].append({
-                        "name": lora_name,
-                        "strength": inputs.get(f"lora_{i}_strength", 1.0)
-                    })
+            target_list = None
+            if "HIGH" in title:
+                target_list = analysis["loras_high"]
+            elif "LOW" in title:
+                target_list = analysis["loras_low"]
+            
+            if target_list is not None:
+                for i in range(1, 7):
+                    lora_name = inputs.get(f"lora_{i}_name")
+                    if lora_name and lora_name != "None":
+                        target_list.append({
+                            "name": lora_name,
+                            "strength": inputs.get(f"lora_{i}_strength", 1.0)
+                        })
         
-        # 5. LoRAs (LoraLoaderModelOnly - Nodos 26, 27)
+        # 5. LoRAs (LoraLoaderModelOnly - Nodos 26, 27) - LEGACY
         elif class_type == "LoraLoaderModelOnly":
-             lora_name = inputs.get("lora_name")
-             if lora_name and lora_name != "None":
-                 analysis["loras"].append({
+             lora_name = inputs.get("lora_name", "")
+             target_list = None
+             
+             # Intentar adivinar si es HIGH o LOW
+             if "high" in lora_name.lower() or node_id == "26":
+                 target_list = analysis["loras_high"]
+             elif "low" in lora_name.lower() or node_id == "27":
+                 target_list = analysis["loras_low"]
+                 
+             if target_list is not None and lora_name:
+                 target_list.append({
                      "name": lora_name,
-                     "strength": inputs.get("strength_model", 1.0)
+                     "strength": inputs.get("strength_model", 1.0),
+                     "is_legacy_node": True,
+                     "node_id": node_id
                  })
 
     return analysis
@@ -205,23 +227,47 @@ def update_video_workflow(workflow, params, uploaded_image_name):
     # 1. Imagen (Node 2)
     if "2" in wf and uploaded_image_name:
         wf["2"]["inputs"]["image"] = uploaded_image_name
+    # Fallback para LoadImage (Node 36 en el ejemplo del usuario)
+    if "36" in wf and uploaded_image_name:
+        wf["36"]["inputs"]["image"] = uploaded_image_name
 
     # 2. Prompts
     if "17" in wf and "prompt" in params:
         wf["17"]["inputs"]["text"] = params["prompt"]
+    # Fallback para CLIPTextEncode (Node 54 en el ejemplo)
+    if "54" in wf and "prompt" in params:
+        wf["54"]["inputs"]["text"] = params["prompt"]
     
     if "10" in wf and "negative_prompt" in params:
         wf["10"]["inputs"]["text"] = params["negative_prompt"]
+    # Fallback para CLIPTextEncode Negative (Node 55 en el ejemplo)
+    if "55" in wf and "negative_prompt" in params:
+        wf["55"]["inputs"]["text"] = params["negative_prompt"]
 
     # 3. Configuración Numérica
+    # Duration (Node 29 o 35)
     if "29" in wf and "duration" in params:
         wf["29"]["inputs"]["value"] = int(params["duration"])
+        wf["29"]["inputs"]["int_value"] = int(params["duration"]) # Fallback
+    if "35" in wf and "duration" in params:
+        wf["35"]["inputs"]["value"] = int(params["duration"])
+        wf["35"]["inputs"]["int_value"] = int(params["duration"]) # Fallback
         
+    # FPS (Node 30 o 37)
     if "30" in wf and "fps" in params:
         wf["30"]["inputs"]["value"] = int(params["fps"])
+        wf["30"]["inputs"]["int_value"] = int(params["fps"]) # Fallback
+    if "37" in wf and "fps" in params:
+        wf["37"]["inputs"]["value"] = int(params["fps"])
+        wf["37"]["inputs"]["int_value"] = int(params["fps"]) # Fallback
         
+    # Resolution (Node 32 o 45)
     if "32" in wf and "resolution" in params:
         wf["32"]["inputs"]["value"] = int(params["resolution"])
+        wf["32"]["inputs"]["int_value"] = int(params["resolution"]) # Fallback
+    if "45" in wf and "resolution" in params:
+        wf["45"]["inputs"]["value"] = int(params["resolution"])
+        wf["45"]["inputs"]["int_value"] = int(params["resolution"]) # Fallback
 
     # 4. Seed
     used_seed = params.get("seed")
@@ -235,60 +281,114 @@ def update_video_workflow(workflow, params, uploaded_image_name):
 
     if "6" in wf:
         wf["6"]["inputs"]["seed"] = used_seed
+    # Fallback para DW_seed (Node 50)
+    if "50" in wf:
+        wf["50"]["inputs"]["seed"] = used_seed
 
     # --- PARÁMETROS DE ADMIN (Configuración Guardada) ---
-    # Si params tiene claves de configuración (unet_high, unet_low, etc.), úsalas.
-    # Esto asume que 'params' puede venir mezclado o que se inyectan antes.
     
-    # UNET High (Node 5)
-    if "unet_high" in params and "5" in wf:
-        wf["5"]["inputs"]["unet_name"] = params["unet_high"]
+    # UNET High (Node 5 o 52)
+    if "unet_high" in params:
+        if "5" in wf: wf["5"]["inputs"]["unet_name"] = params["unet_high"]
+        if "52" in wf: wf["52"]["inputs"]["unet_name"] = params["unet_high"]
         
-    # UNET Low (Node 4)
-    if "unet_low" in params and "4" in wf:
-        wf["4"]["inputs"]["unet_name"] = params["unet_low"]
+    # UNET Low (Node 4 o 53)
+    if "unet_low" in params:
+        if "4" in wf: wf["4"]["inputs"]["unet_name"] = params["unet_low"]
+        if "53" in wf: wf["53"]["inputs"]["unet_name"] = params["unet_low"]
         
-    # VAE (Node 1)
-    if "vae" in params and "1" in wf:
-        wf["1"]["inputs"]["vae_name"] = params["vae"]
+    # VAE (Node 1 o 48)
+    if "vae" in params:
+        if "1" in wf: wf["1"]["inputs"]["vae_name"] = params["vae"]
+        if "48" in wf: wf["48"]["inputs"]["vae_name"] = params["vae"]
         
-    # CLIP (Node 7)
-    if "clip" in params and "7" in wf:
-        wf["7"]["inputs"]["clip_name"] = params["clip"]
+    # CLIP (Node 7 o 57)
+    if "clip" in params:
+        if "7" in wf: wf["7"]["inputs"]["clip_name"] = params["clip"]
+        if "57" in wf: wf["57"]["inputs"]["clip_name"] = params["clip"]
 
-    # LoRAs (DW_LoRAStackApplySimple - Nodos 15, 16)
-    # Nota: La lógica aquí es compleja porque hay múltiples nodos de stack.
-    # Simplificación: Si hay una lista de loras en params, intentamos llenar los stacks.
-    if "lora_names" in params and "lora_strengths" in params:
-        lora_names = params["lora_names"]
-        lora_strengths = params["lora_strengths"]
+    # --- LoRAs HIGH ---
+    if "lora_names_high" in params and "lora_strengths_high" in params:
+        lora_names = params["lora_names_high"]
+        lora_strengths = params["lora_strengths_high"]
         
-        # Limpiar stacks primero
-        for node_id in ["15", "16"]:
-            if node_id in wf:
-                for i in range(1, 7):
-                    wf[node_id]["inputs"][f"lora_{i}_name"] = "None"
-                    wf[node_id]["inputs"][f"lora_{i}_strength"] = 1.0
+        # 1. Buscar nodo STACK HIGH (Node 15 o 51)
+        high_node_id = None
+        if "15" in wf: high_node_id = "15"
+        if "51" in wf: high_node_id = "51"
         
-        # Llenar stacks (hasta 12 loras en total si usamos 15 y 16)
-        current_lora_idx = 0
-        for node_id in ["15", "16"]:
-            if node_id in wf:
-                for i in range(1, 7):
-                    if current_lora_idx < len(lora_names):
-                        wf[node_id]["inputs"][f"lora_{i}_name"] = lora_names[current_lora_idx]
-                        try:
-                            wf[node_id]["inputs"][f"lora_{i}_strength"] = float(lora_strengths[current_lora_idx])
-                        except:
-                            wf[node_id]["inputs"][f"lora_{i}_strength"] = 1.0
-                        current_lora_idx += 1
+        if high_node_id:
+            # Limpiar
+            for i in range(1, 7):
+                wf[high_node_id]["inputs"][f"lora_{i}_name"] = "None"
+                wf[high_node_id]["inputs"][f"lora_{i}_strength"] = 1.0
+            
+            # Llenar
+            for i in range(len(lora_names)):
+                if i < 6:
+                    wf[high_node_id]["inputs"][f"lora_{i+1}_name"] = lora_names[i]
+                    try:
+                        wf[high_node_id]["inputs"][f"lora_{i+1}_strength"] = float(lora_strengths[i])
+                    except:
+                        wf[high_node_id]["inputs"][f"lora_{i+1}_strength"] = 1.0
+        
+        # 2. Buscar nodo LEGACY HIGH (Node 26)
+        if "26" in wf:
+            # Si hay un LoRA configurado en la posición 1, usarlo. Si no, intentar poner None si es posible.
+            # Nota: LoraLoaderModelOnly NO suele aceptar "None". Si no hay LoRA, esto fallará si no se borra el nodo.
+            if len(lora_names) > 0 and lora_names[0] != "None":
+                wf["26"]["inputs"]["lora_name"] = lora_names[0]
+                try:
+                    wf["26"]["inputs"]["strength_model"] = float(lora_strengths[0])
+                except:
+                    wf["26"]["inputs"]["strength_model"] = 1.0
+            else:
+                # Intento desesperado: Poner un nombre vacío o None y rezar, o borrar el nodo si pudiéramos.
+                # Como no podemos borrar fácilmente, dejamos el valor original o ponemos uno dummy si existe.
+                pass
+
+    # --- LoRAs LOW ---
+    if "lora_names_low" in params and "lora_strengths_low" in params:
+        lora_names = params["lora_names_low"]
+        lora_strengths = params["lora_strengths_low"]
+        
+        # 1. Buscar nodo STACK LOW (Node 16 o 56)
+        low_node_id = None
+        if "16" in wf: low_node_id = "16"
+        if "56" in wf: low_node_id = "56"
+        
+        if low_node_id:
+            # Limpiar
+            for i in range(1, 7):
+                wf[low_node_id]["inputs"][f"lora_{i}_name"] = "None"
+                wf[low_node_id]["inputs"][f"lora_{i}_strength"] = 1.0
+            
+            # Llenar
+            for i in range(len(lora_names)):
+                if i < 6:
+                    wf[low_node_id]["inputs"][f"lora_{i+1}_name"] = lora_names[i]
+                    try:
+                        wf[low_node_id]["inputs"][f"lora_{i+1}_strength"] = float(lora_strengths[i])
+                    except:
+                        wf[low_node_id]["inputs"][f"lora_{i+1}_strength"] = 1.0
+
+        # 2. Buscar nodo LEGACY LOW (Node 27)
+        if "27" in wf:
+            if len(lora_names) > 0 and lora_names[0] != "None":
+                wf["27"]["inputs"]["lora_name"] = lora_names[0]
+                try:
+                    wf["27"]["inputs"]["strength_model"] = float(lora_strengths[0])
+                except:
+                    wf["27"]["inputs"]["strength_model"] = 1.0
+            else:
+                pass
     
     # --- CORRECCIÓN CRÍTICA: Forzar guardado de video ---
     # Buscar nodos de tipo DW_Img2Vid y asegurar save_output=True
     for node_id, details in wf.items():
         if details.get("class_type") == "DW_Img2Vid":
             if "inputs" in details:
-                print(f"DEBUG: Forcing save_output=True for node {node_id} (DW_Img2Vid)")
+                # print(f"DEBUG: Forcing save_output=True for node {node_id} (DW_Img2Vid)")
                 details["inputs"]["save_output"] = True
 
     return wf, used_seed

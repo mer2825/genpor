@@ -17,7 +17,8 @@ from .models import (
     Coupon, CouponRedemption, CharacterAccessCode, UserCharacterAccess, 
     TokenPackage, PaymentTransaction, SubscriptionPlan, UserSubscription,
     UserPremiumGrant, PaymentMethod,
-    VideoConnectionConfig, VideoWorkflow, GeneratedVideo
+    VideoConnectionConfig, VideoWorkflow, GeneratedVideo,
+    VideoConfiguration, VideoDurationOption, VideoResolutionOption # IMPORTAR NUEVOS MODELOS
 )
 from .services import generate_image_from_character, get_active_comfyui_address, get_comfyui_object_info, analyze_workflow
 from .video_services import get_active_video_comfyui_address, analyze_video_workflow
@@ -822,8 +823,10 @@ class VideoWorkflowAdmin(admin.ModelAdmin):
                 'unet_low': request.POST.get('unet_low'),
                 'vae': request.POST.get('vae'),
                 'clip': request.POST.get('clip'),
-                'lora_names': request.POST.getlist('lora_names'),
-                'lora_strengths': request.POST.getlist('lora_strengths'),
+                'lora_names_high': request.POST.getlist('lora_names_high'), # NUEVO
+                'lora_strengths_high': request.POST.getlist('lora_strengths_high'), # NUEVO
+                'lora_names_low': request.POST.getlist('lora_names_low'), # NUEVO
+                'lora_strengths_low': request.POST.getlist('lora_strengths_low'), # NUEVO
                 'duration': request.POST.get('duration'),
                 'fps': request.POST.get('fps'),
                 'resolution': request.POST.get('resolution'),
@@ -862,3 +865,29 @@ class GeneratedVideoAdmin(admin.ModelAdmin):
     video_preview.short_description = 'Preview'
 
     def has_add_permission(self, request): return False
+
+# --- VIDEO CONFIGURATION ADMIN (GROUPED) ---
+
+class VideoDurationOptionInline(admin.TabularInline):
+    model = VideoDurationOption
+    extra = 1
+    fields = ('duration', 'is_active')
+    verbose_name = "Duration Option"
+    verbose_name_plural = "Duration Options (Buttons)"
+
+class VideoResolutionOptionInline(admin.TabularInline):
+    model = VideoResolutionOption
+    extra = 1
+    fields = ('name', 'width', 'height', 'is_active')
+    verbose_name = "Resolution Option"
+    verbose_name_plural = "Resolution Options (Buttons)"
+
+@admin.register(VideoConfiguration)
+class VideoConfigurationAdmin(admin.ModelAdmin):
+    inlines = [VideoDurationOptionInline, VideoResolutionOptionInline]
+    
+    def has_add_permission(self, request):
+        if self.model.objects.exists(): return False
+        return super().has_add_permission(request)
+    
+    def has_delete_permission(self, request, obj=None): return False
