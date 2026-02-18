@@ -281,6 +281,178 @@
             margin-bottom: 4px;
             border: 1px solid rgba(255,255,255,0.2);
         }
+
+        /* --- ESTILOS PARA MODO VIDEO --- */
+        .mode-switch {
+            display: flex;
+            background: rgba(255,255,255,0.1);
+            border-radius: 8px;
+            padding: 4px;
+            margin-bottom: 20px;
+        }
+        .mode-btn {
+            flex: 1;
+            background: transparent;
+            border: none;
+            color: var(--text-muted);
+            padding: 8px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: 600;
+            transition: all 0.2s;
+        }
+        .mode-btn.active {
+            background: var(--primary-gradient);
+            color: white;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+        }
+
+        .video-config-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+        .video-config-label {
+            color: var(--text-muted);
+            font-size: 0.9rem;
+        }
+        .video-config-input {
+            background: rgba(0,0,0,0.3);
+            border: 1px solid var(--border-subtle);
+            color: white;
+            padding: 5px 10px;
+            border-radius: 6px;
+            width: 60px;
+            text-align: center;
+        }
+
+        .image-selector-btn {
+            background: rgba(255,255,255,0.1);
+            border: 1px dashed var(--border-subtle);
+            color: var(--text-muted);
+            padding: 10px;
+            border-radius: 8px;
+            width: 100%;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            margin-bottom: 15px;
+            transition: all 0.2s;
+        }
+        .image-selector-btn:hover {
+            border-color: var(--primary-color);
+            color: white;
+            background: rgba(255,255,255,0.15);
+        }
+        .selected-image-preview {
+            width: 100%;
+            height: 150px;
+            object-fit: cover;
+            border-radius: 8px;
+            margin-bottom: 10px;
+            display: none;
+            border: 1px solid var(--primary-color);
+        }
+
+        /* Estilos para el modal de selección de imagen */
+        .gallery-grid-select {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr); /* 2 Columnas Fijas */
+            gap: 10px;
+            max-height: 400px;
+            overflow-y: auto;
+        }
+        .gallery-item-select {
+            position: relative;
+            cursor: pointer;
+            border-radius: 8px;
+            overflow: hidden;
+            border: 2px solid transparent;
+        }
+        .gallery-item-select:hover {
+            border-color: var(--primary-color);
+        }
+        .gallery-item-select img {
+            width: 100%;
+            height: auto; /* CAMBIO: Altura automática para ver imagen completa */
+            display: block;
+            border-radius: 8px; /* Bordes redondeados */
+        }
+
+        /* --- CHAT LAYOUT IMPROVEMENTS (WhatsApp Style) --- */
+        .chat-area {
+            display: flex;
+            flex-direction: column;
+            gap: 40px; /* AUMENTADO: Mucha más separación entre mensajes */
+            padding: 30px 20px; /* Más padding vertical */
+        }
+
+        .message {
+            max-width: 85%; /* No ocupar todo el ancho */
+            width: fit-content; /* Ajustarse al contenido */
+            padding: 12px 16px;
+            border-radius: 18px; /* Bordes redondeados tipo burbuja */
+            position: relative;
+            line-height: 1.5;
+            word-wrap: break-word;
+        }
+
+        /* Mensajes del Usuario (Derecha) */
+        .message.user {
+            align-self: flex-end; /* Alinear a la derecha (Flexbox) */
+            background: var(--primary-gradient); /* Color distintivo */
+            color: white;
+            border-bottom-right-radius: 4px; /* Esquina "pico" */
+            margin-left: auto; /* Asegurar alineación derecha */
+            box-shadow: 0 4px 15px -3px rgba(0,0,0,0.3);
+        }
+
+        /* Mensajes de la IA (Izquierda) */
+        .message.ai {
+            align-self: flex-start; /* Alinear a la izquierda */
+            background: #0f172a; /* Fondo más oscuro (Slate 900) */
+            border: 1px solid rgba(255, 255, 255, 0.08); /* Borde sutil */
+            color: #e2e8f0;
+            border-bottom-left-radius: 4px; /* Esquina "pico" */
+            margin-right: auto; /* Asegurar alineación izquierda */
+        }
+
+        /* Ajuste para botón de borrar */
+        .delete-msg-btn {
+            opacity: 0; /* Oculto por defecto */
+            transition: opacity 0.2s;
+            position: absolute;
+            top: 50%;
+            transform: translateY(-50%);
+            background: rgba(0,0,0,0.5);
+            border-radius: 50%;
+            width: 24px;
+            height: 24px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.7rem;
+            border: none;
+            color: #fca5a5;
+            cursor: pointer;
+        }
+        .message:hover .delete-msg-btn { opacity: 1; }
+
+        /* Posición del botón borrar según lado */
+        .message.user .delete-msg-btn { left: -35px; }
+        .message.ai .delete-msg-btn { right: -35px; }
+
+        /* Ajuste para grids de resultados dentro de burbujas */
+        .result-grid {
+            margin-top: 20px; /* AUMENTADO: Más separación interna entre texto e imagen */
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+            gap: 8px;
+            width: 100%;
+        }
     </style>
 
     <!-- Ajustes para el modal de selección de personajes -->
@@ -368,28 +540,75 @@
                 <span>Settings</span>
                 <button class="close-sidebar-btn" onclick="closeAllSidebars()"><i class="fas fa-times"></i></button>
             </div>
-            <!-- CAMBIO: Solo mostrar si hay un personaje seleccionado -->
-            {% if selected_character %}
-            <button onclick="document.getElementById('modal-characters').style.display='block'" class="resource-btn" style="background: var(--primary-gradient); border:none; color:white; justify-content:center; font-weight:600; margin-bottom: 25px;">
-                <i class="fas fa-plus"></i> New Chat / Character
-            </button>
-            {% endif %}
 
-            <!-- SECCIÓN DE ASPECT RATIO -->
-            <div class="sidebar-title">Aspect Ratio</div>
-            <input type="hidden" id="width-input" value="{{ default_width }}">
-            <input type="hidden" id="height-input" value="{{ default_height }}">
-            <div class="aspect-ratio-grid">
-                <button class="aspect-ratio-btn" data-width="1024" data-height="1024"><div class="silhouette" style="width: 24px; height: 24px;"></div><span>1:1</span></button>
-                <button class="aspect-ratio-btn" data-width="768" data-height="1152"><div class="silhouette" style="width: 16px; height: 24px;"></div><span>2:3</span></button>
-                <button class="aspect-ratio-btn" data-width="1152" data-height="768"><div class="silhouette" style="width: 24px; height: 16px;"></div><span>3:2</span></button>
-                <button class="aspect-ratio-btn" data-width="1024" data-height="1280"><div class="silhouette" style="width: 19.2px; height: 24px;"></div><span>4:5</span></button>
-                <button class="aspect-ratio-btn" data-width="1280" data-height="1024"><div class="silhouette" style="width: 24px; height: 19.2px;"></div><span>5:4</span></button>
-                <button class="aspect-ratio-btn" data-width="720" data-height="1280"><div class="silhouette" style="width: 13.5px; height: 24px;"></div><span>9:16</span></button>
-                <button class="aspect-ratio-btn" data-width="1280" data-height="720"><div class="silhouette" style="width: 24px; height: 13.5px;"></div><span>16:9</span></button>
+            <!-- SELECTOR DE MODO (IMAGEN / VIDEO) -->
+            <div class="mode-switch">
+                <button class="mode-btn active" id="mode-image-btn" onclick="setMode('image')">Image</button>
+                <button class="mode-btn" id="mode-video-btn" onclick="setMode('video')">Video</button>
             </div>
 
-            <!-- Input de Semilla (MEJORADO) -->
+            <!-- CONFIGURACIÓN DE IMAGEN -->
+            <div id="config-panel-image">
+                <!-- SECCIÓN DE ASPECT RATIO -->
+                <div class="sidebar-title">Aspect Ratio</div>
+                <input type="hidden" id="width-input" value="{{ default_width }}">
+                <input type="hidden" id="height-input" value="{{ default_height }}">
+                <div class="aspect-ratio-grid">
+                    <button class="aspect-ratio-btn" data-width="1024" data-height="1024"><div class="silhouette" style="width: 24px; height: 24px;"></div><span>1:1</span></button>
+                    <button class="aspect-ratio-btn" data-width="768" data-height="1152"><div class="silhouette" style="width: 16px; height: 24px;"></div><span>2:3</span></button>
+                    <button class="aspect-ratio-btn" data-width="1152" data-height="768"><div class="silhouette" style="width: 24px; height: 16px;"></div><span>3:2</span></button>
+                    <button class="aspect-ratio-btn" data-width="1024" data-height="1280"><div class="silhouette" style="width: 19.2px; height: 24px;"></div><span>4:5</span></button>
+                    <button class="aspect-ratio-btn" data-width="1280" data-height="1024"><div class="silhouette" style="width: 24px; height: 19.2px;"></div><span>5:4</span></button>
+                    <button class="aspect-ratio-btn" data-width="720" data-height="1280"><div class="silhouette" style="width: 13.5px; height: 24px;"></div><span>9:16</span></button>
+                    <button class="aspect-ratio-btn" data-width="1280" data-height="720"><div class="silhouette" style="width: 24px; height: 13.5px;"></div><span>16:9</span></button>
+                </div>
+
+                <!-- Opciones de Salida (SINGLE SELECTION) -->
+                <div class="sidebar-title">Output Options</div>
+                <div class="output-options-grid" id="output-options-container">
+                    <!-- Botón Normal (Activo por defecto, JS lo cambiará si hay mejores) -->
+                    <button class="output-option-btn active" id="btn-normal" data-type="Gen_Normal" onclick="selectOutputOption(this)">Generate Normal (Fast)</button>
+
+                    {% if workflow_capabilities.can_upscale %}
+                    <!-- CAMBIO: Nombre actualizado a Upscaler -->
+                    <button class="output-option-btn" id="btn-upscale" data-type="Gen_UpScaler" onclick="selectOutputOption(this)">Generate Upscaler (HD)</button>
+                    {% endif %}
+
+                    {% if workflow_capabilities.can_facedetail %}
+                    <button class="output-option-btn" id="btn-face" data-type="Gen_FaceDetailer" onclick="selectOutputOption(this)">Face Detailer (Faces)</button>
+                    {% endif %}
+
+                    {% if workflow_capabilities.can_eyedetailer %}
+                    <button class="output-option-btn" id="btn-eye" data-type="Gen_EyeDetailer" onclick="selectOutputOption(this)">Eye Detailer (Eyes)</button>
+                    {% endif %}
+                </div>
+            </div>
+
+            <!-- CONFIGURACIÓN DE VIDEO (OCULTO POR DEFECTO) -->
+            <div id="config-panel-video" style="display: none;">
+                <div class="sidebar-title">Video Settings</div>
+
+                <div class="video-config-row">
+                    <span class="video-config-label">Duration (s)</span>
+                    <input type="number" id="video-duration" class="video-config-input" value="3" min="1" max="10">
+                </div>
+
+                <div class="video-config-row">
+                    <span class="video-config-label">FPS</span>
+                    <input type="number" id="video-fps" class="video-config-input" value="24" min="1" max="60">
+                </div>
+
+                <div class="video-config-row">
+                    <span class="video-config-label">Resolution</span>
+                    <select id="video-resolution" class="video-config-input" style="width: auto;">
+                        <option value="1024">1024x576</option>
+                        <option value="768">768x768</option>
+                        <option value="576">576x1024</option>
+                    </select>
+                </div>
+            </div>
+
+            <!-- Input de Semilla (COMPARTIDO) -->
             <div class="sidebar-title">Seed</div>
             <div style="margin-bottom:15px;">
                 <div class="seed-control-group">
@@ -400,26 +619,6 @@
                 <div style="font-size:0.7rem; color:var(--text-muted); margin-top:5px; text-align:center;">
                     Leave empty or -1 for random.
                 </div>
-            </div>
-
-            <!-- Opciones de Salida (SINGLE SELECTION) -->
-            <div class="sidebar-title">Output Options</div>
-            <div class="output-options-grid" id="output-options-container">
-                <!-- Botón Normal (Activo por defecto, JS lo cambiará si hay mejores) -->
-                <button class="output-option-btn active" id="btn-normal" data-type="Gen_Normal" onclick="selectOutputOption(this)">Generate Normal (Fast)</button>
-
-                {% if workflow_capabilities.can_upscale %}
-                <!-- CAMBIO: Nombre actualizado a Upscaler -->
-                <button class="output-option-btn" id="btn-upscale" data-type="Gen_UpScaler" onclick="selectOutputOption(this)">Generate Upscaler (HD)</button>
-                {% endif %}
-
-                {% if workflow_capabilities.can_facedetail %}
-                <button class="output-option-btn" id="btn-face" data-type="Gen_FaceDetailer" onclick="selectOutputOption(this)">Face Detailer (Faces)</button>
-                {% endif %}
-
-                {% if workflow_capabilities.can_eyedetailer %}
-                <button class="output-option-btn" id="btn-eye" data-type="Gen_EyeDetailer" onclick="selectOutputOption(this)">Eye Detailer (Eyes)</button>
-                {% endif %}
             </div>
         </aside>
 
@@ -449,7 +648,8 @@
                     </button>
                 </div>
 
-                <div class="chat-area" id="chat-area">
+                <!-- CHAT DE IMÁGENES (VISIBLE POR DEFECTO) -->
+                <div class="chat-area" id="chat-area-image">
                     <!-- ESPACIADOR INVISIBLE PARA MÓVIL -->
                     <div class="mobile-spacer" style="height: 20px; display: none;"></div>
 
@@ -457,8 +657,8 @@
                         Hello! I am <strong>{{ selected_character.name }}</strong>. What image would you like to create today? 🎨
                     </div>
 
-                    <!-- HISTORIAL DE CHAT -->
-                    {% for msg in chat_history %}
+                    <!-- HISTORIAL DE CHAT IMAGEN -->
+                    {% for msg in chat_history_image %}
                         <div class="message {% if msg.is_user %}user{% else %}ai{% endif %}" data-msg-id="{{ msg.id }}">
                             <button class="delete-msg-btn" onclick="openDeleteModal('{{ msg.id }}')"><i class="fas fa-trash"></i></button>
                             {{ msg.text }}
@@ -477,7 +677,7 @@
                                                 {% elif img.type == "FACEDETAILER" %}
                                                     <span class="result-badge badge-face">FACEDETAILER</span>
                                                 {% elif img.type == "EYEDETAILER" %}
-                                                    <span class="result-badge badge-face">EYEDETAILER</span> <!-- NUEVO BADGE -->
+                                                    <span class="result-badge badge-face">EYEDETAILER</span>
                                                 {% else %}
                                                     <span class="result-badge badge-normal">NORMAL</span>
                                                 {% endif %}
@@ -496,13 +696,60 @@
                     {% endfor %}
                 </div>
 
+                <!-- CHAT DE VIDEO (OCULTO POR DEFECTO) -->
+                <div class="chat-area" id="chat-area-video" style="display: none;">
+                    <!-- ESPACIADOR INVISIBLE PARA MÓVIL -->
+                    <div class="mobile-spacer" style="height: 20px; display: none;"></div>
+
+                    <div class="message ai">
+                        Ready to make some movies? 🎬 Select an image and describe the motion!
+                    </div>
+
+                    <!-- HISTORIAL DE CHAT VIDEO -->
+                    {% for msg in chat_history_video %}
+                        <div class="message {% if msg.is_user %}user{% else %}ai{% endif %}" data-msg-id="{{ msg.id }}">
+                            <button class="delete-msg-btn" onclick="openDeleteModal('{{ msg.id }}')"><i class="fas fa-trash"></i></button>
+                            {{ msg.text }}
+                            {% if msg.videos %}
+                                <div class="result-grid">
+                                    {% for vid in msg.videos %}
+                                        <div class="result-card" style="width: 100%;">
+                                            <video width="100%" controls style="border-radius:8px;">
+                                                <source src="{{ vid.url }}" type="video/mp4">
+                                                Your browser does not support the video tag.
+                                            </video>
+                                        </div>
+                                    {% endfor %}
+                                </div>
+                            {% endif %}
+                        </div>
+                    {% endfor %}
+                </div>
+
                 <!-- BOTÓN SCROLL TO BOTTOM -->
                 <button id="scroll-bottom-btn" class="scroll-bottom-btn" onclick="scrollToBottomSmooth()">
                     <i class="fas fa-arrow-down"></i>
                 </button>
 
-                <div class="input-container">
-                    <div class="input-box">
+                <div class="input-container" style="display: flex; align-items: flex-end; gap: 10px;">
+                    <!-- SELECCIÓN DE IMAGEN PARA VIDEO (IZQUIERDA DEL INPUT) -->
+                    <div id="video-source-container" style="display: none; margin-right: 5px; flex-shrink: 0;">
+                        <!-- Estado 1: Botón para seleccionar -->
+                        <button id="btn-select-video-source" onclick="openImageSelectModal()" style="width: 50px; height: 50px; border-radius: 12px; background: rgba(255,255,255,0.1); border: 1px dashed var(--text-muted); color: var(--text-muted); cursor: pointer; transition: all 0.2s; display: flex; align-items: center; justify-content: center;">
+                            <i class="fas fa-image" style="font-size: 1.2rem;"></i>
+                        </button>
+
+                        <!-- Estado 2: Vista previa de imagen seleccionada -->
+                        <div id="preview-video-source" style="display: none; position: relative; width: 70px; height: 70px;">
+                            <img id="video-src-img" src="" style="width: 100%; height: 100%; object-fit: cover; border-radius: 10px; border: 2px solid var(--primary-color); cursor: pointer;" onclick="openImageSelectModal()" title="Change image">
+                            <div onclick="clearVideoSelection()" style="position: absolute; top: -6px; right: -6px; background: #ef4444; color: white; border-radius: 50%; width: 20px; height: 20px; font-size: 12px; display: flex; align-items: center; justify-content: center; cursor: pointer; box-shadow: 0 2px 5px rgba(0,0,0,0.3);">
+                                <i class="fas fa-times"></i>
+                            </div>
+                        </div>
+                        <input type="hidden" id="selected-image-url">
+                    </div>
+
+                    <div class="input-box" style="flex: 1;">
                         <textarea id="prompt-input" placeholder="Describe your image here..." rows="1"></textarea>
                         <button id="send-btn" class="send-btn">
                             <i class="fas fa-arrow-up"></i>
@@ -682,6 +929,19 @@
         </div>
     </div>
 
+    <!-- MODAL DE SELECCIÓN DE IMAGEN PARA VIDEO (NUEVO) -->
+    <div id="modal-image-select" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 style="margin:0; color:white;">Select Source Image</h3>
+                <span onclick="document.getElementById('modal-image-select').style.display='none'" style="cursor:pointer; color:white;">&times;</span>
+            </div>
+            <div class="modal-body">
+                <div id="image-select-grid" class="gallery-grid-select"></div>
+            </div>
+        </div>
+    </div>
+
     <!-- MODAL DE CONFIRMACIÓN DE BORRADO -->
     <div id="modal-delete" class="modal">
         <div class="modal-content">
@@ -714,6 +974,7 @@
 
     <script>
         const generateUrl = "{% url 'generate_image' %}";
+        const generateVideoUrl = "{% url 'generate_video' %}"; // NUEVO
         const deleteMsgUrl = "{% url 'delete_message' %}";
         const clearChatUrl = "{% url 'clear_chat' %}";
         const redeemCouponUrl = "{% url 'redeem_coupon' %}";
@@ -722,10 +983,40 @@
 
         // --- UI LOGIC ---
         const textarea = document.getElementById('prompt-input');
-        const chatArea = document.getElementById('chat-area');
+        const chatArea = document.getElementById('chat-area'); // Fallback
+        const chatAreaImage = document.getElementById('chat-area-image');
+        const chatAreaVideo = document.getElementById('chat-area-video');
         const bottomNav = document.querySelector('.bottom-nav');
         const inputContainer = document.querySelector('.input-container');
         const scrollBottomBtn = document.getElementById('scroll-bottom-btn');
+
+        // --- MODE SWITCH LOGIC ---
+        let currentMode = 'image'; // 'image' or 'video'
+
+        function setMode(mode) {
+            currentMode = mode;
+            localStorage.setItem('workspaceMode', mode); // GUARDAR MODO
+
+            // Update buttons
+            document.getElementById('mode-image-btn').classList.toggle('active', mode === 'image');
+            document.getElementById('mode-video-btn').classList.toggle('active', mode === 'video');
+
+            // Toggle config panels
+            document.getElementById('config-panel-image').style.display = mode === 'image' ? 'block' : 'none';
+            document.getElementById('config-panel-video').style.display = mode === 'video' ? 'block' : 'none';
+
+            // Toggle chat areas
+            if(chatAreaImage) chatAreaImage.style.display = mode === 'image' ? 'flex' : 'none';
+            if(chatAreaVideo) chatAreaVideo.style.display = mode === 'video' ? 'flex' : 'none';
+
+            // Toggle image selector in input area (NUEVO LUGAR)
+            document.getElementById('video-source-container').style.display = mode === 'video' ? 'block' : 'none';
+
+            // Update placeholder
+            textarea.placeholder = mode === 'image' ? "Describe your image here..." : "Describe the motion for your video...";
+
+            scrollToBottom();
+        }
 
         // Auto-resize Textarea
         textarea.addEventListener('input', function() {
@@ -733,8 +1024,17 @@
             this.style.height = Math.min(this.scrollHeight, 150) + 'px';
         });
 
-        // Scroll al fondo al cargar
-        window.onload = scrollToBottom;
+        // Scroll al fondo al cargar y restaurar modo
+        window.onload = function() {
+            // Restaurar modo guardado
+            const savedMode = localStorage.getItem('workspaceMode');
+            if (savedMode && (savedMode === 'image' || savedMode === 'video')) {
+                setMode(savedMode);
+            } else {
+                setMode('image'); // Default
+            }
+            scrollToBottom();
+        };
 
         // Mobile Keyboard Handling
         if (window.innerWidth <= 768) {
@@ -743,29 +1043,42 @@
             });
         }
 
+        function getActiveChatArea() {
+            return currentMode === 'image' ? chatAreaImage : chatAreaVideo;
+        }
+
         function scrollToBottom() {
+            const activeChat = getActiveChatArea();
+            if (!activeChat) return;
+
             // En móvil, el scroll es del body/main-content, no de chatArea
             if (window.innerWidth <= 768) {
                 window.scrollTo(0, document.body.scrollHeight);
                 const mainContent = document.querySelector('.main-content');
                 if(mainContent) mainContent.scrollTop = mainContent.scrollHeight;
             } else {
-                chatArea.scrollTop = chatArea.scrollHeight;
+                activeChat.scrollTop = activeChat.scrollHeight;
             }
         };
 
         function scrollToBottomSmooth() {
+            const activeChat = getActiveChatArea();
+            if (!activeChat) return;
+
             if (window.innerWidth <= 768) {
                 window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' });
                 const mainContent = document.querySelector('.main-content');
                 if(mainContent) mainContent.scrollTo({ top: mainContent.scrollHeight, behavior: 'smooth' });
             } else {
-                chatArea.scrollTo({ top: chatArea.scrollHeight, behavior: 'smooth' });
+                activeChat.scrollTo({ top: activeChat.scrollHeight, behavior: 'smooth' });
             }
         };
 
         // Detectar scroll para mostrar/ocultar botón
         function handleScroll() {
+            const activeChat = getActiveChatArea();
+            if (!activeChat) return;
+
             let scrollTop, scrollHeight, clientHeight;
 
             if (window.innerWidth <= 768) {
@@ -775,9 +1088,9 @@
                 scrollHeight = mainContent.scrollHeight || document.body.scrollHeight;
                 clientHeight = mainContent.clientHeight || window.innerHeight;
             } else {
-                scrollTop = chatArea.scrollTop;
-                scrollHeight = chatArea.scrollHeight;
-                clientHeight = chatArea.clientHeight;
+                scrollTop = activeChat.scrollTop;
+                scrollHeight = activeChat.scrollHeight;
+                clientHeight = activeChat.clientHeight;
             }
 
             // Si estamos a más de 300px del final, mostrar botón
@@ -789,7 +1102,8 @@
         };
 
         // Asignar listeners de scroll
-        chatArea.addEventListener('scroll', handleScroll);
+        if(chatAreaImage) chatAreaImage.addEventListener('scroll', handleScroll);
+        if(chatAreaVideo) chatAreaVideo.addEventListener('scroll', handleScroll);
         window.addEventListener('scroll', handleScroll);
         const mainContent = document.querySelector('.main-content');
         if(mainContent) mainContent.addEventListener('scroll', handleScroll);
@@ -916,6 +1230,63 @@
             }
         });
 
+        // --- IMAGE SELECTION LOGIC (VIDEO) ---
+        let selectedImageBlob = null; // Para guardar el blob de la imagen seleccionada
+
+        function openImageSelectModal() {
+            document.getElementById('modal-image-select').style.display = 'block';
+            const grid = document.getElementById('image-select-grid');
+            grid.innerHTML = '<p style="color:gray;">Loading gallery...</p>';
+
+            // Cargar galería del usuario
+            fetch(`${generateUrl}?character_id=${characterId}`, { headers: { 'X-Requested-With': 'XMLHttpRequest' } })
+            .then(res => res.json())
+            .then(data => {
+                grid.innerHTML = '';
+                if(data.images && data.images.length > 0) {
+                    data.images.forEach(url => {
+                        const div = document.createElement('div');
+                        div.className = 'gallery-item-select';
+                        div.innerHTML = `<img src="${url}">`;
+                        div.onclick = () => selectImageForVideo(url);
+                        grid.appendChild(div);
+                    });
+                } else {
+                    grid.innerHTML = '<p style="color:gray;">No images found. Generate some images first!</p>';
+                }
+            });
+        }
+
+        function selectImageForVideo(url) {
+            document.getElementById('selected-image-url').value = url;
+
+            // Actualizar vista previa
+            const previewImg = document.getElementById('video-src-img');
+            previewImg.src = url;
+
+            // Cambiar visibilidad: Ocultar botón, mostrar preview
+            document.getElementById('btn-select-video-source').style.display = 'none';
+            document.getElementById('preview-video-source').style.display = 'block';
+
+            document.getElementById('modal-image-select').style.display = 'none';
+
+            // Convertir URL a Blob para enviarlo como archivo
+            fetch(url)
+                .then(res => res.blob())
+                .then(blob => {
+                    selectedImageBlob = blob;
+                });
+        }
+
+        function clearVideoSelection() {
+            selectedImageBlob = null;
+            document.getElementById('selected-image-url').value = '';
+
+            // Restaurar visibilidad: Mostrar botón, ocultar preview
+            document.getElementById('btn-select-video-source').style.display = 'flex';
+            document.getElementById('preview-video-source').style.display = 'none';
+        }
+
         // --- GENERATION LOGIC ---
         let isGenerating = false; // Flag para evitar múltiples envíos
 
@@ -925,16 +1296,24 @@
             const prompt = textarea.value.trim();
             if (!prompt || !characterId) return;
 
+            // Validación específica para video
+            if (currentMode === 'video' && !selectedImageBlob) {
+                alert("Please select a source image for the video.");
+                return;
+            }
+
             isGenerating = true; // Activar flag
             const sendBtn = document.getElementById('send-btn');
             sendBtn.disabled = true;
             sendBtn.style.opacity = '0.5';
             textarea.disabled = true; // Deshabilitar textarea
 
+            const activeChat = getActiveChatArea();
+
             const userMsg = document.createElement('div');
             userMsg.className = 'message user';
             userMsg.textContent = prompt;
-            chatArea.appendChild(userMsg);
+            activeChat.appendChild(userMsg);
 
             textarea.value = '';
             textarea.style.height = 'auto';
@@ -942,70 +1321,89 @@
 
             const loaderMsg = document.createElement('div');
             loaderMsg.className = 'message ai';
-            loaderMsg.innerHTML = '<i class="fas fa-circle-notch fa-spin"></i> Creating your image...';
-            chatArea.appendChild(loaderMsg);
+            loaderMsg.innerHTML = '<i class="fas fa-circle-notch fa-spin"></i> ' + (currentMode === 'video' ? 'Generating video (this may take a while)...' : 'Creating your image...');
+            activeChat.appendChild(loaderMsg);
             scrollToBottom();
 
-            const width = document.getElementById('width-input').value;
-            const height = document.getElementById('height-input').value;
-            const seed = document.getElementById('seed-input').value;
-
-            // --- GET SELECTED GENERATION TYPE ---
-            const activeOptions = document.querySelectorAll('.output-option-btn.active');
-            const activeOption = activeOptions.length > 0 ? activeOptions[activeOptions.length - 1] : null;
-            const generationType = activeOption ? activeOption.dataset.type : 'Gen_Normal';
-
             const formData = new FormData();
-            formData.append('character_id', characterId);
+            formData.append('character_id', characterId); // AÑADIDO: Siempre enviar character_id
             formData.append('prompt', prompt);
-            formData.append('width', width);
-            formData.append('height', height);
-            formData.append('seed', seed);
-            formData.append('generation_type', generationType); // Send single type
+            formData.append('seed', document.getElementById('seed-input').value);
 
-            fetch(generateUrl, {
+            let targetUrl = generateUrl;
+
+            if (currentMode === 'image') {
+                // Parámetros de Imagen
+                formData.append('width', document.getElementById('width-input').value);
+                formData.append('height', document.getElementById('height-input').value);
+
+                const activeOptions = document.querySelectorAll('.output-option-btn.active');
+                const activeOption = activeOptions.length > 0 ? activeOptions[activeOptions.length - 1] : null;
+                formData.append('generation_type', activeOption ? activeOption.dataset.type : 'Gen_Normal');
+            } else {
+                // Parámetros de Video
+                targetUrl = generateVideoUrl;
+                formData.append('image', selectedImageBlob, "source_image.png"); // Enviar blob como archivo
+                formData.append('duration', document.getElementById('video-duration').value);
+                formData.append('fps', document.getElementById('video-fps').value);
+                formData.append('resolution', document.getElementById('video-resolution').value);
+            }
+
+            fetch(targetUrl, {
                 method: 'POST',
                 headers: { 'X-CSRFToken': csrfToken, 'X-Requested-With': 'XMLHttpRequest' },
-                body: new URLSearchParams(formData)
+                body: formData // No usar URLSearchParams para enviar archivos
             })
             .then(res => res.json())
             .then(data => {
-                chatArea.removeChild(loaderMsg);
+                activeChat.removeChild(loaderMsg);
                 if (data.status === 'success') {
-                    userMsg.setAttribute('data-msg-id', data.user_msg_id);
                     const resultMsg = document.createElement('div');
                     resultMsg.className = 'message ai';
-                    resultMsg.setAttribute('data-msg-id', data.ai_msg_id);
-                    let html = 'Here are your generated images.<br><div class="result-grid">';
-                    data.results.forEach(item => {
-                        let badgeText = "NORMAL";
-                        let badgeClass = "badge-normal";
-                        if (item.type === "Gen_UpScaler") { badgeText = "UPSCALER"; badgeClass = "badge-upscale"; }
-                        else if (item.type === "Gen_FaceDetailer") { badgeText = "FACEDETAILER"; badgeClass = "badge-face"; }
-                        else if (item.type === "Gen_EyeDetailer") { badgeText = "EYEDETAILER"; badgeClass = "badge-face"; } // NUEVO
 
-                        let resBadge = '';
-                        if (item.width && item.height) { resBadge = `<span class="resolution-badge">${item.width}x${item.height}</span>`; }
-                        html += `<div class="result-card"><span class="result-badge ${badgeClass}">${badgeText}</span>${resBadge}<img src="${item.url}" class="chat-image" onclick="openImageViewer(this.src)"></div>`;
-                    });
-                    html += '</div>';
-                    resultMsg.innerHTML = html;
-                    chatArea.appendChild(resultMsg);
+                    if (currentMode === 'image') {
+                        userMsg.setAttribute('data-msg-id', data.user_msg_id);
+                        resultMsg.setAttribute('data-msg-id', data.ai_msg_id);
+                        let html = 'Here are your generated images.<br><div class="result-grid">';
+                        data.results.forEach(item => {
+                            let badgeText = "NORMAL";
+                            let badgeClass = "badge-normal";
+                            if (item.type === "Gen_UpScaler") { badgeText = "UPSCALER"; badgeClass = "badge-upscale"; }
+                            else if (item.type === "Gen_FaceDetailer") { badgeText = "FACEDETAILER"; badgeClass = "badge-face"; }
+                            else if (item.type === "Gen_EyeDetailer") { badgeText = "EYEDETAILER"; badgeClass = "badge-face"; }
+
+                            let resBadge = '';
+                            if (item.width && item.height) { resBadge = `<span class="resolution-badge">${item.width}x${item.height}</span>`; }
+                            html += `<div class="result-card"><span class="result-badge ${badgeClass}">${badgeText}</span>${resBadge}<img src="${item.url}" class="chat-image" onclick="openImageViewer(this.src)"></div>`;
+                        });
+                        html += '</div>';
+                        resultMsg.innerHTML = html;
+                    } else {
+                        // Resultado de Video
+                        userMsg.setAttribute('data-msg-id', data.user_msg_id);
+                        resultMsg.setAttribute('data-msg-id', data.ai_msg_id);
+                        let html = 'Here is your generated video.<br>';
+                        html += `<div class="result-card" style="width: 100%;"><video width="100%" controls style="border-radius:8px; margin-top:10px;"><source src="${data.video_url}" type="video/mp4">Your browser does not support the video tag.</video></div>`;
+                        resultMsg.innerHTML = html;
+                    }
+
+                    activeChat.appendChild(resultMsg);
                 } else {
                     const err = document.createElement('div');
                     err.className = 'message ai';
                     err.style.color = '#ef4444';
                     err.textContent = 'Error: ' + data.message;
-                    chatArea.appendChild(err);
+                    activeChat.appendChild(err);
                 }
                 scrollToBottom();
             })
-            .catch(() => {
-                chatArea.removeChild(loaderMsg);
+            .catch((e) => {
+                console.error(e);
+                activeChat.removeChild(loaderMsg);
                 const err = document.createElement('div');
                 err.className = 'message ai';
                 err.textContent = 'Connection error.';
-                chatArea.appendChild(err);
+                activeChat.appendChild(err);
             })
             .finally(() => {
                 isGenerating = false; // Desactivar flag

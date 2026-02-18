@@ -9,15 +9,18 @@ from django.contrib.auth.admin import UserAdmin
 from django.contrib.auth.models import User
 from django.db.models import Q, CharField
 from django.forms import ModelForm, ValidationError, CheckboxSelectMultiple, TextInput
+from django.core.exceptions import PermissionDenied # IMPORTANTE: Para seguridad
 from .models import (
     Workflow, Character, PrivateCharacter, CharacterImage, CharacterCatalogImage, 
     ConnectionConfig, CompanySettings, HeroCarouselImage, AuthPageImage, 
     CharacterCategory, CharacterSubCategory, ClientProfile, TokenSettings, 
     Coupon, CouponRedemption, CharacterAccessCode, UserCharacterAccess, 
     TokenPackage, PaymentTransaction, SubscriptionPlan, UserSubscription,
-    UserPremiumGrant, PaymentMethod
+    UserPremiumGrant, PaymentMethod,
+    VideoConnectionConfig, VideoWorkflow, GeneratedVideo
 )
 from .services import generate_image_from_character, get_active_comfyui_address, get_comfyui_object_info, analyze_workflow
+from .video_services import get_active_video_comfyui_address, analyze_video_workflow
 import json
 from asgiref.sync import async_to_sync, sync_to_async
 from django.http import JsonResponse, HttpResponseRedirect
@@ -31,6 +34,11 @@ admin.site.unregister(User)
 class CustomUserAdmin(UserAdmin):
     def get_queryset(self, request):
         return super().get_queryset(request).filter(is_staff=True)
+
+    def save_model(self, request, obj, form, change):
+        if not change:
+            obj.is_staff = True
+        super().save_model(request, obj, form, change)
 
 class ClientUser(User):
     class Meta:
@@ -55,7 +63,7 @@ def deactivate_users(modeladmin, request, queryset):
     updated = queryset.update(is_active=False)
     modeladmin.message_user(request, f"{updated} users were successfully deactivated.", level='success')
 
-# --- INLINE FOR CLIENT PROFILE (READ-ONLY TOKENS) ---
+# --- INLINE FOR CLIENT PROFILE ---
 class ClientProfileInline(admin.StackedInline):
     model = ClientProfile
     can_delete = False
@@ -68,7 +76,6 @@ class ClientProfileInline(admin.StackedInline):
         return obj.tokens_remaining
     tokens_remaining_display.short_description = "Tokens Remaining (Based on Global Settings)"
 
-# --- NEW: INLINE FOR PREMIUM GRANTS (BECAS) ---
 class UserPremiumGrantInline(admin.TabularInline):
     model = UserPremiumGrant
     extra = 0
@@ -82,7 +89,7 @@ class ClientUserAdmin(UserAdmin):
     list_display = ('username', 'email', 'first_name', 'last_name', 'is_active', 'date_joined', 'get_tokens_remaining')
     list_filter = ('is_active', 'date_joined')
     actions = [activate_users, deactivate_users] 
-    inlines = [ClientProfileInline, UserPremiumGrantInline] # AÑADIDO: UserPremiumGrantInline
+    inlines = [ClientProfileInline, UserPremiumGrantInline]
 
     fieldsets = (
         (None, {'fields': ('username', 'password')}),
@@ -107,14 +114,11 @@ class AdminUserAdmin(UserAdmin):
     def get_queryset(self, request):
         return super().get_queryset(request).filter(is_staff=True)
 
-# --- END USER CUSTOMIZATION ---
-
-# --- GLOBAL CLIENT SETTINGS REGISTRATION (UPDATED) ---
+# --- GLOBAL CLIENT SETTINGS ---
 @admin.register(TokenSettings)
 class TokenSettingsAdmin(admin.ModelAdmin):
     list_display = ('default_token_allowance', 'reset_interval', 'allow_upscale_free', 'allow_face_detail_free', 'allow_eye_detail_free')
     
-    # Organize fields into sections
     fieldsets = (
         ('Token Configuration', {
             'fields': ('default_token_allowance', 'reset_interval'),
@@ -127,7 +131,6 @@ class TokenSettingsAdmin(admin.ModelAdmin):
     )
 
     def has_add_permission(self, request):
-        # Only allow creating if none exists
         if self.model.objects.exists():
             return False
         return super().has_add_permission(request)
@@ -135,7 +138,7 @@ class TokenSettingsAdmin(admin.ModelAdmin):
     def has_delete_permission(self, request, obj=None):
         return False
 
-# --- INLINE FOR HERO CAROUSEL IMAGES ---
+# --- COMPANY SETTINGS ---
 class HeroCarouselImageInline(admin.TabularInline):
     model = HeroCarouselImage
     extra = 1
@@ -150,11 +153,9 @@ class HeroCarouselImageInline(admin.TabularInline):
         return "(No image)"
     image_preview.short_description = "Preview"
 
-# --- NEW: INLINE FOR AUTH PAGE IMAGES ---
 class AuthPageImageInline(admin.TabularInline):
     model = AuthPageImage
     extra = 1
-    # AÑADIDO: overlay_opacity
     fields = ('image_preview', 'image', 'caption', 'overlay_opacity', 'order')
     readonly_fields = ('image_preview',)
     verbose_name = "Auth Page Image"
@@ -166,7 +167,6 @@ class AuthPageImageInline(admin.TabularInline):
         return "(No image)"
     image_preview.short_description = "Preview"
 
-# --- FORMULARIO PERSONALIZADO PARA COMPANY SETTINGS ---
 class CompanySettingsForm(ModelForm):
     class Meta:
         model = CompanySettings
@@ -176,18 +176,17 @@ class CompanySettingsForm(ModelForm):
             'primary_color_mid': TextInput(attrs={'type': 'color', 'style': 'width: 100px; height: 40px; cursor: pointer;'}),
             'primary_color_end': TextInput(attrs={'type': 'color', 'style': 'width: 100px; height: 40px; cursor: pointer;'}),
             'accent_glow_color': TextInput(attrs={'type': 'color', 'style': 'width: 100px; height: 40px; cursor: pointer;'}),
-            'offer_bar_color': TextInput(attrs={'type': 'color', 'style': 'width: 100px; height: 40px; cursor: pointer;'}), # NUEVO WIDGET
+            'offer_bar_color': TextInput(attrs={'type': 'color', 'style': 'width: 100px; height: 40px; cursor: pointer;'}),
         }
 
 @admin.register(CompanySettings)
 class CompanySettingsAdmin(admin.ModelAdmin):
-    form = CompanySettingsForm # Usar el formulario personalizado
-    inlines = [HeroCarouselImageInline, AuthPageImageInline] # AÑADIDO AQUÍ
+    form = CompanySettingsForm
+    inlines = [HeroCarouselImageInline, AuthPageImageInline]
 
-    # Organize fields into sections
     fieldsets = (
         ('Company Identity', {
-            'fields': ('name', 'logo', 'favicon', 'offer_bar_text', 'offer_bar_color', 'description') # AÑADIDO: offer_bar_color
+            'fields': ('name', 'logo', 'favicon', 'offer_bar_text', 'offer_bar_color', 'description')
         }),
         ('Main Page (Hero)', {
             'fields': ('app_hero_title', 'app_hero_subtitle', 'app_hero_description'),
@@ -201,17 +200,14 @@ class CompanySettingsAdmin(admin.ModelAdmin):
             'fields': ('is_token_sale_active', 'is_subscription_active'),
             'description': 'Enable or disable the ability for users to purchase token packages or subscriptions.'
         }),
-        # --- NEW: PAYPAL SETTINGS SECTION ---
         ('PayPal Configuration', {
             'fields': ('paypal_receiver_email', 'paypal_is_sandbox'),
             'description': 'Configure your PayPal Business account for receiving payments.'
         }),
-        # --- NEW: STRIPE SETTINGS SECTION ---
         ('Stripe Configuration', {
             'fields': ('stripe_publishable_key', 'stripe_secret_key'),
             'description': 'Configure your Stripe account for card payments. Get these keys from dashboard.stripe.com.'
         }),
-        # --- NEW: LEGAL CONTENT SECTION ---
         ('Legal Content', {
             'fields': ('terms_content', 'privacy_content'),
             'description': 'HTML content for Terms of Service and Privacy Policy modals.'
@@ -260,6 +256,10 @@ class WorkflowAdmin(admin.ModelAdmin):
     def configure_view(self, request, workflow_id):
         workflow = get_object_or_404(Workflow, pk=workflow_id)
         
+        # SEGURIDAD: Verificar permiso de edición
+        if not self.has_change_permission(request, workflow):
+            raise PermissionDenied("You do not have permission to configure this workflow.")
+
         try:
             address = async_to_sync(get_active_comfyui_address)()
             comfyui_info = async_to_sync(get_comfyui_object_info)(address)
@@ -283,7 +283,7 @@ class WorkflowAdmin(admin.ModelAdmin):
                 if 'width' in saved_config: workflow_params['width'] = saved_config['width']
                 if 'height' in saved_config: workflow_params['height'] = saved_config['height']
                 if 'seed' in saved_config: workflow_params['seed'] = saved_config['seed']
-                if 'upscale_by' in saved_config: workflow_params['upscale_by'] = saved_config['upscale_by'] # NEW
+                if 'upscale_by' in saved_config: workflow_params['upscale_by'] = saved_config['upscale_by']
                 
                 if 'lora_names' in saved_config and 'lora_strengths' in saved_config:
                     workflow_params['loras'] = []
@@ -300,7 +300,7 @@ class WorkflowAdmin(admin.ModelAdmin):
                 'height': request.POST.get('height'),
                 'seed': request.POST.get('seed'),
                 'seed_behavior': request.POST.get('seed_behavior', 'random'),
-                'upscale_by': request.POST.get('upscale_by'), # NEW
+                'upscale_by': request.POST.get('upscale_by'),
                 'lora_names': request.POST.getlist('lora_name'),
                 'lora_strengths': request.POST.getlist('lora_strength'),
                 'prompt': request.POST.get('prompt'), 
@@ -342,11 +342,11 @@ class CharacterImageAdmin(admin.ModelAdmin):
 
     def generation_type_badge(self, obj):
         colors = {
-            'Gen_Normal': '#3b82f6',      # Blue
-            'Gen_UpScaler': '#10b981',    # Green
-            'Gen_FaceDetailer': '#f43f5e' # Red/Pink
+            'Gen_Normal': '#3b82f6',
+            'Gen_UpScaler': '#10b981',
+            'Gen_FaceDetailer': '#f43f5e'
         }
-        color = colors.get(obj.generation_type, '#6b7280') # Gray default
+        color = colors.get(obj.generation_type, '#6b7280')
         label = obj.get_generation_type_display()
         
         return format_html(
@@ -357,7 +357,6 @@ class CharacterImageAdmin(admin.ModelAdmin):
     generation_type_badge.short_description = 'Type'
     generation_type_badge.admin_order_field = 'generation_type'
 
-    # --- NEW: Workflow download link ---
     def download_workflow_link(self, obj):
         if obj.generation_workflow:
             return format_html('<a href="{}" download>Download JSON</a>', obj.generation_workflow.url)
@@ -365,7 +364,8 @@ class CharacterImageAdmin(admin.ModelAdmin):
     download_workflow_link.short_description = 'Workflow'
 
     def has_add_permission(self, request): return False
-    def has_delete_permission(self, request, obj=None): return True
+    def has_delete_permission(self, request, obj=None):
+        return super().has_delete_permission(request, obj)
 
 class CharacterCatalogImageInline(admin.TabularInline):
     model = CharacterCatalogImage
@@ -381,16 +381,14 @@ class CharacterCatalogImageInline(admin.TabularInline):
         return "(No image)"
     image_preview.short_description = "Preview"
 
-# --- NEW: INLINE FOR ACCESS CODES (STACKED FOR 1-TO-1) ---
-class CharacterAccessCodeInline(admin.StackedInline): # Changed to StackedInline
+class CharacterAccessCodeInline(admin.StackedInline):
     model = CharacterAccessCode
-    can_delete = False # Optional: Prevent deleting the key once created if desired
+    can_delete = False
     verbose_name = "Access Code (Key)"
     verbose_name_plural = "Access Code (Key)"
     fields = ('code', 'max_redemptions', 'times_redeemed', 'is_active')
     readonly_fields = ('times_redeemed',)
 
-# --- NEW: CATEGORY AND SUBCATEGORY REGISTRATION ---
 @admin.register(CharacterCategory)
 class CharacterCategoryAdmin(admin.ModelAdmin):
     list_display = ('name',)
@@ -412,7 +410,6 @@ def deactivate_characters(modeladmin, request, queryset):
     updated = queryset.update(is_active=False)
     modeladmin.message_user(request, f"{updated} characters were successfully deactivated.", level='success')
 
-# --- NEW: ACTIONS TO TOGGLE PRIVACY ---
 @admin.action(description='Make selected characters PRIVATE')
 def make_private(modeladmin, request, queryset):
     updated = queryset.update(is_private=True)
@@ -423,7 +420,7 @@ def make_public(modeladmin, request, queryset):
     updated = queryset.update(is_private=False)
     modeladmin.message_user(request, f"{updated} characters were moved to Public Characters.", level='success')
 
-# --- BASE CHARACTER ADMIN (SHARED LOGIC) ---
+# --- BASE CHARACTER ADMIN ---
 class BaseCharacterAdmin(admin.ModelAdmin):
     list_display = ('name', 'category', 'subcategory', 'base_workflow', 'is_active', 'toggle_privacy_button', 'character_actions')
     list_filter = ('is_active', 'category', 'subcategory', 'base_workflow')
@@ -448,15 +445,14 @@ class BaseCharacterAdmin(admin.ModelAdmin):
     character_actions.short_description = 'Actions'
     character_actions.allow_tags = True
 
-    # --- NEW: PRIVACY TOGGLE BUTTON ---
     def toggle_privacy_button(self, obj):
         if obj.is_private:
             label = "Make Public"
-            color = "#10b981" # Green
+            color = "#10b981"
             title = "Move to Public List"
         else:
             label = "Make Private"
-            color = "#f59e0b" # Orange/Gold
+            color = "#f59e0b"
             title = "Move to Private List"
         
         url = reverse('admin:character_toggle_privacy', args=[obj.pk])
@@ -477,26 +473,31 @@ class BaseCharacterAdmin(admin.ModelAdmin):
         custom_urls = [
             path('<int:character_id>/configure/', self.admin_site.admin_view(self.configure_character_view), name='character_configure'),
             path('<int:character_id>/generate/', self.admin_site.admin_view(self.generate_character_image_view), name='character_generate'),
-            path('<int:character_id>/toggle-privacy/', self.admin_site.admin_view(self.toggle_privacy_view), name='character_toggle_privacy'), # NEW URL
+            path('<int:character_id>/toggle-privacy/', self.admin_site.admin_view(self.toggle_privacy_view), name='character_toggle_privacy'),
         ]
         return custom_urls + urls
 
-    # --- NEW: VIEW TO TOGGLE PRIVACY ---
     def toggle_privacy_view(self, request, character_id):
         character = get_object_or_404(Character, pk=character_id)
         
-        # Toggle status
+        # SEGURIDAD: Verificar permiso de edición
+        if not self.has_change_permission(request, character):
+            raise PermissionDenied("You do not have permission to change this character.")
+
         character.is_private = not character.is_private
         character.save()
         
         status_msg = "Private" if character.is_private else "Public"
         self.message_user(request, f"Character '{character.name}' is now {status_msg}.", level='success')
-        
-        # Redirect back to the list where the user came from (referer) or default to changelist
         return HttpResponseRedirect(request.META.get('HTTP_REFERER', reverse('admin:myapp_character_changelist')))
 
     def configure_character_view(self, request, character_id):
         character = get_object_or_404(Character, pk=character_id)
+        
+        # SEGURIDAD: Verificar permiso de edición
+        if not self.has_change_permission(request, character):
+            raise PermissionDenied("You do not have permission to configure this character.")
+
         workflow = character.base_workflow
         
         try:
@@ -522,7 +523,7 @@ class BaseCharacterAdmin(admin.ModelAdmin):
                 if 'width' in saved_config: workflow_params['width'] = saved_config['width']
                 if 'height' in saved_config: workflow_params['height'] = saved_config['height']
                 if 'seed' in saved_config: workflow_params['seed'] = saved_config['seed']
-                if 'upscale_by' in saved_config: workflow_params['upscale_by'] = saved_config['upscale_by'] # NEW
+                if 'upscale_by' in saved_config: workflow_params['upscale_by'] = saved_config['upscale_by']
                 
                 if 'lora_names' in saved_config and 'lora_strengths' in saved_config:
                     workflow_params['loras'] = []
@@ -540,7 +541,6 @@ class BaseCharacterAdmin(admin.ModelAdmin):
                 'prompt': request.POST.get('prompt'), 
             }
             
-            # --- NEW: Preserve original values (Read-Only) ---
             for field in ['width', 'height', 'seed', 'seed_behavior', 'upscale_by']:
                 if field in saved_config:
                     new_config[field] = saved_config[field]
@@ -552,7 +552,6 @@ class BaseCharacterAdmin(admin.ModelAdmin):
             character.save()
             self.message_user(request, "Character configuration saved successfully.")
             
-            # Redirect to the correct list based on type
             if character.is_private:
                 return redirect('admin:myapp_privatecharacter_changelist')
             return redirect('admin:myapp_character_changelist')
@@ -571,6 +570,12 @@ class BaseCharacterAdmin(admin.ModelAdmin):
     def generate_character_image_view(self, request, character_id):
         character = get_object_or_404(Character, pk=character_id)
         is_ajax = request.headers.get('X-Requested-With') == 'XMLHttpRequest'
+
+        # SEGURIDAD: Verificar permiso de edición (o un permiso específico si prefieres)
+        if not self.has_change_permission(request, character):
+             msg = "You do not have permission to generate images for this character."
+             if is_ajax: return JsonResponse({'status': 'error', 'message': msg}, status=403)
+             raise PermissionDenied(msg)
 
         if request.method == 'POST':
             prompt = request.POST.get('prompt')
@@ -613,31 +618,25 @@ class BaseCharacterAdmin(admin.ModelAdmin):
             return redirect('admin:myapp_privatecharacter_change', character_id)
         return redirect('admin:myapp_character_change', character_id)
 
-# --- PUBLIC CHARACTERS ADMIN ---
 @admin.register(Character)
 class CharacterAdmin(BaseCharacterAdmin):
     def get_queryset(self, request):
         return super().get_queryset(request).filter(is_private=False)
     
     def save_model(self, request, obj, form, change):
-        obj.is_private = False # Ensure it stays public
+        obj.is_private = False
         super().save_model(request, obj, form, change)
 
-# --- PRIVATE CHARACTERS ADMIN ---
 @admin.register(PrivateCharacter)
 class PrivateCharacterAdmin(BaseCharacterAdmin):
     def get_queryset(self, request):
         return super().get_queryset(request).filter(is_private=True)
     
-    # --- MERGE INLINES: Catalog Images + Access Codes ---
     inlines = [CharacterCatalogImageInline, CharacterAccessCodeInline]
 
     def save_model(self, request, obj, form, change):
-        obj.is_private = True # Ensure it stays private
+        obj.is_private = True
         super().save_model(request, obj, form, change)
-
-# --- ACCESS CODES ADMIN (REMOVED FROM SIDEBAR) ---
-# The logic is now handled via Inline in PrivateCharacterAdmin
 
 @admin.register(UserCharacterAccess)
 class UserCharacterAccessAdmin(admin.ModelAdmin):
@@ -652,7 +651,6 @@ class UserCharacterAccessAdmin(admin.ModelAdmin):
         return format_html('<a class="button" href="{}">View {} Images</a>', url, count)
     view_images_link.short_description = "Gallery"
 
-# --- UPDATED COUPON ADMIN ---
 class CouponRedemptionInline(admin.TabularInline):
     model = CouponRedemption
     extra = 0
@@ -683,18 +681,12 @@ class CouponAdmin(admin.ModelAdmin):
         }),
     )
 
-    def has_add_permission(self, request):
-        return True
-
-# --- PAYPAL ADMIN (ALWAYS VISIBLE) ---
-
 @admin.register(TokenPackage)
 class TokenPackageAdmin(admin.ModelAdmin):
     list_display = ('name', 'tokens', 'price', 'is_active')
     list_editable = ('is_active',)
     search_fields = ('name',)
     
-    # --- NEW: CUSTOM FEATURES FIELDSET ---
     fieldsets = (
         (None, {
             'fields': ('name', 'tokens', 'price', 'is_active')
@@ -715,8 +707,6 @@ class PaymentTransactionAdmin(admin.ModelAdmin):
     def has_add_permission(self, request):
         return False
 
-# --- SUBSCRIPTION ADMIN (UPDATED) ---
-
 @admin.register(SubscriptionPlan)
 class SubscriptionPlanAdmin(admin.ModelAdmin):
     list_display = ('name', 'price', 'billing_period', 'billing_period_unit', 'tokens_per_period', 'is_active', 'allow_upscale', 'allow_face_detail', 'allow_eye_detail')
@@ -734,7 +724,6 @@ class SubscriptionPlanAdmin(admin.ModelAdmin):
             'fields': ('allow_upscale', 'allow_face_detail', 'allow_eye_detail'),
             'description': 'Check the features included in this plan.'
         }),
-        # --- NEW: CUSTOM FEATURES FIELDSET ---
         ('Custom Features List', {
             'fields': ('features_list',),
             'description': 'Customize the bullet points shown on the pricing card.'
@@ -751,7 +740,6 @@ class UserSubscriptionAdmin(admin.ModelAdmin):
     def has_add_permission(self, request):
         return False
 
-# --- NEW: REGISTER USER PREMIUM GRANT ---
 @admin.register(UserPremiumGrant)
 class UserPremiumGrantAdmin(admin.ModelAdmin):
     list_display = ('user', 'grant_name', 'expires_at', 'is_active')
@@ -759,26 +747,118 @@ class UserPremiumGrantAdmin(admin.ModelAdmin):
     search_fields = ('user__username', 'grant_name')
     readonly_fields = ('created_at',)
 
-# --- NEW: PAYMENT METHOD ADMIN ---
 @admin.register(PaymentMethod)
 class PaymentMethodAdmin(admin.ModelAdmin):
     list_display = ('name', 'config_key', 'is_active')
     list_editable = ('is_active',)
-    # readonly_fields = ('config_key',) # REMOVIDO: Esto bloqueaba la creación
     
     def get_readonly_fields(self, request, obj=None):
-        # Si el objeto ya existe (edición), el campo es readonly
         if obj:
             return ('config_key',)
-        # Si es nuevo (creación), el campo es editable
         return ()
 
-    def has_add_permission(self, request):
-        # Optional: Prevent adding new methods if you only want the predefined ones
-        # return False 
-        return True
+@admin.register(VideoConnectionConfig)
+class VideoConnectionConfigAdmin(admin.ModelAdmin):
+    list_display = ('name', 'base_url', 'is_active')
+    list_editable = ('is_active',)
+    list_display_links = ('name',)
+    verbose_name = "Video GPU Config"
 
-    def has_delete_permission(self, request, obj=None):
-        # Optional: Prevent deleting methods
-        # return False
-        return True
+@admin.register(VideoWorkflow)
+class VideoWorkflowAdmin(admin.ModelAdmin):
+    list_display = ('name', 'download_file', 'workflow_actions')
+    
+    def download_file(self, obj):
+        if obj.json_file:
+            return format_html('<a href="{}" download>Download JSON</a>', obj.json_file.url)
+        return "No file"
+    download_file.short_description = 'Download'
+
+    def workflow_actions(self, obj):
+        return format_html(
+            '<a class="button" href="{}">Configure</a>',
+            reverse('admin:videoworkflow_configure', args=[obj.pk])
+        )
+    workflow_actions.short_description = 'Actions'
+    workflow_actions.allow_tags = True
+
+    def get_urls(self):
+        urls = super().get_urls()
+        custom_urls = [
+            path('<int:workflow_id>/configure/', self.admin_site.admin_view(self.configure_view), name='videoworkflow_configure'),
+        ]
+        return custom_urls + urls
+
+    def configure_view(self, request, workflow_id):
+        workflow = get_object_or_404(VideoWorkflow, pk=workflow_id)
+        
+        # SEGURIDAD: Verificar permiso de edición
+        if not self.has_change_permission(request, workflow):
+            raise PermissionDenied("You do not have permission to configure this workflow.")
+
+        try:
+            address = async_to_sync(get_active_video_comfyui_address)()
+            comfyui_info = async_to_sync(get_comfyui_object_info)(address)
+        except Exception:
+            comfyui_info = {"checkpoints": [], "vaes": [], "loras": [], "samplers": [], "schedulers": []}
+
+        try:
+            with open(workflow.json_file.path, 'r', encoding='utf-8') as f:
+                prompt_workflow = json.load(f)
+            workflow_params = analyze_video_workflow(prompt_workflow)
+        except Exception as e:
+            self.message_user(request, f"Error loading JSON file: {e}", level='error')
+            return redirect('admin:myapp_videoworkflow_changelist')
+
+        saved_config = {}
+        if workflow.active_config:
+            try:
+                saved_config = json.loads(workflow.active_config)
+            except json.JSONDecodeError: pass
+
+        if request.method == 'POST':
+            new_config = {
+                'unet_high': request.POST.get('unet_high'),
+                'unet_low': request.POST.get('unet_low'),
+                'vae': request.POST.get('vae'),
+                'clip': request.POST.get('clip'),
+                'lora_names': request.POST.getlist('lora_names'),
+                'lora_strengths': request.POST.getlist('lora_strengths'),
+                'duration': request.POST.get('duration'),
+                'fps': request.POST.get('fps'),
+                'resolution': request.POST.get('resolution'),
+            }
+            new_config = {k: v for k, v in new_config.items() if v is not None and v != ""}
+            
+            workflow.active_config = json.dumps(new_config)
+            workflow.save()
+            self.message_user(request, "Video Workflow configuration saved successfully.")
+            return redirect('admin:myapp_videoworkflow_changelist')
+
+        context = {
+            'workflow': workflow,
+            'workflow_params': workflow_params,
+            'comfyui_info': comfyui_info,
+            'saved_config': saved_config, 
+            **self.admin_site.each_context(request), 
+        }
+        return render(request, 'admin/myapp/videoworkflow/configure.html', context)
+
+@admin.register(GeneratedVideo)
+class GeneratedVideoAdmin(admin.ModelAdmin):
+    list_display = ('video_preview', 'user', 'created_at', 'duration', 'fps')
+    list_filter = ('user', 'created_at')
+    search_fields = ('prompt', 'user__username')
+    readonly_fields = ('video_preview', 'user', 'prompt', 'negative_prompt', 'duration', 'fps', 'width', 'height', 'seed', 'video_file', 'thumbnail')
+
+    def video_preview(self, obj):
+        if obj.video_file:
+            url = reverse('serve_private_media', kwargs={'path': obj.video_file.name})
+            return format_html(
+                '<video width="200" controls><source src="{}" type="video/mp4">Your browser does not support the video tag.</video>',
+                url
+            )
+        return "(No video)"
+    video_preview.short_description = 'Preview'
+
+    def has_add_permission(self, request): return False

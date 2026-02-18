@@ -286,13 +286,45 @@
         }
         .folder-info span i { color: var(--primary-color); }
 
+        /* --- TABS DE GALERÍA (NUEVO) --- */
+        .gallery-tabs {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+            border-bottom: 1px solid var(--border-subtle);
+            padding-bottom: 10px;
+        }
+        .gallery-tab-btn {
+            background: transparent;
+            border: none;
+            color: var(--text-muted);
+            padding: 10px 20px;
+            cursor: pointer;
+            font-weight: 600;
+            font-size: 1rem;
+            position: relative;
+            transition: all 0.2s;
+        }
+        .gallery-tab-btn:hover { color: white; }
+        .gallery-tab-btn.active { color: white; }
+        .gallery-tab-btn.active::after {
+            content: '';
+            position: absolute;
+            bottom: -11px;
+            left: 0;
+            width: 100%;
+            height: 3px;
+            background: var(--primary-gradient);
+            border-radius: 3px 3px 0 0;
+        }
+
         /* Grid de Imágenes (Detalle) */
         .images-grid {
             display: grid;
             grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)) !important;
             gap: 15px !important;
             margin-top: 20px;
-            display: none; /* Oculto por defecto */
+            /* display: none;  Controlado por JS */
         }
 
         .image-item {
@@ -320,14 +352,14 @@
             transform: scale(0.95);
         }
 
-        .image-item img {
+        .image-item img, .image-item video {
             width: 100%;
             height: 100%;
             object-fit: cover;
             transition: transform 0.3s;
             pointer-events: none; /* Evitar arrastre fantasma de imagen */
         }
-        .image-item:hover img { transform: scale(1.05); }
+        .image-item:hover img, .image-item:hover video { transform: scale(1.05); }
 
         /* Checkbox de Selección */
         .select-check {
@@ -534,12 +566,20 @@
         .viewer-image {
             max-width: 100%;
             max-height: 100%;
+            width: auto; /* Default para imágenes */
+            height: auto;
             object-fit: contain;
             transition: transform 0.1s ease-out;
             cursor: grab;
             user-select: none;
             box-shadow: 0 0 30px rgba(0,0,0,0.5); /* Sombra para resaltar */
         }
+
+        /* Estilo específico para video en visor */
+        #viewer-video {
+            width: 100%; /* Intentar ocupar ancho disponible */
+        }
+
         .viewer-image:active { cursor: grabbing; }
 
         /* Flechas de Navegación */
@@ -608,7 +648,15 @@
                 font-size: 1rem;
             }
             .viewer-container {
-                padding: 10px; /* Menos padding en móvil para aprovechar espacio */
+                padding: 0; /* Sin padding lateral */
+                width: 100%;
+                padding-bottom: 80px; /* ESPACIO PARA LA BARRA DE NAVEGACIÓN */
+            }
+
+            /* Ajuste específico video móvil */
+            #viewer-video {
+                width: 100%;
+                max-height: calc(100vh - 140px); /* Restar header y padding inferior */
             }
         }
 
@@ -807,8 +855,20 @@
                 </div>
             </div>
 
-            <div class="images-grid" id="detail-grid">
+            <!-- PESTAÑAS DE GALERÍA (NUEVO) -->
+            <div class="gallery-tabs">
+                <button class="gallery-tab-btn active" onclick="switchTab('images', this)">Images</button>
+                <button class="gallery-tab-btn" onclick="switchTab('videos', this)">Videos</button>
+            </div>
+
+            <!-- GRID DE IMÁGENES -->
+            <div class="images-grid" id="detail-grid-images">
                 <!-- Las imágenes se cargarán aquí vía JS -->
+            </div>
+
+            <!-- GRID DE VIDEOS (NUEVO) -->
+            <div class="images-grid" id="detail-grid-videos" style="display: none;">
+                <!-- Los videos se cargarán aquí vía JS -->
             </div>
         </div>
 
@@ -822,7 +882,7 @@
                     <i class="fas fa-exclamation-triangle"></i>
                 </div>
                 <h2 style="color: var(--text-main); margin-bottom: 10px;">Are you sure?</h2>
-                <p style="color: var(--text-muted); line-height: 1.5;">You are about to permanently delete <strong id="confirm-count-text" style="color: white;">0</strong> images.<br>This action cannot be undone.</p>
+                <p style="color: var(--text-muted); line-height: 1.5;">You are about to permanently delete <strong id="confirm-count-text" style="color: white;">0</strong> items.<br>This action cannot be undone.</p>
 
                 <div class="confirm-actions">
                     <button class="btn-cancel" onclick="closeConfirm()">Cancel</button>
@@ -855,7 +915,8 @@
         <button class="nav-arrow right" onclick="navigateImage(1)"><i class="fas fa-chevron-right"></i></button>
 
         <div class="viewer-container" id="viewer-container">
-            <img id="viewer-img" class="viewer-image" src="">
+            <img id="viewer-img" class="viewer-image" src="" style="display: none;">
+            <video id="viewer-video" class="viewer-image" src="" controls style="display: none;"></video>
         </div>
     </div>
 
@@ -895,29 +956,42 @@
         const galleryData = {
             {% for item in public_gallery %}
             "{{ item.character.id }}": {
-                name: "{{ item.character.name }}",
+                name: "{{ item.character.name|escapejs }}",
                 images: [
                     {% for img in item.images %}
                     { id: "{{ img.id }}", url: "{{ img.url }}" },
+                    {% endfor %}
+                ],
+                videos: [
+                    {% for vid in item.videos %}
+                    { id: "{{ vid.id }}", url: "{{ vid.url }}", thumbnail: "{{ vid.thumbnail|default:'' }}" },
                     {% endfor %}
                 ]
             },
             {% endfor %}
             {% for item in private_gallery %}
             "{{ item.character.id }}": {
-                name: "{{ item.character.name }}",
+                name: "{{ item.character.name|escapejs }}",
                 images: [
                     {% for img in item.images %}
                     { id: "{{ img.id }}", url: "{{ img.url }}" },
+                    {% endfor %}
+                ],
+                videos: [
+                    {% for vid in item.videos %}
+                    { id: "{{ vid.id }}", url: "{{ vid.url }}", thumbnail: "{{ vid.thumbnail|default:'' }}" },
                     {% endfor %}
                 ]
             },
             {% endfor %}
         };
 
+        console.log("Gallery Data Loaded:", galleryData); // DEBUG
+
         let currentCharacterId = null;
         let selectedImages = new Set();
         let imageToDeleteFromViewerId = null; // Variable para borrado individual desde visor
+        let currentTab = 'images'; // 'images' or 'videos'
 
         // --- LÓGICA DE FILTRADO (NUEVO) ---
         let activeCategory = 'ALL';
@@ -988,100 +1062,131 @@
 
         // --- FIN LÓGICA DE FILTRADO ---
 
-        function showImages(charId) {
-            const data = galleryData[charId];
-            if (!data) return;
+        // --- LÓGICA DE PESTAÑAS ---
+        function switchTab(tab, btn) {
+            currentTab = tab;
 
-            currentCharacterId = charId;
-            selectedImages.clear();
+            // Gestión de clases active
+            document.querySelectorAll('.gallery-tab-btn').forEach(b => b.classList.remove('active'));
+
+            if (btn) {
+                btn.classList.add('active');
+            } else if (event && event.target && event.target.classList.contains('gallery-tab-btn')) {
+                // Fallback por si se llama desde onclick sin pasar 'this'
+                event.target.classList.add('active');
+            } else {
+                // Fallback por defecto: activar el botón correspondiente al tab
+                const buttons = document.querySelectorAll('.gallery-tab-btn');
+                if (tab === 'images' && buttons[0]) buttons[0].classList.add('active');
+                if (tab === 'videos' && buttons[1]) buttons[1].classList.add('active');
+            }
+
+            document.getElementById('detail-grid-images').style.display = tab === 'images' ? 'grid' : 'none';
+            document.getElementById('detail-grid-videos').style.display = tab === 'videos' ? 'grid' : 'none';
+
+            selectedImages.clear(); // Limpiar selección al cambiar de pestaña
             updateToolbar();
+        }
 
-            // Animación de transición simple
-            const foldersView = document.getElementById('folders-view');
-            foldersView.style.opacity = '0';
+        function showImages(charId) {
+            try {
+                const data = galleryData[charId];
+                if (!data) {
+                    console.error("No data found for character ID:", charId);
+                    return;
+                }
 
-            setTimeout(() => {
-                foldersView.style.display = 'none';
-                const imagesView = document.getElementById('images-view');
-                imagesView.style.display = 'block';
-                imagesView.style.opacity = '0';
+                currentCharacterId = charId;
+                selectedImages.clear();
+                updateToolbar();
 
-                document.querySelector('.back-btn').style.display = 'flex';
-                document.querySelector('.images-grid').style.display = 'grid';
-                document.querySelector('.toolbar').style.display = 'flex';
-                document.getElementById('detail-title').textContent = data.name;
+                // Animación de transición simple
+                const foldersView = document.getElementById('folders-view');
+                foldersView.style.opacity = '0';
 
-                renderGrid();
+                setTimeout(() => {
+                    foldersView.style.display = 'none';
+                    const imagesView = document.getElementById('images-view');
+                    imagesView.style.display = 'block';
+                    imagesView.style.opacity = '0';
 
-                // Fade in
-                setTimeout(() => imagesView.style.opacity = '1', 50);
-            }, 200);
+                    document.querySelector('.back-btn').style.display = 'flex';
+                    document.querySelector('.toolbar').style.display = 'flex';
+                    document.getElementById('detail-title').textContent = data.name;
+
+                    // Resetear a pestaña de imágenes por defecto
+                    // Pasamos el primer botón explícitamente para evitar errores con 'event'
+                    const imgBtn = document.querySelectorAll('.gallery-tab-btn')[0];
+                    switchTab('images', imgBtn);
+
+                    renderGrid();
+
+                    // Fade in
+                    setTimeout(() => imagesView.style.opacity = '1', 50);
+                }, 200);
+            } catch (e) {
+                console.error("Error in showImages:", e);
+            }
         };
 
         function renderGrid() {
-            const grid = document.getElementById('detail-grid');
-            grid.innerHTML = '';
+            const gridImages = document.getElementById('detail-grid-images');
+            const gridVideos = document.getElementById('detail-grid-videos');
+            gridImages.innerHTML = '';
+            gridVideos.innerHTML = '';
 
             const data = galleryData[currentCharacterId];
             if (!data) return;
 
+            // Render Images
             if (data.images.length === 0) {
-                grid.innerHTML = '<p style="grid-column: 1/-1; text-align: center; color: var(--text-muted); padding: 40px;">No images in this folder.</p>';
-                return;
+                gridImages.innerHTML = '<p style="grid-column: 1/-1; text-align: center; color: var(--text-muted); padding: 40px;">No images in this folder.</p>';
+            } else {
+                data.images.forEach((img, index) => {
+                    const div = document.createElement('div');
+                    div.className = `image-item ${selectedImages.has(img.id) ? 'selected' : ''}`;
+                    div.id = `img-card-${img.id}`;
+
+                    // Eventos (igual que antes)
+                    div.onclick = (e) => {
+                        if (selectedImages.size > 0) toggleSelection(img.id, e);
+                        else openGalleryViewer(index, 'images');
+                    };
+
+                    div.innerHTML = `
+                        <img src="${img.url}" loading="lazy">
+                        <div class="select-check" onclick="toggleSelection('${img.id}', event)">
+                            <i class="fas fa-check"></i>
+                        </div>
+                    `;
+                    gridImages.appendChild(div);
+                });
             }
 
-            data.images.forEach((img, index) => {
-                const div = document.createElement('div');
-                div.className = `image-item ${selectedImages.has(img.id) ? 'selected' : ''}`;
-                div.id = `img-card-${img.id}`; // ID para acceso directo
+            // Render Videos
+            if (data.videos.length === 0) {
+                gridVideos.innerHTML = '<p style="grid-column: 1/-1; text-align: center; color: var(--text-muted); padding: 40px;">No videos in this folder.</p>';
+            } else {
+                data.videos.forEach((vid, index) => {
+                    const div = document.createElement('div');
+                    div.className = `image-item ${selectedImages.has(vid.id) ? 'selected' : ''}`;
+                    div.id = `vid-card-${vid.id}`;
 
-                // --- LÓGICA DE LONG PRESS (MANTENER PRESIONADO) ---
-                let pressTimer;
+                    // Para videos, el clic abre el video en el visor
+                    div.onclick = (e) => {
+                        if (selectedImages.size > 0) toggleSelection(vid.id, e);
+                        else openGalleryViewer(index, 'videos');
+                    };
 
-                div.addEventListener('touchstart', () => {
-                    pressTimer = setTimeout(() => {
-                        // Long press detectado
-                        if (navigator.vibrate) navigator.vibrate(40); // Vibración
-                        toggleSelection(img.id);
-                        div.dataset.longPressed = "true"; // Marcar para evitar clic posterior
-                    }, 500); // 500ms para long press
-                }, {passive: true});
-
-                div.addEventListener('touchend', () => {
-                    clearTimeout(pressTimer);
-                    // Limpiar flag después de un momento
-                    setTimeout(() => { div.dataset.longPressed = "false"; }, 200);
+                    div.innerHTML = `
+                        <video src="${vid.url}" muted loop onmouseover="this.play()" onmouseout="this.pause()"></video>
+                        <div class="select-check" onclick="toggleSelection('${vid.id}', event)">
+                            <i class="fas fa-check"></i>
+                        </div>
+                    `;
+                    gridVideos.appendChild(div);
                 });
-
-                div.addEventListener('touchmove', () => {
-                    clearTimeout(pressTimer); // Si mueve el dedo, cancela long press
-                });
-
-                // --- LÓGICA DE CLIC INTELIGENTE ---
-                div.onclick = (e) => {
-                    // Si fue un long press, no hacer nada más
-                    if (div.dataset.longPressed === "true") return;
-
-                    // Si estamos en "Modo Selección" (hay items seleccionados), el clic selecciona
-                    if (selectedImages.size > 0) {
-                        toggleSelection(img.id, e);
-                    } else {
-                        // Si NO hay selección, abre el visor
-                        openGalleryViewer(index);
-                    }
-                };
-
-                // Animación escalonada
-                div.style.animation = `fadeInUp 0.4s ease-out ${index * 0.05}s backwards`;
-
-                div.innerHTML = `
-                    <img src="${img.url}" loading="lazy">
-                    <div class="select-check" onclick="toggleSelection('${img.id}', event)">
-                        <i class="fas fa-check"></i>
-                    </div>
-                `;
-                grid.appendChild(div);
-            });
+            }
         };
 
         function showFolders() {
@@ -1098,19 +1203,22 @@
 
         // --- LÓGICA DE SELECCIÓN (OPTIMIZADA) ---
 
-        function toggleSelection(imgId, event) {
-            if (event) event.stopPropagation(); // EVITAR QUE SE ABRA EL VISOR
+        function toggleSelection(itemId, event) {
+            if (event) event.stopPropagation();
 
-            if (selectedImages.has(imgId)) {
-                selectedImages.delete(imgId);
+            if (selectedImages.has(itemId)) {
+                selectedImages.delete(itemId);
             } else {
-                selectedImages.add(imgId);
+                selectedImages.add(itemId);
             }
 
-            // Actualizar solo el elemento específico (más rápido que renderGrid)
-            const el = document.getElementById(`img-card-${imgId}`);
+            // Actualizar elemento (imagen o video)
+            const elImg = document.getElementById(`img-card-${itemId}`);
+            const elVid = document.getElementById(`vid-card-${itemId}`);
+            const el = elImg || elVid;
+
             if (el) {
-                if (selectedImages.has(imgId)) el.classList.add('selected');
+                if (selectedImages.has(itemId)) el.classList.add('selected');
                 else el.classList.remove('selected');
             }
 
@@ -1121,12 +1229,14 @@
             const data = galleryData[currentCharacterId];
             if (!data) return;
 
-            if (selectedImages.size === data.images.length) {
+            const items = currentTab === 'images' ? data.images : data.videos;
+
+            if (selectedImages.size === items.length) {
                 selectedImages.clear();
             } else {
-                data.images.forEach(img => selectedImages.add(img.id));
+                items.forEach(item => selectedImages.add(item.id));
             }
-            renderGrid(); // Aquí sí redibujamos todo
+            renderGrid();
             updateToolbar();
         };
 
@@ -1167,6 +1277,8 @@
 
             const formData = new FormData();
             idsToDelete.forEach(id => formData.append('image_ids[]', id));
+            // TODO: Añadir soporte para borrar videos en el backend (delete_images_view necesita saber si son videos)
+            // Por ahora asume imágenes, necesitaríamos actualizar la vista de borrado para manejar ambos tipos o crear una nueva.
 
             // No cerrar modal inmediatamente para evitar parpadeo si falla, pero UX standard es cerrar y mostrar loading o cerrar y esperar.
             // Cerraremos y si falla alertamos.
@@ -1184,6 +1296,7 @@
 
                     // Filtrar imágenes borradas
                     charData.images = charData.images.filter(img => !idsToDelete.includes(img.id));
+                    // TODO: Filtrar videos borrados también
 
                     if (imageToDeleteFromViewerId) {
                         // Lógica post-borrado desde visor
@@ -1222,15 +1335,22 @@
         // --- LÓGICA DEL VISOR (LIGHTBOX) ---
         let currentViewerIndex = 0;
         let currentViewerImages = [];
+        let currentViewerType = 'images'; // 'images' or 'videos'
         let zoomLevel = 1;
         let isDragging = false;
         let startX, startY, translateX = 0, translateY = 0;
 
-        function openGalleryViewer(index) {
+        function openGalleryViewer(index, type) {
             const data = galleryData[currentCharacterId];
-            if (!data || !data.images) return;
+            if (!data) return;
 
-            currentViewerImages = data.images;
+            currentViewerType = type;
+            if (type === 'images') {
+                currentViewerImages = data.images;
+            } else {
+                currentViewerImages = data.videos;
+            }
+
             currentViewerIndex = index;
 
             updateViewerImage();
@@ -1239,6 +1359,10 @@
         };
 
         function closeImageViewer() {
+            // Pausar video si se está reproduciendo
+            const vidEl = document.getElementById('viewer-video');
+            if (vidEl) vidEl.pause();
+
             document.getElementById('image-viewer').style.display = 'none';
         };
 
@@ -1253,9 +1377,23 @@
         function updateViewerImage() {
             if (currentViewerImages.length === 0) return;
 
-            const imgObj = currentViewerImages[currentViewerIndex];
-            const viewerImg = document.getElementById('viewer-img');
-            viewerImg.src = imgObj.url;
+            const item = currentViewerImages[currentViewerIndex];
+            const imgEl = document.getElementById('viewer-img');
+            const vidEl = document.getElementById('viewer-video');
+
+            // Pausar video anterior
+            vidEl.pause();
+
+            if (currentViewerType === 'images') {
+                imgEl.src = item.url;
+                imgEl.style.display = 'block';
+                vidEl.style.display = 'none';
+            } else {
+                vidEl.src = item.url;
+                vidEl.style.display = 'block';
+                imgEl.style.display = 'none';
+                // Opcional: vidEl.play(); // Descomentar si quieres autoplay
+            }
 
             resetZoom();
 
@@ -1272,8 +1410,11 @@
         };
 
         function updateTransform() {
-            const viewerImg = document.getElementById('viewer-img');
-            viewerImg.style.transform = `translate(${translateX}px, ${translateY}px) scale(${zoomLevel})`;
+            // Aplicar transformación al elemento visible
+            const el = currentViewerType === 'images' ? document.getElementById('viewer-img') : document.getElementById('viewer-video');
+            if (el) {
+                el.style.transform = `translate(${translateX}px, ${translateY}px) scale(${zoomLevel})`;
+            }
         };
 
         // Funciones de Acción en Visor
@@ -1281,7 +1422,9 @@
             const imgObj = currentViewerImages[currentViewerIndex];
             const link = document.createElement('a');
             link.href = imgObj.url;
-            link.download = `image-${imgObj.id}.png`;
+            // Detectar extensión o usar nombre genérico
+            const ext = currentViewerType === 'images' ? 'png' : 'mp4';
+            link.download = `file-${imgObj.id}.${ext}`;
             document.body.appendChild(link);
             link.click();
             document.body.removeChild(link);
@@ -1297,7 +1440,8 @@
 
         // Zoom y Pan (Reutilizado del workspace)
         const viewerContainer = document.getElementById('viewer-container');
-        const viewerImg = document.getElementById('viewer-img');
+        // Nota: Los eventos se adjuntan al contenedor para simplificar,
+        // pero el zoom en video con controles nativos puede ser conflictivo.
 
         viewerContainer.addEventListener('wheel', (e) => {
             e.preventDefault();
@@ -1306,18 +1450,20 @@
             updateTransform();
         });
 
-        viewerImg.addEventListener('mousedown', (e) => {
+        // Eventos de ratón para arrastrar (Pan)
+        viewerContainer.addEventListener('mousedown', (e) => {
+            // Solo permitir arrastre si hay zoom y no estamos sobre controles de video (difícil de detectar perfectamente, pero intentamos)
             if (zoomLevel > 1) {
                 isDragging = true;
                 startX = e.clientX - translateX;
                 startY = e.clientY - translateY;
-                viewerImg.style.cursor = 'grabbing';
+                viewerContainer.style.cursor = 'grabbing';
             }
         });
 
         window.addEventListener('mouseup', () => {
             isDragging = false;
-            if(viewerImg) viewerImg.style.cursor = 'grab';
+            if(viewerContainer) viewerContainer.style.cursor = 'default';
         });
 
         window.addEventListener('mousemove', (e) => {

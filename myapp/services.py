@@ -84,19 +84,65 @@ async def get_comfyui_object_info(address):
     # Headers para evitar bloqueo de ngrok
     headers = {"ngrok-skip-browser-warning": "true", "User-Agent": "MyApp/1.0"}
     
+    print(f"DEBUG: Connecting to ComfyUI at {protocol}://{address}/object_info") # DEBUG
+
     try:
         async with httpx.AsyncClient() as client:
             response = await client.get(f"{protocol}://{address}/object_info", headers=headers)
             response.raise_for_status()
             data = response.json()
+            
+            print(f"DEBUG: ComfyUI Response Keys: {list(data.keys())[:10]}...") # DEBUG
+
+            # --- MEJORA: Búsqueda más amplia de modelos ---
+            
+            # 1. Checkpoints / UNETs
+            checkpoints = []
+            # Buscar en CheckpointLoaderSimple
+            if "CheckpointLoaderSimple" in data:
+                checkpoints.extend(data["CheckpointLoaderSimple"]["input"]["required"]["ckpt_name"][0])
+            # Buscar en UNETLoader (para Wan2.1 y otros)
+            if "UNETLoader" in data:
+                print("DEBUG: Found UNETLoader") # DEBUG
+                checkpoints.extend(data["UNETLoader"]["input"]["required"]["unet_name"][0])
+            else:
+                print("DEBUG: UNETLoader NOT FOUND in object_info") # DEBUG
+
+            # Eliminar duplicados
+            checkpoints = list(set(checkpoints))
+
+            # 2. VAEs
+            vaes = []
+            if "VAELoader" in data:
+                vaes.extend(data["VAELoader"]["input"]["required"]["vae_name"][0])
+            
+            # 3. LoRAs
+            loras = []
+            if "LoraLoader" in data:
+                loras.extend(data["LoraLoader"]["input"]["required"]["lora_name"][0])
+            if "LoraLoaderModelOnly" in data: # Para Wan2.1
+                print("DEBUG: Found LoraLoaderModelOnly") # DEBUG
+                loras.extend(data["LoraLoaderModelOnly"]["input"]["required"]["lora_name"][0])
+            loras = list(set(loras))
+
+            # 4. Samplers y Schedulers
+            samplers = []
+            schedulers = []
+            if "KSampler" in data:
+                samplers = data["KSampler"]["input"]["required"]["sampler_name"][0]
+                schedulers = data["KSampler"]["input"]["required"]["scheduler"][0]
+            
+            print(f"DEBUG: Found {len(checkpoints)} checkpoints, {len(loras)} loras") # DEBUG
+
             return {
-                "checkpoints": data.get("CheckpointLoaderSimple", {}).get("input", {}).get("required", {}).get("ckpt_name", [[]])[0],
-                "vaes": data.get("VAELoader", {}).get("input", {}).get("required", {}).get("vae_name", [[]])[0],
-                "loras": data.get("LoraLoader", {}).get("input", {}).get("required", {}).get("lora_name", [[]])[0],
-                "samplers": data.get("KSampler", {}).get("input", {}).get("required", {}).get("sampler_name", [[]])[0],
-                "schedulers": data.get("KSampler", {}).get("input", {}).get("required", {}).get("scheduler", [[]])[0],
+                "checkpoints": checkpoints,
+                "vaes": vaes,
+                "loras": loras,
+                "samplers": samplers,
+                "schedulers": schedulers,
             }
-    except (httpx.RequestError, json.JSONDecodeError):
+    except Exception as e:
+        print(f"ERROR in get_comfyui_object_info: {e}") # DEBUG
         return {"checkpoints": [], "vaes": [], "loras": [], "samplers": [], "schedulers": []}
 
 async def queue_prompt(client, prompt_workflow, client_id, address):
@@ -665,7 +711,7 @@ async def generate_image_from_character(character, user_prompt, width=None, heig
                 
                 if not should_save:
                     continue
-                
+
                 if allowed_types is not None and classification not in allowed_types:
                     print(f"DEBUG: Skipped {classification} because not in allowed_types: {allowed_types}") # DEBUG LOG
                     continue

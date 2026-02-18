@@ -1,0 +1,105 @@
+{% extends "admin/base_site.html" %}
+{% load static %}
+
+{% block title %}Configure Video Workflow: {{ workflow.name }}{% endblock %}
+
+{% block content %}
+<div id="content-main">
+    <h1>Configure Video Workflow: {{ workflow.name }}</h1>
+    <p>Adjust the default parameters used to generate videos with this workflow. Changes will be saved to the database.</p>
+
+    <form method="post">
+        {% csrf_token %}
+        <fieldset class="module aligned">
+            <h2>Core Models</h2>
+
+            <!-- UNET High -->
+            <div class="form-row">
+                <label for="unet_high">UNET High (Node 5):</label>
+                <select name="unet_high" id="unet_high">
+                    <option value="">-- Select UNET High --</option>
+                    {% for ckpt in comfyui_info.checkpoints %}
+                        <option value="{{ ckpt }}" {% if saved_config.unet_high == ckpt or workflow_params.unet_high == ckpt %}selected{% endif %}>{{ ckpt }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <!-- UNET Low -->
+            <div class="form-row">
+                <label for="unet_low">UNET Low (Node 4):</label>
+                <select name="unet_low" id="unet_low">
+                    <option value="">-- Select UNET Low --</option>
+                    {% for ckpt in comfyui_info.checkpoints %}
+                        <option value="{{ ckpt }}" {% if saved_config.unet_low == ckpt or workflow_params.unet_low == ckpt %}selected{% endif %}>{{ ckpt }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <!-- VAE -->
+            <div class="form-row">
+                <label for="vae">VAE (Node 1):</label>
+                <select name="vae" id="vae">
+                    <option value="">-- Select VAE --</option>
+                    {% for vae in comfyui_info.vaes %}
+                        <option value="{{ vae }}" {% if saved_config.vae == vae or workflow_params.vae == vae %}selected{% endif %}>{{ vae }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <!-- CLIP -->
+            <div class="form-row">
+                <label for="clip">CLIP (Node 7):</label>
+                <input type="text" name="clip" id="clip" value="{{ saved_config.clip|default:workflow_params.clip|default:'' }}" placeholder="Enter CLIP name manually">
+                <p class="help">Example: umt5_xxl_fp8_e4m3fn_scaled.safetensors</p>
+            </div>
+        </fieldset>
+
+        <fieldset class="module aligned">
+            <h2>LoRA Stack (Nodes 15, 16)</h2>
+            <div class="description" style="padding: 10px; color: #666;">Configure up to 6 LoRAs to be applied via the LoRA Stack nodes.</div>
+
+            <div id="lora-container">
+                {% for i in "123456" %}
+                    <div class="form-row">
+                        <label>LoRA {{ i }}:</label>
+                        <select name="lora_names" style="margin-right: 10px;">
+                            <option value="None">None</option>
+                            {% for lora in comfyui_info.loras %}
+                                <option value="{{ lora }}"
+                                    {% if saved_config.lora_names and saved_config.lora_names|length >= forloop.counter and saved_config.lora_names|slice:forloop.counter0|first == lora %}selected{% endif %}>
+                                    {{ lora }}
+                                </option>
+                            {% endfor %}
+                        </select>
+
+                        <input type="number" name="lora_strengths" step="0.1" min="-2.0" max="2.0" value="{% if saved_config.lora_strengths and saved_config.lora_strengths|length >= forloop.counter %}{{ saved_config.lora_strengths|slice:forloop.counter0|first }}{% else %}1.0{% endif %}" style="width: 80px; flex: 0;">
+                    </div>
+                {% endfor %}
+            </div>
+        </fieldset>
+
+        <fieldset class="module aligned">
+            <h2>Default Parameters</h2>
+
+            <div class="form-row">
+                <label for="duration">Default Duration (s):</label>
+                <input type="number" name="duration" id="duration" value="{{ saved_config.duration|default:3 }}">
+            </div>
+
+            <div class="form-row">
+                <label for="fps">Default FPS:</label>
+                <input type="number" name="fps" id="fps" value="{{ saved_config.fps|default:24 }}">
+            </div>
+
+            <div class="form-row">
+                <label for="resolution">Default Resolution:</label>
+                <input type="number" name="resolution" id="resolution" value="{{ saved_config.resolution|default:1024 }}">
+            </div>
+        </fieldset>
+
+        <div class="submit-row">
+            <input type="submit" value="Save Configuration" class="default">
+        </div>
+    </form>
+</div>
+{% endblock %}

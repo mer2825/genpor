@@ -40,4 +40,7 @@ urlpatterns = [
     path('subscription/process/<int:plan_id>/', views.subscription_process, name='subscription_process'),
     path('subscription/done/', views.subscription_done, name='subscription_done'),
     path('subscription/canceled/', views.subscription_canceled, name='subscription_canceled'),
+
+    # --- NUEVA RUTA: GENERACIÓN DE VIDEO ---
+    path('generate-video/', views.generate_video_view, name='generate_video'),
 ]

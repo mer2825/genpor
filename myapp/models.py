@@ -12,6 +12,8 @@ import string
 from django.core.validators import MinValueValidator, MaxValueValidator # IMPORTANTE
 import uuid
 
+# --- EXISTING IMAGE MODELS ---
+
 class Workflow(models.Model):
     name = models.CharField(max_length=100)
     json_file = models.FileField(upload_to='workflows/')
@@ -153,6 +155,85 @@ def delete_character_image_files(sender, instance, **kwargs):
                 os.remove(instance.generation_workflow.path)
             except Exception as e:
                 print(f"Error deleting workflow file: {e}")
+
+# --- VIDEO MODELS (NEW) ---
+
+class VideoConnectionConfig(models.Model):
+    name = models.CharField(max_length=100, help_text="Ex: Video GPU 1")
+    base_url = models.CharField(max_length=255, help_text="Ex: http://127.0.0.1:8188")
+    is_active = models.BooleanField(default=False, help_text="Check this box to use this connection for VIDEO generation.")
+    
+    class Meta:
+        verbose_name = "Video Connection Configuration"
+        verbose_name_plural = "Video Connection Configurations"
+    
+    def __str__(self):
+        status = " (ACTIVE)" if self.is_active else ""
+        return f"{self.name} - {self.base_url}{status}"
+
+class VideoWorkflow(models.Model):
+    name = models.CharField(max_length=100)
+    json_file = models.FileField(upload_to='video_workflows/')
+    active_config = models.TextField(blank=True, null=True, help_text="Active JSON configuration for video generation.")
+
+    def __str__(self):
+        return self.name
+
+@receiver(post_delete, sender=VideoWorkflow)
+def delete_video_workflow_file(sender, instance, **kwargs):
+    if instance.json_file:
+        if os.path.isfile(instance.json_file.path):
+            try:
+                os.remove(instance.json_file.path)
+            except Exception as e:
+                print(f"Error deleting video workflow file: {e}")
+
+def video_output_path(instance, filename):
+    # --- CAMBIO: Incluir nombre del personaje en la ruta ---
+    char_name = instance.character.name if instance.character else "Unknown"
+    if instance.user:
+        return f'user_videos/{instance.user.id}/{char_name}/{filename}'
+    return f'generated_videos/{char_name}/{filename}'
+
+class GeneratedVideo(models.Model):
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='generated_videos')
+    # --- CAMBIO: Vincular video a un personaje ---
+    character = models.ForeignKey(Character, on_delete=models.CASCADE, related_name='videos', null=True, blank=True)
+    
+    video_file = models.FileField(upload_to=video_output_path)
+    thumbnail = models.ImageField(upload_to='video_thumbnails/', blank=True, null=True)
+    
+    # Metadata
+    prompt = models.TextField()
+    negative_prompt = models.TextField(blank=True, null=True)
+    duration = models.IntegerField(default=3, help_text="Duration in seconds")
+    fps = models.IntegerField(default=24)
+    width = models.IntegerField(default=1024)
+    height = models.IntegerField(default=576)
+    seed = models.BigIntegerField(default=0)
+    
+    # Workflow used
+    workflow_used = models.ForeignKey(VideoWorkflow, on_delete=models.SET_NULL, null=True, blank=True)
+    
+    created_at = models.DateTimeField(auto_now_add=True)
+    
+    def __str__(self):
+        return f"Video by {self.user.username} - {self.created_at.strftime('%Y-%m-%d %H:%M')}"
+
+@receiver(post_delete, sender=GeneratedVideo)
+def delete_generated_video_files(sender, instance, **kwargs):
+    if instance.video_file:
+        if os.path.isfile(instance.video_file.path):
+            try:
+                os.remove(instance.video_file.path)
+            except Exception as e:
+                print(f"Error deleting video file: {e}")
+    if instance.thumbnail:
+        if os.path.isfile(instance.thumbnail.path):
+            try:
+                os.remove(instance.thumbnail.path)
+            except Exception as e:
+                print(f"Error deleting thumbnail file: {e}")
 
 # --- NEW: GLOBAL CLIENT SETTINGS (Renamed from TokenSettings) ---
 class TokenSettings(models.Model):
@@ -377,18 +458,33 @@ class AuthPageImage(models.Model):
         super().delete(*args, **kwargs)
 
 class ChatMessage(models.Model):
+    # --- CAMBIO: Tipo de chat (Imagen o Video) ---
+    CHAT_TYPE_CHOICES = [
+        ('IMAGE', 'Image Generation'),
+        ('VIDEO', 'Video Generation'),
+    ]
+    
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='chat_history')
     character = models.ForeignKey(Character, on_delete=models.CASCADE, related_name='chat_messages')
     message = models.TextField(blank=True, null=True) # Prompt text or system message
     is_from_user = models.BooleanField(default=True) # True = User, False = AI
+    
+    # Relaciones
     generated_images = models.ManyToManyField(CharacterImage, blank=True, related_name='chat_messages')
+    # --- CAMBIO: Relación con videos generados ---
+    generated_videos = models.ManyToManyField(GeneratedVideo, blank=True, related_name='chat_messages')
+    
     image_count = models.IntegerField(default=0, help_text="Number of images originally generated in this message.")
+    
+    # --- CAMBIO: Campo para distinguir el tipo de chat ---
+    chat_type = models.CharField(max_length=10, choices=CHAT_TYPE_CHOICES, default='IMAGE')
+    
     timestamp = models.DateTimeField(auto_now_add=True)
     class Meta:
         ordering = ['timestamp'] # Chronological order
     def __str__(self):
         sender = self.user.username if self.is_from_user else f"AI ({self.character.name})"
-        return f"{sender}: {self.message[:30]}..."
+        return f"{sender} [{self.chat_type}]: {self.message[:30]}..."
 
 def generate_coupon_code():
     return ''.join(secrets.choice(string.ascii_uppercase + string.digits) for _ in range(12))
