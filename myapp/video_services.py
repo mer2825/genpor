@@ -261,13 +261,13 @@ def update_video_workflow(workflow, params, uploaded_image_name):
         wf["37"]["inputs"]["value"] = int(params["fps"])
         wf["37"]["inputs"]["int_value"] = int(params["fps"]) # Fallback
         
-    # Resolution (Node 32 o 45)
-    if "32" in wf and "resolution" in params:
-        wf["32"]["inputs"]["value"] = int(params["resolution"])
-        wf["32"]["inputs"]["int_value"] = int(params["resolution"]) # Fallback
-    if "45" in wf and "resolution" in params:
-        wf["45"]["inputs"]["value"] = int(params["resolution"])
-        wf["45"]["inputs"]["int_value"] = int(params["resolution"]) # Fallback
+    # Quality (Node 32 o 45) - ANTES RESOLUTION
+    if "32" in wf and "quality" in params:
+        wf["32"]["inputs"]["value"] = int(params["quality"])
+        wf["32"]["inputs"]["int_value"] = int(params["quality"]) # Fallback
+    if "45" in wf and "quality" in params:
+        wf["45"]["inputs"]["value"] = int(params["quality"])
+        wf["45"]["inputs"]["int_value"] = int(params["quality"]) # Fallback
 
     # 4. Seed
     used_seed = params.get("seed")
@@ -395,7 +395,7 @@ def update_video_workflow(workflow, params, uploaded_image_name):
 
 # --- GENERACIÓN PRINCIPAL ---
 
-async def generate_video_task(user_image_file, prompt, negative_prompt, duration, fps, resolution, seed=None):
+async def generate_video_task(user_image_file, prompt, negative_prompt, duration, fps, quality, seed=None):
     """
     Orquesta la generación de video.
     Retorna: (video_content_bytes, used_seed, video_filename)
@@ -444,7 +444,7 @@ async def generate_video_task(user_image_file, prompt, negative_prompt, duration
             "negative_prompt": negative_prompt,
             "duration": duration,
             "fps": fps,
-            "resolution": resolution,
+            "quality": quality,
             "seed": seed,
             **admin_config # Inyectar configuración del admin (unets, loras, etc.)
         }

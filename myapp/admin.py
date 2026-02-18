@@ -18,7 +18,7 @@ from .models import (
     TokenPackage, PaymentTransaction, SubscriptionPlan, UserSubscription,
     UserPremiumGrant, PaymentMethod,
     VideoConnectionConfig, VideoWorkflow, GeneratedVideo,
-    VideoConfiguration, VideoDurationOption, VideoResolutionOption # IMPORTAR NUEVOS MODELOS
+    VideoConfiguration, VideoDurationOption, VideoQualityOption # IMPORTAR NUEVOS MODELOS
 )
 from .services import generate_image_from_character, get_active_comfyui_address, get_comfyui_object_info, analyze_workflow
 from .video_services import get_active_video_comfyui_address, analyze_video_workflow
@@ -875,16 +875,16 @@ class VideoDurationOptionInline(admin.TabularInline):
     verbose_name = "Duration Option"
     verbose_name_plural = "Duration Options (Buttons)"
 
-class VideoResolutionOptionInline(admin.TabularInline):
-    model = VideoResolutionOption
+class VideoQualityOptionInline(admin.TabularInline):
+    model = VideoQualityOption
     extra = 1
-    fields = ('name', 'width', 'height', 'is_active')
-    verbose_name = "Resolution Option"
-    verbose_name_plural = "Resolution Options (Buttons)"
+    fields = ('name', 'value', 'is_active')
+    verbose_name = "Quality Option"
+    verbose_name_plural = "Quality Options (Buttons)"
 
 @admin.register(VideoConfiguration)
 class VideoConfigurationAdmin(admin.ModelAdmin):
-    inlines = [VideoDurationOptionInline, VideoResolutionOptionInline]
+    inlines = [VideoDurationOptionInline, VideoQualityOptionInline]
     
     def has_add_permission(self, request):
         if self.model.objects.exists(): return False

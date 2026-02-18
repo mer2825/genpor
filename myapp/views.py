@@ -566,7 +566,7 @@ async def workspace_view(request):
     
     # Obtenemos las opciones relacionadas
     video_durations = await sync_to_async(list)(video_config.durations.filter(is_active=True).order_by('duration'))
-    video_resolutions = await sync_to_async(list)(video_config.resolutions.filter(is_active=True))
+    video_qualities = await sync_to_async(list)(video_config.qualities.filter(is_active=True)) # CAMBIO: resolutions -> qualities
     
     # Check if a character is selected
     character_id = request.GET.get('character_id')
@@ -784,7 +784,7 @@ async def workspace_view(request):
         'workflow_capabilities': workflow_capabilities, # Pass capabilities
         'random_preview_images': random_preview_images, # Pass random images
         'video_durations': video_durations, # NUEVO
-        'video_resolutions': video_resolutions, # NUEVO
+        'video_qualities': video_qualities, # NUEVO: video_qualities
     }
     return await sync_to_async(render)(request, 'myapp/workspace.html', context)
 
@@ -1473,7 +1473,7 @@ async def generate_video_view(request):
         negative_prompt = request.POST.get('negative_prompt', '')
         duration = request.POST.get('duration', 3)
         fps = request.POST.get('fps', 24)
-        resolution = request.POST.get('resolution', 1024)
+        quality = request.POST.get('quality', 25) # CAMBIO: resolution -> quality
         seed = request.POST.get('seed', -1)
         
         # Imagen subida
@@ -1499,7 +1499,7 @@ async def generate_video_view(request):
 
             # 3. Llamar al Servicio de Video
             video_bytes, used_seed, filename = await generate_video_task(
-                image_file, prompt, negative_prompt, duration, fps, resolution, seed
+                image_file, prompt, negative_prompt, duration, fps, quality, seed # CAMBIO: resolution -> quality
             )
 
             # 4. Guardar Resultado en BD
@@ -1512,8 +1512,8 @@ async def generate_video_view(request):
                     negative_prompt=negative_prompt,
                     duration=duration,
                     fps=fps,
-                    width=resolution,
-                    height=resolution,
+                    width=0, # No tenemos width/height exactos aquí, podríamos poner 0 o un default
+                    height=0,
                     seed=u_seed
                 )
                 vid.video_file.save(v_filename, ContentFile(v_bytes), save=False)
@@ -1555,7 +1555,8 @@ async def generate_video_view(request):
             })
 
         except Exception as e:
+            # --- SECURITY FIX: Log error to console but show generic message to user ---
             print(f"Video Generation Error: {e}")
-            return JsonResponse({'status': 'error', 'message': str(e)}, status=500)
+            return JsonResponse({'status': 'error', 'message': 'An error occurred during video generation. Please try again later.'}, status=500)
 
     return JsonResponse({'status': 'error', 'message': 'Invalid request'}, status=400)

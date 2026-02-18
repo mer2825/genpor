@@ -636,24 +636,26 @@
                     </div>
                 </div>
 
-                <!-- CALIDAD (RESOLUCIÓN) -->
+                <!-- CALIDAD (QUALITY) -->
                 <div class="video-config-row" style="flex-direction: column; align-items: flex-start; margin-top: 15px;">
                     <span class="video-config-label" style="margin-bottom: 5px;">Video Quality</span>
-                    <input type="hidden" id="video-resolution" value="1024"> <!-- Hidden input para width -->
+                    <input type="hidden" id="video-quality" value="25"> <!-- Hidden input para quality -->
                     <div class="video-options-grid">
-                        {% for opt in video_resolutions %}
+                        {% for opt in video_qualities %}
                             <button class="video-option-btn {% if forloop.first %}active{% endif %}"
-                                    onclick="selectVideoOption('resolution', {{ opt.width }}, this)">
+                                    onclick="selectVideoOption('quality', {{ opt.value }}, this)">
                                 {{ opt.name }}
                             </button>
                         {% empty %}
-                            <button class="video-option-btn active" onclick="selectVideoOption('resolution', 1024, this)">HD</button>
+                            <button class="video-option-btn active" onclick="selectVideoOption('quality', 25, this)">Standard</button>
                         {% endfor %}
                     </div>
                 </div>
 
                 <!-- FPS (Oculto/Fijo por ahora) -->
                 <input type="hidden" id="video-fps" value="24">
+                <!-- RESOLUTION (Oculto/Fijo por ahora, ya que se usa quality) -->
+                <input type="hidden" id="video-resolution" value="1024">
             </div>
 
             <!-- Input de Semilla (COMPARTIDO) -->
@@ -1419,7 +1421,7 @@
                 formData.append('image', selectedImageBlob, "source_image.png"); // Enviar blob como archivo
                 formData.append('duration', document.getElementById('video-duration').value);
                 formData.append('fps', document.getElementById('video-fps').value);
-                formData.append('resolution', document.getElementById('video-resolution').value);
+                formData.append('quality', document.getElementById('video-quality').value); // CAMBIO: resolution -> quality
             }
 
             fetch(targetUrl, {

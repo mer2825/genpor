@@ -764,17 +764,16 @@ class VideoDurationOption(models.Model):
     def __str__(self):
         return f"{self.duration}s"
 
-class VideoResolutionOption(models.Model):
+class VideoQualityOption(models.Model):
     # Vinculamos al padre
-    config = models.ForeignKey(VideoConfiguration, on_delete=models.CASCADE, related_name='resolutions', default=1)
-    name = models.CharField(max_length=50, verbose_name="Label", help_text="Ex: SD, HD, FHD")
-    width = models.PositiveIntegerField(default=1024)
-    height = models.PositiveIntegerField(default=576)
+    config = models.ForeignKey(VideoConfiguration, on_delete=models.CASCADE, related_name='qualities', default=1)
+    name = models.CharField(max_length=50, verbose_name="Label", help_text="Ex: High, Medium, Low")
+    value = models.PositiveIntegerField(default=25, verbose_name="Quality Value", help_text="Value to send to the workflow (e.g. steps)")
     is_active = models.BooleanField(default=True)
     
     class Meta:
-        verbose_name = "Resolution Option"
-        verbose_name_plural = "Resolution Options"
+        verbose_name = "Quality Option"
+        verbose_name_plural = "Quality Options"
 
     def __str__(self):
-        return f"{self.name} ({self.width}x{self.height})"
+        return f"{self.name} ({self.value})"
