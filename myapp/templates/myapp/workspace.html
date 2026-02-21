@@ -652,8 +652,6 @@
                     </div>
                 </div>
 
-                <!-- FPS (Oculto/Fijo por ahora) -->
-                <input type="hidden" id="video-fps" value="24">
                 <!-- RESOLUTION (Oculto/Fijo por ahora, ya que se usa quality) -->
                 <input type="hidden" id="video-resolution" value="1024">
             </div>
@@ -1420,7 +1418,6 @@
                 targetUrl = generateVideoUrl;
                 formData.append('image', selectedImageBlob, "source_image.png"); // Enviar blob como archivo
                 formData.append('duration', document.getElementById('video-duration').value);
-                formData.append('fps', document.getElementById('video-fps').value);
                 formData.append('quality', document.getElementById('video-quality').value); // CAMBIO: resolution -> quality
             }
 

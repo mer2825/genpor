@@ -862,7 +862,7 @@ async def generate_image_view(request):
             # Get LoRA Strength
             lora_strength = request.POST.get('lora_strength') # NUEVO: Obtener fuerza del LoRA
 
-            # --- SINGLE SELECTION LOGIC ---
+            # --- CUMULATIVE SELECTION LOGIC (CORRECTED) ---
             generation_type = request.POST.get('generation_type', 'Gen_Normal')
             
             # Validate type
@@ -870,6 +870,15 @@ async def generate_image_view(request):
             if generation_type not in valid_types:
                 generation_type = "Gen_Normal"
             
+            # Build the cumulative list of allowed types
+            type_order = ["Gen_Normal", "Gen_UpScaler", "Gen_FaceDetailer", "Gen_EyeDetailer"]
+            try:
+                selected_index = type_order.index(generation_type)
+                allowed_types = type_order[:selected_index + 1]
+            except ValueError:
+                allowed_types = ["Gen_Normal"]
+            # ----------------------------------------------------
+
             # --- NEW: SECURITY CHECK FOR PERMISSIONS ---
             user_permissions = await get_user_permissions(user)
             
@@ -880,9 +889,6 @@ async def generate_image_view(request):
             if generation_type == "Gen_EyeDetailer" and not user_permissions['can_eyedetailer']:
                 return JsonResponse({'status': 'error', 'message': 'Eye Detailer is not available in your plan.'}, status=403)
             # -------------------------------------------
-
-            allowed_types = [generation_type] # Pass as a list with one item
-            # ------------------------------
 
             try:
                 character = await sync_to_async(Character.objects.select_related('base_workflow').get)(id=character_id)
