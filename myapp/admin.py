@@ -285,6 +285,10 @@ class WorkflowAdmin(admin.ModelAdmin):
                 if 'height' in saved_config: workflow_params['height'] = saved_config['height']
                 if 'seed' in saved_config: workflow_params['seed'] = saved_config['seed']
                 if 'upscale_by' in saved_config: workflow_params['upscale_by'] = saved_config['upscale_by']
+                if 'black_list_tags' in saved_config: workflow_params['black_list_tags'] = saved_config['black_list_tags']
+                if 'promp_detailers' in saved_config: workflow_params['promp_detailers'] = saved_config['promp_detailers']
+                if 'negative_prompt' in saved_config: workflow_params['negative_prompt'] = saved_config['negative_prompt']
+                if 'promp_character' in saved_config: workflow_params['promp_character'] = saved_config['promp_character']
                 
                 if 'lora_names' in saved_config and 'lora_strengths' in saved_config:
                     workflow_params['loras'] = []
@@ -304,7 +308,11 @@ class WorkflowAdmin(admin.ModelAdmin):
                 'upscale_by': request.POST.get('upscale_by'),
                 'lora_names': request.POST.getlist('lora_name'),
                 'lora_strengths': request.POST.getlist('lora_strength'),
-                'prompt': request.POST.get('prompt'), 
+                'prompt': request.POST.get('prompt'),
+                'black_list_tags': request.POST.get('black_list_tags'),
+                'promp_detailers': request.POST.get('promp_detailers'),
+                'negative_prompt': request.POST.get('negative_prompt'),
+                'promp_character': request.POST.get('promp_character'),
             }
             new_config = {k: v for k, v in new_config.items() if v is not None}
             workflow.active_config = json.dumps(new_config)
@@ -430,10 +438,6 @@ class BaseCharacterAdmin(admin.ModelAdmin):
 
     fieldsets = (
         (None, {'fields': ('name', 'description', 'is_active', 'category', 'subcategory', 'base_workflow')}),
-        ('Default Prompts (Sandwich)', {
-            'fields': ('prompt_prefix', 'prompt_suffix', 'negative_prompt'),
-            'description': 'Structure: [Prefix] + (User:1.2) + [Suffix]'
-        }),
         ('Advanced Configuration', {'classes': ('collapse',), 'fields': ('character_config',)}),
     )
     readonly_fields = ('character_config',)
@@ -516,6 +520,18 @@ class BaseCharacterAdmin(admin.ModelAdmin):
             return redirect('admin:myapp_character_changelist')
 
         saved_config = {}
+        
+        # 1. Cargar configuración base del workflow (si existe)
+        if workflow.active_config:
+            try:
+                base_config = json.loads(workflow.active_config)
+                if 'promp_character' in base_config: workflow_params['promp_character'] = base_config['promp_character']
+                if 'promp_detailers' in base_config: workflow_params['promp_detailers'] = base_config['promp_detailers']
+                if 'negative_prompt' in base_config: workflow_params['negative_prompt'] = base_config['negative_prompt']
+                if 'black_list_tags' in base_config: workflow_params['black_list_tags'] = base_config['black_list_tags']
+            except json.JSONDecodeError: pass
+
+        # 2. Cargar configuración específica del personaje (sobrescribe la base)
         if character.character_config:
             try:
                 saved_config = json.loads(character.character_config)
@@ -525,6 +541,12 @@ class BaseCharacterAdmin(admin.ModelAdmin):
                 if 'height' in saved_config: workflow_params['height'] = saved_config['height']
                 if 'seed' in saved_config: workflow_params['seed'] = saved_config['seed']
                 if 'upscale_by' in saved_config: workflow_params['upscale_by'] = saved_config['upscale_by']
+                
+                # Sobreescribir prompts si existen en la config del personaje
+                if 'promp_character' in saved_config: workflow_params['promp_character'] = saved_config['promp_character']
+                if 'promp_detailers' in saved_config: workflow_params['promp_detailers'] = saved_config['promp_detailers']
+                if 'negative_prompt' in saved_config: workflow_params['negative_prompt'] = saved_config['negative_prompt']
+                if 'black_list_tags' in saved_config: workflow_params['black_list_tags'] = saved_config['black_list_tags']
                 
                 if 'lora_names' in saved_config and 'lora_strengths' in saved_config:
                     workflow_params['loras'] = []
@@ -539,7 +561,11 @@ class BaseCharacterAdmin(admin.ModelAdmin):
                 'vae': request.POST.get('vae'),
                 'lora_names': request.POST.getlist('lora_name'),
                 'lora_strengths': request.POST.getlist('lora_strength'),
-                'prompt': request.POST.get('prompt'), 
+                'prompt': request.POST.get('prompt'),
+                'promp_character': request.POST.get('promp_character'),
+                'promp_detailers': request.POST.get('promp_detailers'),
+                'negative_prompt': request.POST.get('negative_prompt'),
+                'black_list_tags': request.POST.get('black_list_tags'),
             }
             
             for field in ['width', 'height', 'seed', 'seed_behavior', 'upscale_by']:

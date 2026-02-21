@@ -123,6 +123,25 @@
             </div>
         </fieldset>
 
+        <fieldset class="module aligned">
+            <h2>Tag Modifiers</h2>
+            <div class="form-row">
+                <label for="negative_prompt">Negative Prompt:</label>
+                <textarea name="negative_prompt" rows="4" style="width: 60%;">{{ workflow_params.negative_prompt|default_if_none:'' }}</textarea>
+                <p class="help">Tags to avoid in the image (e.g., bad hands, watermark).</p>
+            </div>
+            <div class="form-row">
+                <label for="promp_detailers">Detailer Tags:</label>
+                <textarea name="promp_detailers" rows="4" style="width: 60%;">{{ workflow_params.promp_detailers|default_if_none:'' }}</textarea>
+                <p class="help">Tags used to improve the quality and style of the image (e.g., masterpiece, best quality).</p>
+            </div>
+            <div class="form-row">
+                <label for="black_list_tags">Blacklist Tags:</label>
+                <textarea name="black_list_tags" rows="4" style="width: 60%;">{{ workflow_params.black_list_tags|default_if_none:'' }}</textarea>
+                <p class="help">Tags (separated by commas) to be forcefully removed from the final image.</p>
+            </div>
+        </fieldset>
+
         <div class="submit-row">
             <input type="submit" value="Save Configuration" class="default">
         </div>

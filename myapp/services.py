@@ -174,7 +174,7 @@ def analyze_workflow_outputs(workflow_json):
     return capabilities
 
 def analyze_workflow(prompt_workflow):
-    analysis = {"checkpoint": None, "vae": None, "loras": [], "width": None, "height": None, "seed": None, "steps": None, "cfg": None, "sampler_name": None, "scheduler": None, "upscale_by": None}
+    analysis = {"checkpoint": None, "vae": None, "loras": [], "width": None, "height": None, "seed": None, "steps": None, "cfg": None, "sampler_name": None, "scheduler": None, "upscale_by": None, "black_list_tags": None, "promp_detailers": None, "negative_prompt": None, "promp_character": None}
     if not isinstance(prompt_workflow, dict): return analysis
     for node_id, details in prompt_workflow.items():
         if not isinstance(details, dict): continue
@@ -193,6 +193,15 @@ def analyze_workflow(prompt_workflow):
         elif class_type == "EmptyLatentImage":
             if analysis["width"] is None: analysis["width"] = inputs.get("width")
             if analysis["height"] is None: analysis["height"] = inputs.get("height")
+        elif title == "BLACK_LIST_TAGS":
+            analysis["black_list_tags"] = inputs.get("text")
+        elif title == "PROMP_DETAILERS":
+            analysis["promp_detailers"] = inputs.get("text")
+        elif title == "NEGATIVE PROMP":
+            analysis["negative_prompt"] = inputs.get("text")
+        elif title == "PROMP_CHARACTER":
+            analysis["promp_character"] = inputs.get("text")
+            
     for node_id, details in prompt_workflow.items():
         if not isinstance(details, dict): continue
         inputs = details.get("inputs", {})
@@ -217,6 +226,7 @@ def update_workflow(prompt_workflow, new_values, lora_names=None, lora_strengths
     for node_id, details in prompt_workflow.items():
         if not isinstance(details, dict): continue
         class_type, inputs = details.get("class_type"), details.get("inputs", {})
+        title = details.get("_meta", {}).get("title", "").upper()
         candidates = ["text", "text_g", "text_l", "prompt", "value"]
         if node_id in positive_nodes and "prompt" in new_values:
             for k in candidates:
@@ -224,6 +234,17 @@ def update_workflow(prompt_workflow, new_values, lora_names=None, lora_strengths
         if node_id in negative_nodes and "negative_prompt" in new_values:
             for k in candidates:
                 if k in inputs: inputs[k] = new_values["negative_prompt"]
+        if title == "BLACK_LIST_TAGS" and "black_list_tags" in new_values:
+            inputs["text"] = new_values["black_list_tags"]
+        if title == "PROMP_DETAILERS" and "promp_detailers" in new_values:
+            inputs["text"] = new_values["promp_detailers"]
+        if title == "NEGATIVE PROMP" and "negative_prompt" in new_values:
+            inputs["text"] = new_values["negative_prompt"]
+        if title == "PROMP_CHARACTER" and "promp_character" in new_values:
+            inputs["text"] = new_values["promp_character"]
+        if title == "PROMP_USUARIO" and "prompt" in new_values:
+            inputs["text"] = new_values["prompt"]
+            
         if class_type == "DW_LoRAStackApplySimple":
             for i in range(1, 7):
                 inputs[f"lora_{i}_name"], inputs[f"lora_{i}_strength"] = "None", 1.0
@@ -304,7 +325,22 @@ def map_workflow_stages(workflow):
 
 async def generate_image_from_character(character, user_prompt, width=None, height=None, seed=None, allowed_types=None, checkpoint=None, lora_strength=None):
     if not character.character_config:
-        raise ValueError("El personaje no tiene configuración.")
+        # Si no tiene config propia, intentamos usar la del workflow base
+        if character.base_workflow.active_config:
+            character_config = json.loads(character.base_workflow.active_config)
+        else:
+            raise ValueError("El personaje no tiene configuración y el workflow base tampoco.")
+    else:
+        # Si tiene config propia, la cargamos
+        character_config = json.loads(character.character_config)
+        
+        # Y mezclamos con la del workflow base para rellenar huecos (Herencia)
+        if character.base_workflow.active_config:
+            base_config = json.loads(character.base_workflow.active_config)
+            # La config del personaje tiene prioridad, así que actualizamos la base con ella
+            final_mixed_config = base_config.copy()
+            final_mixed_config.update(character_config)
+            character_config = final_mixed_config
 
     @sync_to_async
     def read_workflow_file():
@@ -312,12 +348,12 @@ async def generate_image_from_character(character, user_prompt, width=None, heig
             return json.load(f)
 
     prompt_workflow_base = await read_workflow_file()
-    character_config = json.loads(character.character_config)
 
-    prefix, suffix = character.prompt_prefix or "", character.prompt_suffix or ""
-    full_positive_prompt = ", ".join([p for p in [prefix, user_prompt, suffix] if p])
+    # Ya no usamos prompt_prefix/suffix del modelo Character porque los borramos.
+    # El prompt del usuario va directo a PROMP_USUARIO (manejado en update_workflow)
     
-    final_config = {**character_config, 'prompt': full_positive_prompt, 'negative_prompt': character.negative_prompt}
+    final_config = {**character_config, 'prompt': user_prompt}
+
     if width: final_config['width'] = width
     if height: final_config['height'] = height
     if checkpoint: final_config['checkpoint'] = checkpoint

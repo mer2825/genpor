@@ -78,9 +78,6 @@ class Character(models.Model):
     is_active = models.BooleanField(default=True, verbose_name="Active", help_text="If unchecked, this character will be hidden from the workspace.")
     is_private = models.BooleanField(default=False, verbose_name="Private Character", help_text="If checked, this character will NOT appear in the public list. Users need a code to access it.")
 
-    prompt_prefix = models.TextField(blank=True, null=True, verbose_name="Prompt Prefix (Character)", default="", help_text="PREFIX: Goes BEFORE the user prompt. Use to describe the character (hair, eyes, body).")
-    prompt_suffix = models.TextField(blank=True, null=True, verbose_name="Prompt Suffix (Quality)", default="masterpiece, best quality, newest, absurdres, highres, anime coloring,", help_text="SUFFIX: Goes AFTER the user prompt. Use for Quality Tags (score_9...) and style.")
-    negative_prompt = models.TextField(blank=True, null=True, verbose_name="Negative Prompt", default="bad anatomy, bad hands, multiple views, abstract, signature, furry, anthro, 2koma, 4koma, comic, (text, watermark), logo, artist signature, patreon logo, patreon username, twitter username, blurred, unfocused, foggy, poorly drawn hands, bad quality, worst quality, worst detail,", help_text="NEGATIVE: Things you DO NOT want in the image.")
     def __str__(self):
         return self.name
 

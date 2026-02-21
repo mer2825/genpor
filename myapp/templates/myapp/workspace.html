@@ -786,7 +786,7 @@
                                 <div class="result-grid">
                                     {% for vid in msg.videos %}
                                         <div class="result-card">
-                                            <video src="{{ vid.url }}" class="chat-video" style="width:100%; border-radius:8px;" onclick="openVideoViewer('{{ vid.url }}')"></video>
+                                            <video src="{{ vid.url }}" class="chat-video" style="width:100%; border-radius:8px;" onclick="openVideoViewer(this.src)"></video>
                                         </div>
                                     {% endfor %}
                                 </div>
@@ -1488,7 +1488,7 @@
                         let html = 'Here is your generated video.<br>';
                         // CAMBIO: Estructura de video con botón expandir
                         html += `<div class="result-card">
-                                    <video src="${data.video_url}" class="chat-video" style="width:100%; border-radius:8px;" onclick="openVideoViewer('${data.video_url}')"></video>
+                                    <video src="${data.video_url}" class="chat-video" style="width:100%; border-radius:8px;" onclick="openVideoViewer(this.src)"></video>
                                  </div>`;
                         resultMsg.innerHTML = html;
                     }
