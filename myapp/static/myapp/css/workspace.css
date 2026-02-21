@@ -193,8 +193,8 @@ html, body {
 .result-grid {
     display: grid;
     /* Ajuste dinámico más flexible para evitar desbordes */
-    grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); /* REDUCIDO DE 150px A 120px */
-    gap: 10px;
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    gap: 12px;
     margin-top: 15px;
     width: 100%;
     box-sizing: border-box;
@@ -991,8 +991,8 @@ textarea:focus { outline: none; }
 
     .result-grid {
         /* Ajuste para móviles pequeños: columnas más estrechas */
-        grid-template-columns: repeat(auto-fit, minmax(80px, 1fr)); /* REDUCIDO DE 100px A 80px */
-        gap: 6px;
+        grid-template-columns: repeat(auto-fit, minmax(100px, 1fr));
+        gap: 8px;
     }
 
     .result-badge {

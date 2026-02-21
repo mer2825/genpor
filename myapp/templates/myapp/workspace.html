@@ -477,11 +477,35 @@
 
         /* Ajuste para grids de resultados dentro de burbujas */
         .result-grid {
-            margin-top: 20px; /* AUMENTADO: Más separación interna entre texto e imagen */
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
-            gap: 8px;
+            margin-top: 15px;
+            display: flex; /* CAMBIO: Flex para mejor control de tamaño */
+            flex-wrap: wrap;
+            gap: 10px;
             width: 100%;
+        }
+
+        .result-card {
+            position: relative;
+            border-radius: 12px;
+            overflow: hidden;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            transition: transform 0.2s;
+            max-width: 300px; /* LÍMITE DE ANCHO PARA QUE NO SEA GIGANTE */
+            width: 100%; /* Ocupa hasta el max-width */
+            cursor: pointer; /* CAMBIO: Cursor pointer en todo el contenedor */
+        }
+
+        .result-card img, .result-card video {
+            width: 100%;
+            height: auto;
+            display: block;
+            max-height: 300px; /* LÍMITE DE ALTURA TAMBIÉN */
+            object-fit: cover; /* O contain si prefieres verla entera sin recorte */
+            cursor: pointer;
+        }
+
+        .result-card:hover {
+            transform: scale(1.02);
         }
     </style>
 
@@ -761,11 +785,8 @@
                             {% if msg.videos %}
                                 <div class="result-grid">
                                     {% for vid in msg.videos %}
-                                        <div class="result-card" style="width: 100%;">
-                                            <video width="100%" controls style="border-radius:8px;">
-                                                <source src="{{ vid.url }}" type="video/mp4">
-                                                Your browser does not support the video tag.
-                                            </video>
+                                        <div class="result-card">
+                                            <video src="{{ vid.url }}" class="chat-video" style="width:100%; border-radius:8px;" onclick="openVideoViewer('{{ vid.url }}')"></video>
                                         </div>
                                     {% endfor %}
                                 </div>
@@ -1021,6 +1042,16 @@
         <button class="nav-arrow right" onclick="navigateImage(1)"><i class="fas fa-chevron-right"></i></button>
         <div class="viewer-container" id="viewer-container">
             <img id="viewer-img" class="viewer-image" src="">
+        </div>
+    </div>
+
+    <!-- VISOR DE VIDEOS (LIGHTBOX) - NUEVO -->
+    <div id="video-viewer" class="image-viewer-modal">
+        <span class="close-viewer" onclick="closeVideoViewer()">&times;</span>
+        <button class="nav-arrow left" onclick="navigateVideo(-1)"><i class="fas fa-chevron-left"></i></button>
+        <button class="nav-arrow right" onclick="navigateVideo(1)"><i class="fas fa-chevron-right"></i></button>
+        <div class="viewer-container" id="video-viewer-container">
+            <video id="viewer-video" class="viewer-image" controls autoplay style="max-height: 90vh; max-width: 90vw;"></video>
         </div>
     </div>
 
@@ -1455,7 +1486,10 @@
                         userMsg.setAttribute('data-msg-id', data.user_msg_id);
                         resultMsg.setAttribute('data-msg-id', data.ai_msg_id);
                         let html = 'Here is your generated video.<br>';
-                        html += `<div class="result-card" style="width: 100%;"><video width="100%" controls style="border-radius:8px; margin-top:10px;"><source src="${data.video_url}" type="video/mp4">Your browser does not support the video tag.</video></div>`;
+                        // CAMBIO: Estructura de video con botón expandir
+                        html += `<div class="result-card">
+                                    <video src="${data.video_url}" class="chat-video" style="width:100%; border-radius:8px;" onclick="openVideoViewer('${data.video_url}')"></video>
+                                 </div>`;
                         resultMsg.innerHTML = html;
                     }
 
@@ -1810,9 +1844,66 @@
                 if (e.key === 'ArrowRight') navigateImage(1);
                 if (e.key === 'Escape') closeImageViewer();
             }
+            // NUEVO: Teclas para video
+            if (videoViewerModal.style.display === 'flex') {
+                if (e.key === 'ArrowLeft') navigateVideo(-1);
+                if (e.key === 'ArrowRight') navigateVideo(1);
+                if (e.key === 'Escape') closeVideoViewer();
+            }
         });
 
-        // (ELIMINADO: window.onclick duplicado)
+        // --- VIDEO VIEWER LOGIC (NUEVO) ---
+        const videoViewerModal = document.getElementById('video-viewer');
+        const viewerVideo = document.getElementById('viewer-video');
+        const videoPrevArrow = videoViewerModal.querySelector('.nav-arrow.left');
+        const videoNextArrow = videoViewerModal.querySelector('.nav-arrow.right');
+        let currentVideoIndex = 0;
+        let allVideos = [];
+
+        function openVideoViewer(src) {
+            // Recopilar todos los videos visibles en el chat
+            const videos = document.querySelectorAll('.chat-video');
+            allVideos = Array.from(videos).map(vid => vid.src);
+            currentVideoIndex = allVideos.indexOf(src);
+
+            if (currentVideoIndex === -1) return;
+
+            updateViewerVideo();
+            videoViewerModal.style.display = 'flex';
+        }
+
+        function closeVideoViewer() {
+            videoViewerModal.style.display = 'none';
+            viewerVideo.pause(); // Detener reproducción al cerrar
+        }
+
+        function updateViewerVideo() {
+            viewerVideo.src = allVideos[currentVideoIndex];
+            viewerVideo.play(); // Auto-play al cambiar
+            updateVideoNavButtons();
+        }
+
+        function updateVideoNavButtons() {
+            if (currentVideoIndex <= 0) {
+                videoPrevArrow.style.display = 'none';
+            } else {
+                videoPrevArrow.style.display = 'flex';
+            }
+
+            if (currentVideoIndex >= allVideos.length - 1) {
+                videoNextArrow.style.display = 'none';
+            } else {
+                videoNextArrow.style.display = 'flex';
+            }
+        }
+
+        function navigateVideo(direction) {
+            const newIndex = currentVideoIndex + direction;
+            if (newIndex >= 0 && newIndex < allVideos.length) {
+                currentVideoIndex = newIndex;
+                updateViewerVideo();
+            }
+        }
     </script>
     <script src="{% static 'myapp/js/scripts.js' %}"></script>
 

@@ -229,19 +229,34 @@ def update_workflow(prompt_workflow, new_values, lora_names=None, lora_strengths
                 inputs[f"lora_{i}_name"], inputs[f"lora_{i}_strength"] = "None", 1.0
             for i, lora_name in enumerate(lora_names[:6]):
                 inputs[f"lora_{i+1}_name"] = lora_name
-                if i < len(lora_strengths): inputs[f"lora_{i+1}_strength"] = float(lora_strengths[i])
+                if i < len(lora_strengths):
+                    try:
+                        inputs[f"lora_{i+1}_strength"] = float(lora_strengths[i])
+                    except (ValueError, TypeError):
+                        inputs[f"lora_{i+1}_strength"] = 1.0
         if class_type == "CheckpointLoaderSimple" and "checkpoint" in new_values:
             inputs["ckpt_name"] = new_values["checkpoint"]
         elif class_type == "VAELoader" and "vae" in new_values and new_values["vae"] != "None": inputs["vae_name"] = new_values["vae"]
         elif class_type == "DW_resolution":
-            if "width" in new_values: inputs["WIDTH"] = int(new_values["width"])
-            if "height" in new_values: inputs["HEIGHT"] = int(new_values["height"])
-            if "upscale_by" in new_values: inputs["UPSCALER"] = float(new_values["upscale_by"])
+            if "width" in new_values:
+                try: inputs["WIDTH"] = int(new_values["width"])
+                except (ValueError, TypeError): pass
+            if "height" in new_values:
+                try: inputs["HEIGHT"] = int(new_values["height"])
+                except (ValueError, TypeError): pass
+            if "upscale_by" in new_values:
+                try: inputs["UPSCALER"] = float(new_values["upscale_by"])
+                except (ValueError, TypeError): pass
         elif class_type == "EmptyLatentImage" and "width" in new_values:
-            inputs["width"], inputs["height"] = int(new_values["width"]), int(new_values["height"])
-        elif class_type == "DW_seed" and "seed" in new_values: inputs["seed"] = int(new_values["seed"])
+            try: inputs["width"], inputs["height"] = int(new_values["width"]), int(new_values["height"])
+            except (ValueError, TypeError): pass
+        elif class_type == "DW_seed" and "seed" in new_values:
+            try: inputs["seed"] = int(new_values["seed"])
+            except (ValueError, TypeError): pass
         if "sampler" in class_type.lower():
-            if "seed" in new_values and "seed" in inputs and not isinstance(inputs["seed"], list): inputs["seed"] = int(new_values["seed"])
+            if "seed" in new_values and "seed" in inputs and not isinstance(inputs["seed"], list):
+                try: inputs["seed"] = int(new_values["seed"])
+                except (ValueError, TypeError): pass
     return prompt_workflow
 
 def find_dependencies(workflow, start_node_id):
