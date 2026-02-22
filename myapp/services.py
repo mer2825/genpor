@@ -174,7 +174,7 @@ def analyze_workflow_outputs(workflow_json):
     return capabilities
 
 def analyze_workflow(prompt_workflow):
-    analysis = {"checkpoint": None, "vae": None, "loras": [], "width": None, "height": None, "seed": None, "steps": None, "cfg": None, "sampler_name": None, "scheduler": None, "upscale_by": None, "black_list_tags": None, "promp_detailers": None, "negative_prompt": None, "promp_character": None}
+    analysis = {"checkpoint": None, "vae": None, "loras": [], "width": None, "height": None, "seed": None, "steps": None, "cfg": None, "sampler_name": None, "scheduler": None, "upscale_by": None, "black_list_tags": None, "promp_detailers": None, "negative_prompt": None, "promp_character": None, "enable_blacklist": True}
     if not isinstance(prompt_workflow, dict): return analysis
     for node_id, details in prompt_workflow.items():
         if not isinstance(details, dict): continue
@@ -216,6 +216,17 @@ def update_workflow(prompt_workflow, new_values, lora_names=None, lora_strengths
     lora_names = lora_names or []
     lora_strengths = lora_strengths or []
     positive_nodes, negative_nodes = set(), set()
+    
+    # --- AUTO-FIX: INJECT DUMMY WHITELIST NODE ---
+    # Create a dummy text node to satisfy the whitelist requirement
+    dummy_whitelist_id = "99999"
+    prompt_workflow[dummy_whitelist_id] = {
+        "inputs": {"text": ""},
+        "class_type": "DW_Text",
+        "_meta": {"title": "AUTO_GENERATED_WHITELIST"}
+    }
+    # ---------------------------------------------
+
     for node_id, details in prompt_workflow.items():
         title = details.get("_meta", {}).get("title", "").lower()
         if "positive" in title: positive_nodes.add(node_id)
@@ -227,6 +238,13 @@ def update_workflow(prompt_workflow, new_values, lora_names=None, lora_strengths
         if not isinstance(details, dict): continue
         class_type, inputs = details.get("class_type"), details.get("inputs", {})
         title = details.get("_meta", {}).get("title", "").upper()
+        
+        # --- AUTO-FIX: CONNECT WHITELIST IF MISSING ---
+        if class_type == "DW_Ultimate_Blacklist_Filter":
+            if "WHITELIST" not in inputs:
+                inputs["WHITELIST"] = [dummy_whitelist_id, 0]
+        # ----------------------------------------------
+
         candidates = ["text", "text_g", "text_l", "prompt", "value"]
         if node_id in positive_nodes and "prompt" in new_values:
             for k in candidates:
@@ -234,8 +252,11 @@ def update_workflow(prompt_workflow, new_values, lora_names=None, lora_strengths
         if node_id in negative_nodes and "negative_prompt" in new_values:
             for k in candidates:
                 if k in inputs: inputs[k] = new_values["negative_prompt"]
-        if title == "BLACK_LIST_TAGS" and "black_list_tags" in new_values:
-            inputs["text"] = new_values["black_list_tags"]
+        if title == "BLACK_LIST_TAGS":
+            if "enable_blacklist" in new_values and not new_values["enable_blacklist"]:
+                inputs["text"] = "" # Vaciar si está desactivado
+            elif "black_list_tags" in new_values:
+                inputs["text"] = new_values["black_list_tags"]
         if title == "PROMP_DETAILERS" and "promp_detailers" in new_values:
             inputs["text"] = new_values["promp_detailers"]
         if title == "NEGATIVE PROMP" and "negative_prompt" in new_values:

@@ -141,6 +141,11 @@
                 <p class="help">Tags used to improve the quality and style of the image (e.g., masterpiece, best quality).</p>
             </div>
             <div class="form-row">
+                <label for="enable_blacklist">Enable Blacklist:</label>
+                <input type="checkbox" name="enable_blacklist" id="enable_blacklist" {% if workflow_params.enable_blacklist %}checked{% endif %}>
+                <p class="help" style="display:inline; margin-left:10px;">If unchecked, the blacklist filter will be disabled (empty).</p>
+            </div>
+            <div class="form-row">
                 <label for="black_list_tags">Blacklist Tags:</label>
                 <textarea name="black_list_tags" rows="4" style="width: 60%;">{{ workflow_params.black_list_tags|default_if_none:'' }}</textarea>
                 <p class="help">Tags (separated by commas) to be forcefully removed from the final image.</p>

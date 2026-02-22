@@ -289,6 +289,7 @@ class WorkflowAdmin(admin.ModelAdmin):
                 if 'promp_detailers' in saved_config: workflow_params['promp_detailers'] = saved_config['promp_detailers']
                 if 'negative_prompt' in saved_config: workflow_params['negative_prompt'] = saved_config['negative_prompt']
                 if 'promp_character' in saved_config: workflow_params['promp_character'] = saved_config['promp_character']
+                if 'enable_blacklist' in saved_config: workflow_params['enable_blacklist'] = saved_config['enable_blacklist']
                 
                 if 'lora_names' in saved_config and 'lora_strengths' in saved_config:
                     workflow_params['loras'] = []
@@ -313,6 +314,7 @@ class WorkflowAdmin(admin.ModelAdmin):
                 'promp_detailers': request.POST.get('promp_detailers'),
                 'negative_prompt': request.POST.get('negative_prompt'),
                 'promp_character': request.POST.get('promp_character'),
+                'enable_blacklist': request.POST.get('enable_blacklist') == 'on',
             }
             new_config = {k: v for k, v in new_config.items() if v is not None}
             workflow.active_config = json.dumps(new_config)
@@ -529,6 +531,7 @@ class BaseCharacterAdmin(admin.ModelAdmin):
                 if 'promp_detailers' in base_config: workflow_params['promp_detailers'] = base_config['promp_detailers']
                 if 'negative_prompt' in base_config: workflow_params['negative_prompt'] = base_config['negative_prompt']
                 if 'black_list_tags' in base_config: workflow_params['black_list_tags'] = base_config['black_list_tags']
+                if 'enable_blacklist' in base_config: workflow_params['enable_blacklist'] = base_config['enable_blacklist']
             except json.JSONDecodeError: pass
 
         # 2. Cargar configuración específica del personaje (sobrescribe la base)
@@ -547,6 +550,7 @@ class BaseCharacterAdmin(admin.ModelAdmin):
                 if 'promp_detailers' in saved_config: workflow_params['promp_detailers'] = saved_config['promp_detailers']
                 if 'negative_prompt' in saved_config: workflow_params['negative_prompt'] = saved_config['negative_prompt']
                 if 'black_list_tags' in saved_config: workflow_params['black_list_tags'] = saved_config['black_list_tags']
+                if 'enable_blacklist' in saved_config: workflow_params['enable_blacklist'] = saved_config['enable_blacklist']
                 
                 if 'lora_names' in saved_config and 'lora_strengths' in saved_config:
                     workflow_params['loras'] = []
@@ -566,6 +570,7 @@ class BaseCharacterAdmin(admin.ModelAdmin):
                 'promp_detailers': request.POST.get('promp_detailers'),
                 'negative_prompt': request.POST.get('negative_prompt'),
                 'black_list_tags': request.POST.get('black_list_tags'),
+                'enable_blacklist': request.POST.get('enable_blacklist') == 'on',
             }
             
             for field in ['width', 'height', 'seed', 'seed_behavior', 'upscale_by']:
