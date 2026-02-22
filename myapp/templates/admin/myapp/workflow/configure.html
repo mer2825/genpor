@@ -126,6 +126,11 @@
         <fieldset class="module aligned">
             <h2>Tag Modifiers</h2>
             <div class="form-row">
+                <label for="promp_character">Character Prompt:</label>
+                <textarea name="promp_character" rows="4" style="width: 60%;">{{ workflow_params.promp_character|default_if_none:'' }}</textarea>
+                <p class="help">Tags defining the character's appearance (e.g., 1girl, blue eyes, black hair).</p>
+            </div>
+            <div class="form-row">
                 <label for="negative_prompt">Negative Prompt:</label>
                 <textarea name="negative_prompt" rows="4" style="width: 60%;">{{ workflow_params.negative_prompt|default_if_none:'' }}</textarea>
                 <p class="help">Tags to avoid in the image (e.g., bad hands, watermark).</p>
