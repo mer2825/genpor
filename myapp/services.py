@@ -247,10 +247,19 @@ def update_workflow(prompt_workflow, new_values, lora_names=None, lora_strengths
         candidates = ["text", "text_g", "text_l", "prompt", "value"]
         if node_id in positive_nodes and "prompt" in new_values:
             for k in candidates:
-                if k in inputs: inputs[k] = new_values["prompt"]
+                if k in inputs:
+                    # --- FIX: DO NOT OVERWRITE LINKS ---
+                    # If the input is a list (e.g. ["22", 0]), it's a connection. Don't break it.
+                    if not isinstance(inputs[k], list):
+                        inputs[k] = new_values["prompt"]
+                    # -----------------------------------
         if node_id in negative_nodes and "negative_prompt" in new_values:
             for k in candidates:
-                if k in inputs: inputs[k] = new_values["negative_prompt"]
+                if k in inputs:
+                    # --- FIX: DO NOT OVERWRITE LINKS ---
+                    if not isinstance(inputs[k], list):
+                        inputs[k] = new_values["negative_prompt"]
+                    # -----------------------------------
         if title == "BLACK_LIST_TAGS":
             if "enable_blacklist" in new_values and not new_values["enable_blacklist"]:
                 inputs["text"] = "" # Vaciar si está desactivado
@@ -430,7 +439,8 @@ async def generate_image_from_character(character, user_prompt, width=None, heig
             # Even if dependency tracing fails, we MUST keep these nodes for the record
             titles_to_keep = ["PROMP_CHARACTER", "PROMP_USUARIO", "PROMP_DETAILERS", "NEGATIVE PROMP", "BLACK_LIST_TAGS"]
             for nid, node in updated_workflow.items():
-                if node.get("_meta", {}).get("title", "") in titles_to_keep:
+                # Convert title to UPPER to match case-insensitive
+                if node.get("_meta", {}).get("title", "").upper() in titles_to_keep:
                     required_nodes.add(nid)
             # ------------------------------------
 
