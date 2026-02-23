@@ -861,9 +861,15 @@ class VideoWorkflowAdmin(admin.ModelAdmin):
                 'duration': request.POST.get('duration'),
                 'fps': request.POST.get('fps'),
                 'resolution': request.POST.get('resolution'),
+                'black_list_tags': request.POST.get('black_list_tags'), # NUEVO: Guardar Blacklist
+                'enable_blacklist': request.POST.get('enable_blacklist') == 'on', # NUEVO: Checkbox
             }
             new_config = {k: v for k, v in new_config.items() if v is not None and v != ""}
             
+            # Asegurar que enable_blacklist se guarde incluso si es False
+            if 'enable_blacklist' not in new_config:
+                new_config['enable_blacklist'] = False
+
             workflow.active_config = json.dumps(new_config)
             workflow.save()
             self.message_user(request, "Video Workflow configuration saved successfully.")
@@ -880,20 +886,50 @@ class VideoWorkflowAdmin(admin.ModelAdmin):
 
 @admin.register(GeneratedVideo)
 class GeneratedVideoAdmin(admin.ModelAdmin):
-    list_display = ('video_preview', 'user', 'created_at', 'duration', 'fps')
-    list_filter = ('user', 'created_at')
-    search_fields = ('prompt', 'user__username')
-    readonly_fields = ('video_preview', 'user', 'prompt', 'negative_prompt', 'duration', 'fps', 'width', 'height', 'seed', 'video_file', 'thumbnail')
+    list_display = ('video_preview', 'character', 'user', 'truncated_prompt', 'created_at', 'duration_badge', 'download_workflow_link')
+    list_filter = ('character', 'user', 'created_at')
+    search_fields = ('prompt', 'user__username', 'character__name')
+    readonly_fields = ('video_preview', 'character', 'user', 'prompt', 'negative_prompt', 'duration', 'fps', 'width', 'height', 'seed', 'video_file', 'thumbnail', 'workflow_used', 'download_workflow_link')
 
     def video_preview(self, obj):
+        if obj.thumbnail:
+             return format_html('<img src="{}" width="160" height="auto" style="border-radius: 5px;" />', obj.thumbnail.url)
+        
         if obj.video_file:
-            url = reverse('serve_private_media', kwargs={'path': obj.video_file.name})
+            try:
+                url = reverse('serve_private_media', kwargs={'path': obj.video_file.name})
+            except:
+                url = obj.video_file.url
             return format_html(
-                '<video width="200" controls><source src="{}" type="video/mp4">Your browser does not support the video tag.</video>',
+                '<video width="160" height="auto" controls preload="metadata"><source src="{}" type="video/mp4">Video</video>',
                 url
             )
         return "(No video)"
     video_preview.short_description = 'Preview'
+
+    def truncated_prompt(self, obj):
+        if obj.prompt:
+            return obj.prompt[:50] + '...' if len(obj.prompt) > 50 else obj.prompt
+        return "-"
+    truncated_prompt.short_description = 'Prompt'
+
+    def duration_badge(self, obj):
+        return format_html(
+            '<span style="background-color: #3b82f6; color: white; padding: 4px 8px; border-radius: 4px; font-weight: bold; font-size: 0.8rem;">{}s / {}fps</span>',
+            obj.duration,
+            obj.fps
+        )
+    duration_badge.short_description = 'Specs'
+
+    def download_workflow_link(self, obj):
+        if obj.generation_workflow:
+            try:
+                url = reverse('serve_private_media', kwargs={'path': obj.generation_workflow.name})
+            except:
+                url = obj.generation_workflow.url
+            return format_html('<a href="{}" download>Download JSON</a>', url)
+        return "Not available"
+    download_workflow_link.short_description = 'Workflow'
 
     def has_add_permission(self, request): return False
 

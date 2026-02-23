@@ -192,6 +192,12 @@ def video_output_path(instance, filename):
         return f'user_videos/{instance.user.id}/{char_name}/{filename}'
     return f'generated_videos/{char_name}/{filename}'
 
+def video_generation_workflow_path(instance, filename):
+    char_name = instance.character.name if instance.character else "Unknown"
+    if instance.user:
+        return f'user_video_workflows/{instance.user.id}/{char_name}/{filename}'
+    return f'generated_video_workflows/{char_name}/{filename}'
+
 class GeneratedVideo(models.Model):
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='generated_videos')
     # --- CAMBIO: Vincular video a un personaje ---
@@ -199,6 +205,9 @@ class GeneratedVideo(models.Model):
     
     video_file = models.FileField(upload_to=video_output_path)
     thumbnail = models.ImageField(upload_to='video_thumbnails/', blank=True, null=True)
+    
+    # --- NEW: Field to save the JSON workflow ---
+    generation_workflow = models.FileField(upload_to=video_generation_workflow_path, blank=True, null=True, verbose_name="Generation Workflow (JSON)")
     
     # Metadata
     prompt = models.TextField()
@@ -231,6 +240,13 @@ def delete_generated_video_files(sender, instance, **kwargs):
                 os.remove(instance.thumbnail.path)
             except Exception as e:
                 print(f"Error deleting thumbnail file: {e}")
+    # Delete the associated workflow file
+    if instance.generation_workflow:
+        if os.path.isfile(instance.generation_workflow.path):
+            try:
+                os.remove(instance.generation_workflow.path)
+            except Exception as e:
+                print(f"Error deleting video workflow file: {e}")
 
 # --- NEW: GLOBAL CLIENT SETTINGS (Renamed from TokenSettings) ---
 class TokenSettings(models.Model):

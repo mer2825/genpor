@@ -1504,13 +1504,14 @@ async def generate_video_view(request):
             user_msg = await save_user_message()
 
             # 3. Llamar al Servicio de Video
-            video_bytes, used_seed, filename = await generate_video_task(
-                image_file, prompt, negative_prompt, duration, fps, quality, seed # CAMBIO: resolution -> quality
+            # --- CAMBIO: Recibir también el workflow final ---
+            video_bytes, used_seed, filename, final_workflow = await generate_video_task(
+                image_file, prompt, negative_prompt, duration, fps, quality, seed
             )
 
             # 4. Guardar Resultado en BD
             @sync_to_async
-            def save_video_result(v_bytes, v_filename, u_seed):
+            def save_video_result(v_bytes, v_filename, u_seed, wf_json):
                 vid = GeneratedVideo(
                     user=user,
                     character=character, # Vincular al personaje
@@ -1522,18 +1523,27 @@ async def generate_video_view(request):
                     height=0,
                     seed=u_seed
                 )
+                
+                # Guardar archivo de video
                 vid.video_file.save(v_filename, ContentFile(v_bytes), save=False)
+                
+                # Guardar archivo de workflow
+                wf_filename = f"workflow_{v_filename}.json"
+                vid.generation_workflow.save(wf_filename, ContentFile(json.dumps(wf_json, indent=2).encode('utf-8')), save=False)
+                
                 vid.save()
                 
-                # Deduct tokens
+                # Deduct tokens (si aplica)
                 if not user.is_staff:
-                    p = user.clientprofile
-                    p.tokens_used += VIDEO_COST
-                    p.save()
+                    try:
+                        p = user.clientprofile
+                        p.tokens_used += 5 # VIDEO_COST hardcoded por ahora
+                        p.save()
+                    except: pass
                     
                 return vid
 
-            video_obj = await save_video_result(video_bytes, filename, used_seed)
+            video_obj = await save_video_result(video_bytes, filename, used_seed, final_workflow)
             
             # --- NUEVO: Crear mensaje de IA (VIDEO) ---
             @sync_to_async

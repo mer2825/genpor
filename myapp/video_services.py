@@ -151,7 +151,8 @@ def analyze_video_workflow(workflow_json):
         "loras_high": [],
         "loras_low": [],
         "vae": None,
-        "clip": None
+        "clip": None,
+        "black_list_tags": None # NUEVO
     }
 
     if not isinstance(workflow_json, dict):
@@ -204,6 +205,10 @@ def analyze_video_workflow(workflow_json):
                     "is_legacy_node": True,
                     "node_id": node_id
                 })
+        
+        # --- NUEVO: Detectar BLACK_LIST_TAGS ---
+        elif title == "BLACK_LIST_TAGS" and class_type == "DW_Text":
+            analysis["black_list_tags"] = inputs.get("text", "")
 
     return analysis
 
@@ -221,18 +226,22 @@ def update_video_workflow(workflow, params, uploaded_image_name):
         wf["2"]["inputs"]["image"] = uploaded_image_name
 
     # --- 2. Prompts (Nodos 14 y 17) ---
-    if "17" in wf and "prompt" in params:
-        wf["17"]["inputs"]["text"] = params["prompt"]
+    # NOTA: En el JSON analizado, el prompt de usuario es el nodo 28 (PROMP_USUARIO)
+    if "28" in wf and "prompt" in params:
+        wf["28"]["inputs"]["text"] = params["prompt"]
 
-    if "14" in wf and "negative_prompt" in params:
-        wf["14"]["inputs"]["text"] = params["negative_prompt"]
+    # NOTA: En el JSON analizado, el negative prompt es el nodo 30 (Negative Promp)
+    if "30" in wf and "negative_prompt" in params:
+        wf["30"]["inputs"]["text"] = params["negative_prompt"]
 
-    # --- 3. 'RES_LADO' > nodo 21 (Resolución) ---
-    if "21" in wf:
+    # --- 3. 'RES_LADO' > nodo 26 (Resolución) ---
+    # NOTA: En el JSON analizado, RES_LADO es el nodo 26
+    if "26" in wf:
         res = int(params.get("resolution", 768))  # Default 768 si no se especifica
-        wf["21"]["inputs"]["value"] = res
+        wf["26"]["inputs"]["value"] = res
 
-    # --- 4. 'DW_seed' > nodo 22 ---
+    # --- 4. 'DW_seed' > nodo 12 ---
+    # NOTA: En el JSON analizado, DW_seed es el nodo 12
     used_seed = params.get("seed")
     if used_seed is None or str(used_seed) == "-1" or str(used_seed) == "":
         used_seed = random.randint(0, 2147483647)
@@ -242,22 +251,30 @@ def update_video_workflow(workflow, params, uploaded_image_name):
         except ValueError:
             used_seed = random.randint(0, 2147483647)
 
-    if "22" in wf:
-        wf["22"]["inputs"]["seed"] = used_seed
+    if "12" in wf:
+        wf["12"]["inputs"]["seed"] = used_seed
 
-    # --- 5. 'SEGUNDOS' > nodo 23 ---
-    if "23" in wf:
-        duration_val = int(params.get("duration", 3))
-        wf["23"]["inputs"]["value"] = duration_val
-
-    # --- 6. 'FPS' > nodo 24 ---
-    if "24" in wf:
-        fps_val = int(params.get("fps", 24))
-        wf["24"]["inputs"]["value"] = fps_val
-
-    # Forzar guardado de video (Node 18 - DW_Img2Vid)
+    # --- 5. 'SEGUNDOS' > nodo 18 ---
+    # NOTA: En el JSON analizado, SEGUNDOS es el nodo 18
     if "18" in wf:
-        wf["18"]["inputs"]["save_output"] = True
+        duration_val = int(params.get("duration", 3))
+        wf["18"]["inputs"]["value"] = duration_val
+
+    # --- 6. 'FPS' > nodo 3 ---
+    # NOTA: En el JSON analizado, FPS es el nodo 3
+    if "3" in wf:
+        fps_val = int(params.get("fps", 24))
+        wf["3"]["inputs"]["value"] = fps_val
+
+    # --- 7. BLACK_LIST_TAGS > nodo 23 ---
+    # Si viene en params (desde la configuración activa), lo inyectamos
+    if "black_list_tags" in params and "23" in wf:
+        wf["23"]["inputs"]["text"] = params["black_list_tags"]
+
+    # Forzar guardado de video (Node 17 - DW_Img2Vid)
+    # NOTA: En el JSON analizado, DW_Img2Vid es el nodo 17
+    if "17" in wf:
+        wf["17"]["inputs"]["save_output"] = True
 
     return wf, used_seed
 
@@ -268,7 +285,7 @@ async def generate_video_task(user_image_file, prompt, negative_prompt, duration
                               resolution=768):
     """
     Orquesta la generación de video.
-    Retorna: (video_content_bytes, used_seed, video_filename)
+    Retorna: (video_content_bytes, used_seed, video_filename, final_workflow)
     """
     # 1. Obtener dirección GPU
     address = await get_active_video_comfyui_address()
@@ -289,6 +306,14 @@ async def generate_video_task(user_image_file, prompt, negative_prompt, duration
         with open(path, 'r', encoding='utf-8') as f: return json.load(f)
 
     workflow_json = await read_json(video_wf_obj.json_file.path)
+    
+    # --- NUEVO: Cargar configuración activa (si existe) ---
+    active_config = {}
+    if video_wf_obj.active_config:
+        try:
+            active_config = json.loads(video_wf_obj.active_config)
+        except json.JSONDecodeError:
+            pass
 
     # 3. Conexión
     headers = {"ngrok-skip-browser-warning": "true", "User-Agent": "MyApp/Video/1.0"}
@@ -305,7 +330,9 @@ async def generate_video_task(user_image_file, prompt, negative_prompt, duration
             "duration": duration,
             "fps": fps,
             "resolution": resolution,
-            "seed": seed
+            "seed": seed,
+            # Inyectar Blacklist desde la config activa
+            "black_list_tags": active_config.get("black_list_tags")
         }
 
         # C. Actualizar Workflow
@@ -313,23 +340,25 @@ async def generate_video_task(user_image_file, prompt, negative_prompt, duration
 
         # D. WebSocket y Ejecución
         uri = f"{ws_protocol}://{address}/ws?clientId={client_id}"
-        async with websockets.connect(uri) as websocket:
-            queued = await queue_prompt(client, final_workflow, client_id, address)
-            prompt_id = queued['prompt_id']
+        
+        try:
+            async with websockets.connect(uri) as websocket:
+                queued = await queue_prompt(client, final_workflow, client_id, address)
+                prompt_id = queued['prompt_id']
 
-            # Esperar finalización
-            while True:
-                try:
-                    out = await websocket.recv()
-                    if isinstance(out, str):
-                        msg = json.loads(out)
-                        if msg['type'] == 'execution_error':
-                            raise Exception(f"ComfyUI Error: {msg['data']}")
-                        if msg['type'] == 'executing' and msg['data']['node'] is None and msg['data'][
-                            'prompt_id'] == prompt_id:
-                            break
-                except websockets.exceptions.ConnectionClosed:
-                    break
+                # Esperar finalización
+                while True:
+                    try:
+                        out = await websocket.recv()
+                        if isinstance(out, str):
+                            msg = json.loads(out)
+                            if msg['type'] == 'execution_error':
+                                raise Exception(f"ComfyUI Error: {msg['data']}")
+                            if msg['type'] == 'executing' and msg['data']['node'] is None and msg['data'][
+                                'prompt_id'] == prompt_id:
+                                break
+                    except websockets.exceptions.ConnectionClosed:
+                        break
 
             # E. Obtener Resultado
             history = await get_history(client, prompt_id, address)
@@ -369,4 +398,8 @@ async def generate_video_task(user_image_file, prompt, negative_prompt, duration
             if not video_content:
                 raise Exception("No se encontró el archivo de video generado en la respuesta de ComfyUI.")
 
-            return video_content, used_seed, video_filename
+            return video_content, used_seed, video_filename, final_workflow
+
+        except Exception as e:
+            print(f"Error en generate_video_task: {e}")
+            raise

@@ -103,6 +103,22 @@
         </fieldset>
 
         <fieldset class="module aligned">
+            <h2>Safety & Filters</h2>
+            <div class="form-row">
+                <div class="checkbox-row">
+                    <input type="checkbox" name="enable_blacklist" id="enable_blacklist" {% if saved_config.enable_blacklist != False %}checked{% endif %}>
+                    <label for="enable_blacklist" class="vCheckboxLabel">Enable Blacklist Filter</label>
+                </div>
+                <p class="help">If unchecked, the blacklist below will be ignored (sent as empty).</p>
+            </div>
+            <div class="form-row">
+                <label for="black_list_tags">Blacklist Tags (Node 23):</label>
+                <textarea name="black_list_tags" id="black_list_tags" rows="10" style="width: 100%;">{{ saved_config.black_list_tags|default:workflow_params.black_list_tags|default:'' }}</textarea>
+                <p class="help">Comma-separated list of tags to filter out from user prompts.</p>
+            </div>
+        </fieldset>
+
+        <fieldset class="module aligned">
             <h2>Default Parameters</h2>
 
             <div class="form-row">
