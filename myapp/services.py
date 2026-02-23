@@ -218,7 +218,6 @@ def update_workflow(prompt_workflow, new_values, lora_names=None, lora_strengths
     positive_nodes, negative_nodes = set(), set()
     
     # --- AUTO-FIX: INJECT DUMMY WHITELIST NODE ---
-    # Create a dummy text node to satisfy the whitelist requirement
     dummy_whitelist_id = "99999"
     prompt_workflow[dummy_whitelist_id] = {
         "inputs": {"text": ""},
@@ -311,8 +310,9 @@ def find_dependencies(workflow, start_node_id):
         node = workflow.get(current_id)
         if node and 'inputs' in node:
             for value in node['inputs'].values():
-                if isinstance(value, list) and len(value) == 2 and isinstance(value[0], str):
-                    dependency_id = value[0]
+                # --- MEJORA: Robustez para IDs enteros o strings ---
+                if isinstance(value, list) and len(value) == 2 and isinstance(value[0], (str, int)):
+                    dependency_id = str(value[0]) # Convertir siempre a string para consistencia
                     if dependency_id not in nodes_to_keep:
                         queue.append(dependency_id)
     return nodes_to_keep
@@ -425,6 +425,15 @@ async def generate_image_from_character(character, user_prompt, width=None, heig
                 updated_workflow[tagger_node_id]["inputs"]["image"] = [target_sampler_id, 5]
 
             required_nodes = find_dependencies(updated_workflow, final_output_node_id)
+            
+            # --- FIX: FORCE KEEP PROMPT NODES ---
+            # Even if dependency tracing fails, we MUST keep these nodes for the record
+            titles_to_keep = ["PROMP_CHARACTER", "PROMP_USUARIO", "PROMP_DETAILERS", "NEGATIVE PROMP", "BLACK_LIST_TAGS"]
+            for nid, node in updated_workflow.items():
+                if node.get("_meta", {}).get("title", "") in titles_to_keep:
+                    required_nodes.add(nid)
+            # ------------------------------------
+
             updated_workflow = {nid: updated_workflow[nid] for nid in required_nodes}
             print(f"OPTIMIZATION: Pruned workflow to {len(updated_workflow)} nodes.")
         else:
