@@ -1459,49 +1459,23 @@
             })
             .then(res => res.json())
             .then(data => {
-                activeChat.removeChild(loaderMsg);
-                if (data.status === 'success') {
-                    const resultMsg = document.createElement('div');
-                    resultMsg.className = 'message ai';
+                // Si es video y está procesando, iniciar polling
+                if (currentMode === 'video' && data.status === 'processing') {
+                    userMsg.setAttribute('data-msg-id', data.user_msg_id);
+                    loaderMsg.setAttribute('data-msg-id', data.ai_msg_id);
 
-                    if (currentMode === 'image') {
-                        userMsg.setAttribute('data-msg-id', data.user_msg_id);
-                        resultMsg.setAttribute('data-msg-id', data.ai_msg_id);
-                        let html = 'Here are your generated images.<br><div class="result-grid">';
-                        data.results.forEach(item => {
-                            let badgeText = "NORMAL";
-                            let badgeClass = "badge-normal";
-                            if (item.type === "Gen_UpScaler") { badgeText = "UPSCALER"; badgeClass = "badge-upscale"; }
-                            else if (item.type === "Gen_FaceDetailer") { badgeText = "FACEDETAILER"; badgeClass = "badge-face"; }
-                            else if (item.type === "Gen_EyeDetailer") { badgeText = "EYEDETAILER"; badgeClass = "badge-face"; }
-
-                            let resBadge = '';
-                            if (item.width && item.height) { resBadge = `<span class="resolution-badge">${item.width}x${item.height}</span>`; }
-                            html += `<div class="result-card"><span class="result-badge ${badgeClass}">${badgeText}</span>${resBadge}<img src="${item.url}" class="chat-image" onclick="openImageViewer(this.src)"></div>`;
-                        });
-                        html += '</div>';
-                        resultMsg.innerHTML = html;
-                    } else {
-                        // Resultado de Video
-                        userMsg.setAttribute('data-msg-id', data.user_msg_id);
-                        resultMsg.setAttribute('data-msg-id', data.ai_msg_id);
-                        let html = 'Here is your generated video.<br>';
-                        // CAMBIO: Estructura de video con botón expandir
-                        html += `<div class="result-card">
-                                    <video src="${data.video_url}" class="chat-video" style="width:100%; border-radius:8px;" onclick="openVideoViewer(this.src)"></video>
-                                 </div>`;
-                        resultMsg.innerHTML = html;
-                    }
-
-                    activeChat.appendChild(resultMsg);
+                    // Iniciar Polling
+                    pollVideoStatus(data.video_id, loaderMsg, activeChat);
                 } else {
-                    const err = document.createElement('div');
-                    err.className = 'message ai';
-                    err.style.color = '#ef4444';
-                    err.textContent = 'Error: ' + data.message;
-                    activeChat.appendChild(err);
+                    // Lógica normal para imágenes o error inmediato
+                    activeChat.removeChild(loaderMsg);
+                    handleGenerationResponse(data, activeChat, userMsg);
+                    isGenerating = false;
+                    sendBtn.disabled = false;
+                    sendBtn.style.opacity = '1';
+                    textarea.disabled = false;
+                    textarea.focus();
                 }
-                scrollToBottom();
             })
             .catch((e) => {
                 console.error(e);
@@ -1510,15 +1484,111 @@
                 err.className = 'message ai';
                 err.textContent = 'Connection error.';
                 activeChat.appendChild(err);
-            })
-            .finally(() => {
-                isGenerating = false; // Desactivar flag
+
+                isGenerating = false;
                 sendBtn.disabled = false;
                 sendBtn.style.opacity = '1';
-                textarea.disabled = false; // Habilitar textarea
-                textarea.focus();
+                textarea.disabled = false;
             });
         };
+
+        // --- POLLING FUNCTION ---
+        function pollVideoStatus(videoId, loaderMsg, activeChat) {
+            const pollInterval = setInterval(() => {
+                fetch(`/check-video-status/${videoId}/`, {
+                    headers: { 'X-Requested-With': 'XMLHttpRequest' }
+                })
+                .then(res => res.json())
+                .then(data => {
+                    if (data.status === 'completed') {
+                        clearInterval(pollInterval);
+                        activeChat.removeChild(loaderMsg);
+
+                        const resultMsg = document.createElement('div');
+                        resultMsg.className = 'message ai';
+                        // Mantener el ID del mensaje original si es posible, o usar uno nuevo
+                        if (loaderMsg.hasAttribute('data-msg-id')) {
+                            resultMsg.setAttribute('data-msg-id', loaderMsg.getAttribute('data-msg-id'));
+                        }
+
+                        let html = 'Here is your generated video.<br>';
+                        html += `<div class="result-card">
+                                    <video src="${data.video_url}" class="chat-video" style="width:100%; border-radius:8px;" onclick="openVideoViewer(this.src)"></video>
+                                 </div>`;
+                        resultMsg.innerHTML = html;
+                        activeChat.appendChild(resultMsg);
+                        scrollToBottom();
+
+                        // Reset UI
+                        resetGenerationUI();
+                    } else if (data.status === 'failed') {
+                        clearInterval(pollInterval);
+                        activeChat.removeChild(loaderMsg);
+
+                        const err = document.createElement('div');
+                        err.className = 'message ai';
+                        err.style.color = '#ef4444';
+                        err.textContent = 'Error: ' + data.message;
+                        activeChat.appendChild(err);
+                        scrollToBottom();
+
+                        // Reset UI
+                        resetGenerationUI();
+                    }
+                    // Si sigue 'processing', no hacemos nada y esperamos al siguiente tick
+                })
+                .catch(e => {
+                    console.error("Polling error:", e);
+                    // No paramos el intervalo por un error de red puntual, a menos que sean muchos
+                });
+            }, 3000); // Consultar cada 3 segundos
+        }
+
+        function resetGenerationUI() {
+            isGenerating = false;
+            const sendBtn = document.getElementById('send-btn');
+            const textarea = document.getElementById('prompt-input');
+            sendBtn.disabled = false;
+            sendBtn.style.opacity = '1';
+            textarea.disabled = false;
+            textarea.focus();
+        }
+
+        function handleGenerationResponse(data, activeChat, userMsg) {
+            if (data.status === 'success') {
+                const resultMsg = document.createElement('div');
+                resultMsg.className = 'message ai';
+
+                if (currentMode === 'image') {
+                    userMsg.setAttribute('data-msg-id', data.user_msg_id);
+                    resultMsg.setAttribute('data-msg-id', data.ai_msg_id);
+                    let html = 'Here are your generated images.<br><div class="result-grid">';
+                    data.results.forEach(item => {
+                        let badgeText = "NORMAL";
+                        let badgeClass = "badge-normal";
+                        if (item.type === "Gen_UpScaler") { badgeText = "UPSCALER"; badgeClass = "badge-upscale"; }
+                        else if (item.type === "Gen_FaceDetailer") { badgeText = "FACEDETAILER"; badgeClass = "badge-face"; }
+                        else if (item.type === "Gen_EyeDetailer") { badgeText = "EYEDETAILER"; badgeClass = "badge-face"; }
+
+                        let resBadge = '';
+                        if (item.width && item.height) { resBadge = `<span class="resolution-badge">${item.width}x${item.height}</span>`; }
+                        html += `<div class="result-card"><span class="result-badge ${badgeClass}">${badgeText}</span>${resBadge}<img src="${item.url}" class="chat-image" onclick="openImageViewer(this.src)"></div>`;
+                    });
+                    html += '</div>';
+                    resultMsg.innerHTML = html;
+                }
+                // Video ya se maneja en polling, pero por si acaso
+
+                activeChat.appendChild(resultMsg);
+            } else {
+                const err = document.createElement('div');
+                err.className = 'message ai';
+                err.style.color = '#ef4444';
+                err.textContent = 'Error: ' + data.message;
+                activeChat.appendChild(err);
+            }
+            scrollToBottom();
+        }
 
         document.getElementById('send-btn').addEventListener('click', sendPrompt);
         textarea.addEventListener('keypress', (e) => {

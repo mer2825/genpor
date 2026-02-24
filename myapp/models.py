@@ -199,11 +199,18 @@ def video_generation_workflow_path(instance, filename):
     return f'generated_video_workflows/{char_name}/{filename}'
 
 class GeneratedVideo(models.Model):
+    STATUS_CHOICES = [
+        ('PENDING', 'Pending'),
+        ('PROCESSING', 'Processing'),
+        ('COMPLETED', 'Completed'),
+        ('FAILED', 'Failed'),
+    ]
+
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='generated_videos')
     # --- CAMBIO: Vincular video a un personaje ---
     character = models.ForeignKey(Character, on_delete=models.CASCADE, related_name='videos', null=True, blank=True)
     
-    video_file = models.FileField(upload_to=video_output_path)
+    video_file = models.FileField(upload_to=video_output_path, blank=True, null=True) # Allow blank initially
     thumbnail = models.ImageField(upload_to='video_thumbnails/', blank=True, null=True)
     
     # --- NEW: Field to save the JSON workflow ---
@@ -221,10 +228,15 @@ class GeneratedVideo(models.Model):
     # Workflow used
     workflow_used = models.ForeignKey(VideoWorkflow, on_delete=models.SET_NULL, null=True, blank=True)
     
+    # --- NEW: Status Tracking ---
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='PENDING')
+    task_id = models.CharField(max_length=100, blank=True, null=True, db_index=True) # To track async task
+    error_message = models.TextField(blank=True, null=True)
+
     created_at = models.DateTimeField(auto_now_add=True)
     
     def __str__(self):
-        return f"Video by {self.user.username} - {self.created_at.strftime('%Y-%m-%d %H:%M')}"
+        return f"Video by {self.user.username} - {self.status} - {self.created_at.strftime('%Y-%m-%d %H:%M')}"
 
 @receiver(post_delete, sender=GeneratedVideo)
 def delete_generated_video_files(sender, instance, **kwargs):

@@ -43,4 +43,5 @@ urlpatterns = [
 
     # --- NUEVA RUTA: GENERACIÓN DE VIDEO ---
     path('generate-video/', views.generate_video_view, name='generate_video'),
+    path('check-video-status/<int:video_id>/', views.check_video_status_view, name='check_video_status'), # NUEVO: Polling
 ]
