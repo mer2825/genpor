@@ -124,7 +124,8 @@ async def get_video_file(client, filename, subfolder, folder_type, address):
     protocol, _ = get_protocols(address)
     params = {"filename": filename, "subfolder": subfolder, "type": folder_type}
     try:
-        response = await client.get(f"{protocol}://{address}/view", params=params)
+        # Aumentamos timeout para la descarga del video final
+        response = await client.get(f"{protocol}://{address}/view", params=params, timeout=120.0)
         response.raise_for_status()
         return response.content
     except Exception as e:
@@ -152,7 +153,8 @@ def analyze_video_workflow(workflow_json):
         "loras_low": [],
         "vae": None,
         "clip": None,
-        "black_list_tags": None # NUEVO
+        "black_list_tags": None, # NUEVO
+        "enable_blacklist": True # Default
     }
 
     if not isinstance(workflow_json, dict):
@@ -268,8 +270,16 @@ def update_video_workflow(workflow, params, uploaded_image_name):
 
     # --- 7. BLACK_LIST_TAGS > nodo 23 ---
     # Si viene en params (desde la configuración activa), lo inyectamos
-    if "black_list_tags" in params and "23" in wf:
-        wf["23"]["inputs"]["text"] = params["black_list_tags"]
+    if "23" in wf:
+        enable_blacklist = params.get("enable_blacklist", True)
+        
+        if enable_blacklist:
+            # Si está activado, usamos el texto configurado (o el default si no hay)
+            if "black_list_tags" in params:
+                wf["23"]["inputs"]["text"] = params["black_list_tags"]
+        else:
+            # Si está desactivado, enviamos cadena vacía
+            wf["23"]["inputs"]["text"] = ""
 
     # Forzar guardado de video (Node 17 - DW_Img2Vid)
     # NOTA: En el JSON analizado, DW_Img2Vid es el nodo 17
@@ -287,8 +297,12 @@ async def generate_video_task(user_image_file, prompt, negative_prompt, duration
     Orquesta la generación de video.
     Retorna: (video_content_bytes, used_seed, video_filename, final_workflow)
     """
+    print(f"🚀 INICIANDO GENERACIÓN DE VIDEO: {prompt[:30]}...")
+    
     # 1. Obtener dirección GPU
     address = await get_active_video_comfyui_address()
+    print(f"📡 Conectando a ComfyUI en: {address}")
+    
     client_id = str(uuid.uuid4())
     _, ws_protocol = get_protocols(address)
 
@@ -316,10 +330,12 @@ async def generate_video_task(user_image_file, prompt, negative_prompt, duration
             pass
 
     # 3. Conexión
+    # Aumentamos el timeout global del cliente HTTP a 1200 segundos (20 minutos)
     headers = {"ngrok-skip-browser-warning": "true", "User-Agent": "MyApp/Video/1.0"}
 
-    async with httpx.AsyncClient(timeout=600.0, headers=headers) as client:
+    async with httpx.AsyncClient(timeout=1200.0, headers=headers) as client:
         # A. Subir Imagen
+        print("📤 Subiendo imagen...")
         upload_resp = await upload_image_to_comfyui(client, user_image_file, address)
         uploaded_filename = upload_resp.get("name")
 
@@ -332,7 +348,8 @@ async def generate_video_task(user_image_file, prompt, negative_prompt, duration
             "resolution": resolution,
             "seed": seed,
             # Inyectar Blacklist desde la config activa
-            "black_list_tags": active_config.get("black_list_tags")
+            "black_list_tags": active_config.get("black_list_tags"),
+            "enable_blacklist": active_config.get("enable_blacklist", True) # Default True
         }
 
         # C. Actualizar Workflow
@@ -342,9 +359,13 @@ async def generate_video_task(user_image_file, prompt, negative_prompt, duration
         uri = f"{ws_protocol}://{address}/ws?clientId={client_id}"
         
         try:
-            async with websockets.connect(uri) as websocket:
+            print("🔌 Conectando WebSocket...")
+            # ping_interval=None evita que se cierre la conexión si el servidor está ocupado
+            async with websockets.connect(uri, ping_interval=None) as websocket:
+                print("📨 Enviando Prompt a la cola...")
                 queued = await queue_prompt(client, final_workflow, client_id, address)
                 prompt_id = queued['prompt_id']
+                print(f"✅ Prompt en cola. ID: {prompt_id}. Esperando ejecución...")
 
                 # Esperar finalización
                 while True:
@@ -353,18 +374,27 @@ async def generate_video_task(user_image_file, prompt, negative_prompt, duration
                         if isinstance(out, str):
                             msg = json.loads(out)
                             if msg['type'] == 'execution_error':
+                                print(f"❌ Error de ejecución ComfyUI: {msg['data']}")
                                 raise Exception(f"ComfyUI Error: {msg['data']}")
-                            if msg['type'] == 'executing' and msg['data']['node'] is None and msg['data'][
-                                'prompt_id'] == prompt_id:
-                                break
+                            if msg['type'] == 'executing':
+                                node = msg['data']['node']
+                                if node is None and msg['data']['prompt_id'] == prompt_id:
+                                    print("🏁 Ejecución finalizada.")
+                                    break
+                                else:
+                                    # Opcional: Imprimir progreso de nodos
+                                    # print(f"🔄 Ejecutando nodo: {node}")
+                                    pass
                     except websockets.exceptions.ConnectionClosed:
+                        print("⚠️ WebSocket cerrado inesperadamente.")
                         break
 
             # E. Obtener Resultado
+            print("📥 Obteniendo historial y descargando video...")
             history = await get_history(client, prompt_id, address)
             outputs = history[prompt_id]['outputs']
 
-            print(f"DEBUG: ComfyUI Outputs for {prompt_id}: {json.dumps(outputs, indent=2)}")
+            # print(f"DEBUG: ComfyUI Outputs for {prompt_id}: {json.dumps(outputs, indent=2)}")
 
             video_content = None
             video_filename = f"video_{prompt_id}.mp4"
@@ -397,9 +427,10 @@ async def generate_video_task(user_image_file, prompt, negative_prompt, duration
 
             if not video_content:
                 raise Exception("No se encontró el archivo de video generado en la respuesta de ComfyUI.")
-
+            
+            print("✨ Video descargado correctamente.")
             return video_content, used_seed, video_filename, final_workflow
 
         except Exception as e:
-            print(f"Error en generate_video_task: {e}")
+            print(f"❌ Error CRÍTICO en generate_video_task: {e}")
             raise
