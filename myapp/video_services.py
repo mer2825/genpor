@@ -5,13 +5,10 @@ import httpx
 import websockets
 import asyncio
 import os
-import logging
 from asgiref.sync import sync_to_async
 from django.core.files.base import ContentFile
 from .models import VideoConnectionConfig, VideoWorkflow
 
-# Configurar Logger
-logger = logging.getLogger(__name__)
 
 # --- CONFIGURACIÓN Y RED (VIDEO) ---
 
@@ -102,7 +99,7 @@ async def upload_image_to_comfyui(client, image_file, address):
         response.raise_for_status()
         return response.json()
     except Exception as e:
-        logger.error(f"Error subiendo imagen a ComfyUI: {e}")
+        print(f"Error subiendo imagen a ComfyUI: {e}")
         raise
 
 
@@ -116,10 +113,10 @@ async def queue_prompt(client, prompt_workflow, client_id, address):
     except httpx.HTTPStatusError as e:
         # --- AQUÍ CAPTURAMOS EL ERROR EXACTO DE COMFYUI ---
         error_details = e.response.text
-        logger.error(f"🛑 ComfyUI Error 400 - Detalles de Validación: {error_details}")
+        print(f"🛑 ComfyUI Error 400 - Detalles de Validación: {error_details}")
         raise Exception(f"ComfyUI Error: Validation Failed - {error_details}")
     except Exception as e:
-        logger.error(f"Error queueing prompt: {e}")
+        print(f"Error queueing prompt: {e}")
         raise
 
 
@@ -132,7 +129,7 @@ async def get_video_file(client, filename, subfolder, folder_type, address):
         response.raise_for_status()
         return response.content
     except Exception as e:
-        logger.error(f"Error descargando video: {e}")
+        print(f"Error descargando video: {e}")
         return None
 
 
@@ -300,11 +297,11 @@ async def generate_video_task(user_image_file, prompt, negative_prompt, duration
     Orquesta la generación de video.
     Retorna: (video_content_bytes, used_seed, video_filename, final_workflow)
     """
-    logger.info(f"🚀 INICIANDO GENERACIÓN DE VIDEO: {prompt[:30]}...")
+    print(f"🚀 INICIANDO GENERACIÓN DE VIDEO: {prompt[:30]}...")
     
     # 1. Obtener dirección GPU
     address = await get_active_video_comfyui_address()
-    logger.info(f"📡 Conectando a ComfyUI en: {address}")
+    print(f"📡 Conectando a ComfyUI en: {address}")
     
     client_id = str(uuid.uuid4())
     _, ws_protocol = get_protocols(address)
@@ -338,7 +335,7 @@ async def generate_video_task(user_image_file, prompt, negative_prompt, duration
 
     async with httpx.AsyncClient(timeout=1200.0, headers=headers) as client:
         # A. Subir Imagen
-        logger.info("📤 Subiendo imagen...")
+        print("📤 Subiendo imagen...")
         upload_resp = await upload_image_to_comfyui(client, user_image_file, address)
         uploaded_filename = upload_resp.get("name")
 
@@ -362,13 +359,13 @@ async def generate_video_task(user_image_file, prompt, negative_prompt, duration
         uri = f"{ws_protocol}://{address}/ws?clientId={client_id}"
         
         try:
-            logger.info("🔌 Conectando WebSocket...")
+            print("🔌 Conectando WebSocket...")
             # ping_interval=None evita que se cierre la conexión si el servidor está ocupado
             async with websockets.connect(uri, ping_interval=None) as websocket:
-                logger.info("📨 Enviando Prompt a la cola...")
+                print("📨 Enviando Prompt a la cola...")
                 queued = await queue_prompt(client, final_workflow, client_id, address)
                 prompt_id = queued['prompt_id']
-                logger.info(f"✅ Prompt en cola. ID: {prompt_id}. Esperando ejecución...")
+                print(f"✅ Prompt en cola. ID: {prompt_id}. Esperando ejecución...")
 
                 # Esperar finalización
                 while True:
@@ -377,27 +374,27 @@ async def generate_video_task(user_image_file, prompt, negative_prompt, duration
                         if isinstance(out, str):
                             msg = json.loads(out)
                             if msg['type'] == 'execution_error':
-                                logger.error(f"❌ Error de ejecución ComfyUI: {msg['data']}")
+                                print(f"❌ Error de ejecución ComfyUI: {msg['data']}")
                                 raise Exception(f"ComfyUI Error: {msg['data']}")
                             if msg['type'] == 'executing':
                                 node = msg['data']['node']
                                 if node is None and msg['data']['prompt_id'] == prompt_id:
-                                    logger.info("🏁 Ejecución finalizada.")
+                                    print("🏁 Ejecución finalizada.")
                                     break
                                 else:
                                     # Opcional: Imprimir progreso de nodos
-                                    # logger.debug(f"🔄 Ejecutando nodo: {node}")
+                                    # print(f"🔄 Ejecutando nodo: {node}")
                                     pass
                     except websockets.exceptions.ConnectionClosed:
-                        logger.warning("⚠️ WebSocket cerrado inesperadamente.")
+                        print("⚠️ WebSocket cerrado inesperadamente.")
                         break
 
             # E. Obtener Resultado
-            logger.info("📥 Obteniendo historial y descargando video...")
+            print("📥 Obteniendo historial y descargando video...")
             history = await get_history(client, prompt_id, address)
             outputs = history[prompt_id]['outputs']
 
-            # logger.debug(f"DEBUG: ComfyUI Outputs for {prompt_id}: {json.dumps(outputs, indent=2)}")
+            # print(f"DEBUG: ComfyUI Outputs for {prompt_id}: {json.dumps(outputs, indent=2)}")
 
             video_content = None
             video_filename = f"video_{prompt_id}.mp4"
@@ -431,9 +428,9 @@ async def generate_video_task(user_image_file, prompt, negative_prompt, duration
             if not video_content:
                 raise Exception("No se encontró el archivo de video generado en la respuesta de ComfyUI.")
             
-            logger.info("✨ Video descargado correctamente.")
+            print("✨ Video descargado correctamente.")
             return video_content, used_seed, video_filename, final_workflow
 
         except Exception as e:
-            logger.error(f"❌ Error CRÍTICO en generate_video_task: {e}")
+            print(f"❌ Error CRÍTICO en generate_video_task: {e}")
             raise

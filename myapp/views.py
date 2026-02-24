@@ -4,7 +4,6 @@ from .models import Workflow, Character, CharacterImage, ConnectionConfig, Compa
 import json
 import os
 import uuid
-import asyncio # IMPORTANTE: Para tareas en segundo plano
 from django.conf import settings
 from asgiref.sync import sync_to_async
 from django.http import JsonResponse, FileResponse, Http404
@@ -757,10 +756,8 @@ async def workspace_view(request):
                         for vid in vids:
                             if vid.video_file:
                                 item['videos'].append({
-                                    'id': vid.id, # NUEVO: ID para polling si fuera necesario
                                     'url': reverse('serve_private_media', kwargs={'path': vid.video_file.name}),
-                                    'thumbnail': vid.thumbnail.url if vid.thumbnail else None,
-                                    'status': vid.status # NUEVO
+                                    'thumbnail': vid.thumbnail.url if vid.thumbnail else None
                                 })
 
                     # Separar en listas distintas
@@ -1455,68 +1452,7 @@ def subscription_canceled(request):
     company_settings = CompanySettings.objects.last() # CAMBIO: .last()
     return render(request, 'myapp/subscription_canceled.html', {'company': company_settings})
 
-# --- ASYNC TASK WRAPPER ---
-async def process_video_generation(video_id, image_file_content, image_filename, prompt, negative_prompt, duration, fps, quality, seed):
-    """
-    Wrapper para ejecutar la generación en segundo plano y actualizar la BD.
-    """
-    try:
-        # 1. Obtener objeto video
-        video_obj = await sync_to_async(GeneratedVideo.objects.get)(id=video_id)
-        
-        # Actualizar estado a PROCESSING
-        video_obj.status = 'PROCESSING'
-        await sync_to_async(video_obj.save)()
-        
-        # 2. Preparar archivo de imagen temporal para pasar al servicio
-        # Como image_file_content son bytes, necesitamos guardarlo temporalmente o pasarlo como BytesIO
-        # El servicio `generate_video_task` espera un objeto con .read() o un path.
-        # Vamos a crear un archivo temporal en disco para ser seguros con ComfyUI upload
-        temp_dir = os.path.join(settings.MEDIA_ROOT, 'temp_uploads')
-        os.makedirs(temp_dir, exist_ok=True)
-        temp_path = os.path.join(temp_dir, f"temp_{video_id}_{image_filename}")
-        
-        with open(temp_path, 'wb') as f:
-            f.write(image_file_content)
-            
-        try:
-            # 3. Llamar al servicio
-            video_bytes, used_seed, filename, final_workflow = await generate_video_task(
-                temp_path, prompt, negative_prompt, duration, fps, quality, seed
-            )
-            
-            # 4. Guardar resultados
-            @sync_to_async
-            def save_results():
-                v = GeneratedVideo.objects.get(id=video_id)
-                v.video_file.save(filename, ContentFile(video_bytes), save=False)
-                
-                wf_filename = f"workflow_{filename}.json"
-                v.generation_workflow.save(wf_filename, ContentFile(json.dumps(final_workflow, indent=2).encode('utf-8')), save=False)
-                
-                v.seed = used_seed
-                v.status = 'COMPLETED'
-                v.save()
-                return v
-            
-            await save_results()
-            
-        finally:
-            # Limpiar archivo temporal
-            if os.path.exists(temp_path):
-                os.remove(temp_path)
-
-    except Exception as e:
-        print(f"❌ Error en Background Task Video {video_id}: {e}")
-        try:
-            video_obj = await sync_to_async(GeneratedVideo.objects.get)(id=video_id)
-            video_obj.status = 'FAILED'
-            video_obj.error_message = str(e)
-            await sync_to_async(video_obj.save)()
-        except:
-            pass
-
-# --- VIDEO GENERATION VIEW (ASYNC POLLING) ---
+# --- VIDEO GENERATION VIEW (NEW) ---
 async def generate_video_view(request):
     is_ajax = request.headers.get('X-Requested-With') == 'XMLHttpRequest'
     user = await get_user_from_request(request)
@@ -1525,130 +1461,118 @@ async def generate_video_view(request):
         if not user.is_authenticated:
             return JsonResponse({'status': 'error', 'message': 'Unauthorized'}, status=401)
 
-        # 1. Validar Tokens
+        # 1. Validar Tokens (Opcional: definir costo de video)
         if not user.is_staff:
             try:
                 profile = await sync_to_async(lambda: user.clientprofile)()
                 await profile.check_and_reset_tokens()
                 tokens_left = await profile.get_tokens_remaining_async()
-                VIDEO_COST = 5
+                VIDEO_COST = 5 # Ejemplo: Video cuesta 5 tokens
                 if tokens_left < VIDEO_COST:
                     return JsonResponse({'status': 'error', 'message': f'Not enough tokens. Video costs {VIDEO_COST} tokens.'}, status=403)
             except ClientProfile.DoesNotExist:
                 pass
 
-        # 2. Obtener Datos y Validar Enteros
-        def safe_int(val, default):
-            try:
-                if val is None or str(val).strip() == '':
-                    return default
-                return int(val)
-            except (ValueError, TypeError):
-                return default
-
-        character_id = request.POST.get('character_id')
+        # 2. Obtener Datos del Formulario
+        character_id = request.POST.get('character_id') # NUEVO: Obtener character_id
         prompt = request.POST.get('prompt')
         negative_prompt = request.POST.get('negative_prompt', '')
-        
-        duration = safe_int(request.POST.get('duration'), 3)
-        fps = safe_int(request.POST.get('fps'), 24)
-        quality = safe_int(request.POST.get('quality'), 25)
-        
-        # Seed: Si es -1 o vacío, lo dejamos como -1 para que el servicio genere uno random.
-        # Pero para guardar en BD inicial, usaremos 0 o -1.
-        raw_seed = request.POST.get('seed')
-        seed = safe_int(raw_seed, -1)
-        
+        duration = request.POST.get('duration', 3)
+        fps = request.POST.get('fps', 24)
+        quality = request.POST.get('quality', 25) # CAMBIO: resolution -> quality
+        seed = request.POST.get('seed', -1)
+
+        # Imagen subida
         image_file = request.FILES.get('image')
         if not image_file:
             return JsonResponse({'status': 'error', 'message': 'Image is required.'}, status=400)
 
         try:
+            # Obtener personaje
             character = await sync_to_async(Character.objects.get)(id=character_id)
 
-            # 3. Crear Mensajes y Objeto Video (PENDING)
+            # --- NUEVO: Crear mensaje de usuario (VIDEO) ---
             @sync_to_async
-            def init_db_objects():
-                # Mensaje Usuario
-                user_msg = ChatMessage.objects.create(
-                    user=user, character=character, message=prompt, is_from_user=True, chat_type='VIDEO'
-                )
-                
-                # Objeto Video PENDING
-                # Usamos el seed tal cual viene (o -1). El servicio actualizará con el seed real usado.
-                vid = GeneratedVideo.objects.create(
+            def save_user_message():
+                return ChatMessage.objects.create(
                     user=user,
                     character=character,
+                    message=prompt,
+                    is_from_user=True,
+                    chat_type='VIDEO' # Marcar como video
+                )
+            user_msg = await save_user_message()
+
+            # 3. Llamar al Servicio de Video
+            # --- CAMBIO: Recibir también el workflow final ---
+            video_bytes, used_seed, filename, final_workflow = await generate_video_task(
+                image_file, prompt, negative_prompt, duration, fps, quality, seed
+            )
+
+            # 4. Guardar Resultado en BD
+            @sync_to_async
+            def save_video_result(v_bytes, v_filename, u_seed, wf_json):
+                vid = GeneratedVideo(
+                    user=user,
+                    character=character, # Vincular al personaje
                     prompt=prompt,
                     negative_prompt=negative_prompt,
                     duration=duration,
                     fps=fps,
-                    seed=seed,
-                    status='PENDING'
+                    width=0, # No tenemos width/height exactos aquí, podríamos poner 0 o un default
+                    height=0,
+                    seed=u_seed
                 )
+
+                # Guardar archivo de video
+                vid.video_file.save(v_filename, ContentFile(v_bytes), save=False)
+
+                # Guardar archivo de workflow
+                wf_filename = f"workflow_{v_filename}.json"
+                vid.generation_workflow.save(wf_filename, ContentFile(json.dumps(wf_json, indent=2).encode('utf-8')), save=False)
+
+                vid.save()
                 
-                # Mensaje IA (Placeholder)
-                ai_msg = ChatMessage.objects.create(
-                    user=user, character=character, message="Generating video...", is_from_user=False, chat_type='VIDEO'
-                )
-                ai_msg.generated_videos.add(vid)
-                
-                # Deduct tokens
+                # Deduct tokens (si aplica)
                 if not user.is_staff:
                     try:
                         p = user.clientprofile
-                        p.tokens_used += 5
+                        p.tokens_used += 5 # VIDEO_COST hardcoded por ahora
                         p.save()
                     except: pass
-                
-                return user_msg, vid, ai_msg
 
-            user_msg, video_obj, ai_msg = await init_db_objects()
+                return vid
 
-            # 4. Lanzar Tarea en Background
-            # Leemos el contenido del archivo en memoria antes de pasarlo, porque request.FILES se cierra al terminar la vista
-            image_content = image_file.read()
-            image_name = image_file.name
+            video_obj = await save_video_result(video_bytes, filename, used_seed, final_workflow)
+
+            # --- NUEVO: Crear mensaje de IA (VIDEO) ---
+            @sync_to_async
+            def save_ai_message(video):
+                ai_msg = ChatMessage.objects.create(
+                    user=user,
+                    character=character,
+                    message="Here is your generated video.",
+                    is_from_user=False,
+                    chat_type='VIDEO'
+                )
+                ai_msg.generated_videos.add(video)
+                return ai_msg
+
+            ai_msg = await save_ai_message(video_obj)
+
+            video_url = reverse('serve_private_media', kwargs={'path': video_obj.video_file.name})
             
-            asyncio.create_task(process_video_generation(
-                video_obj.id, image_content, image_name, prompt, negative_prompt, duration, fps, quality, seed
-            ))
-
-            # 5. Retornar ID inmediatamente
             return JsonResponse({
-                'status': 'processing', 
-                'video_id': video_obj.id,
-                'user_msg_id': user_msg.id,
+                'status': 'success',
+                'video_url': video_url,
+                'seed': used_seed,
+                'user_msg_id': user_msg.id, # Devolver IDs para el frontend
                 'ai_msg_id': ai_msg.id
             })
 
         except Exception as e:
-            print(f"Video Init Error: {e}")
-            return JsonResponse({'status': 'error', 'message': str(e)}, status=500)
+            # --- SECURITY FIX: Log error to console but show generic message to user ---
+            print(f"Video Generation Error: {e}")
+            return JsonResponse({'status': 'error', 'message': 'An error occurred during video generation. Please try again later.'}, status=500)
 
     return JsonResponse({'status': 'error', 'message': 'Invalid request'}, status=400)
-
-# --- CHECK VIDEO STATUS VIEW ---
-async def check_video_status_view(request, video_id):
-    user = await get_user_from_request(request)
-    if not user.is_authenticated:
-        return JsonResponse({'status': 'error', 'message': 'Unauthorized'}, status=401)
-        
-    try:
-        video = await sync_to_async(GeneratedVideo.objects.get)(id=video_id, user=user)
-        
-        if video.status == 'COMPLETED':
-            return JsonResponse({
-                'status': 'completed',
-                'video_url': reverse('serve_private_media', kwargs={'path': video.video_file.name})
-            })
-        elif video.status == 'FAILED':
-            return JsonResponse({
-                'status': 'failed',
-                'message': video.error_message or "Unknown error"
-            })
-        else:
-            return JsonResponse({'status': 'processing'})
-            
-    except GeneratedVideo.DoesNotExist:
-        return JsonResponse({'status': 'error', 'message': 'Video not found'}, status=404)
