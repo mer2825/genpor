@@ -1537,14 +1537,27 @@ async def generate_video_view(request):
             except ClientProfile.DoesNotExist:
                 pass
 
-        # 2. Obtener Datos
+        # 2. Obtener Datos y Validar Enteros
+        def safe_int(val, default):
+            try:
+                if val is None or str(val).strip() == '':
+                    return default
+                return int(val)
+            except (ValueError, TypeError):
+                return default
+
         character_id = request.POST.get('character_id')
         prompt = request.POST.get('prompt')
         negative_prompt = request.POST.get('negative_prompt', '')
-        duration = request.POST.get('duration', 3)
-        fps = request.POST.get('fps', 24)
-        quality = request.POST.get('quality', 25)
-        seed = request.POST.get('seed', -1)
+        
+        duration = safe_int(request.POST.get('duration'), 3)
+        fps = safe_int(request.POST.get('fps'), 24)
+        quality = safe_int(request.POST.get('quality'), 25)
+        
+        # Seed: Si es -1 o vacío, lo dejamos como -1 para que el servicio genere uno random.
+        # Pero para guardar en BD inicial, usaremos 0 o -1.
+        raw_seed = request.POST.get('seed')
+        seed = safe_int(raw_seed, -1)
         
         image_file = request.FILES.get('image')
         if not image_file:
@@ -1562,6 +1575,7 @@ async def generate_video_view(request):
                 )
                 
                 # Objeto Video PENDING
+                # Usamos el seed tal cual viene (o -1). El servicio actualizará con el seed real usado.
                 vid = GeneratedVideo.objects.create(
                     user=user,
                     character=character,
@@ -1569,7 +1583,7 @@ async def generate_video_view(request):
                     negative_prompt=negative_prompt,
                     duration=duration,
                     fps=fps,
-                    seed=seed if int(seed) != -1 else 0, # Placeholder seed
+                    seed=seed,
                     status='PENDING'
                 )
                 
