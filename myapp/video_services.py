@@ -284,6 +284,7 @@ def update_video_workflow(workflow, params, uploaded_image_name):
 
     # --- 6. Inyectar Resolución (RES_LADO) ---
     if "RES_LADO" in nodes_found:
+        # FIX: Usar 'resolution' de params, que viene de 'quality' en el frontend
         res = int(params.get("resolution", 768))
         wf[nodes_found["RES_LADO"]]["inputs"]["value"] = res
 
@@ -369,12 +370,18 @@ async def generate_video_task(user_image_file, prompt, negative_prompt, duration
         uploaded_filename = upload_resp.get("name")
 
         # B. Preparar Params (Solo los necesarios)
+        # FIX: Usar 'quality' como 'resolution' si resolution es default (768)
+        final_resolution = resolution
+        if quality and int(quality) != 25: # 25 es el default de quality en modelo, pero si viene del front...
+             # Asumimos que 'quality' trae el valor de resolución (ej: 1024)
+             final_resolution = int(quality)
+        
         params = {
             "prompt": prompt,
             "negative_prompt": negative_prompt,
             "duration": duration,
             "fps": fps,
-            "resolution": resolution,
+            "resolution": final_resolution, # Usar el valor corregido
             "seed": seed,
             # Inyectar Blacklist desde la config activa
             "black_list_tags": active_config.get("black_list_tags"),
