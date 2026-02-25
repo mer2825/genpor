@@ -11,10 +11,10 @@ from django.db.models import Q, CharField
 from django.forms import ModelForm, ValidationError, CheckboxSelectMultiple, TextInput
 from django.core.exceptions import PermissionDenied # IMPORTANTE: Para seguridad
 from .models import (
-    Workflow, Character, PrivateCharacter, CharacterImage, CharacterCatalogImage, 
-    ConnectionConfig, CompanySettings, HeroCarouselImage, AuthPageImage, 
-    CharacterCategory, CharacterSubCategory, ClientProfile, TokenSettings, 
-    Coupon, CouponRedemption, CharacterAccessCode, UserCharacterAccess, 
+    Workflow, Character, PrivateCharacter, CharacterImage, CharacterCatalogImage,
+    ConnectionConfig, CompanySettings, HeroCarouselImage, AuthPageImage,
+    CharacterCategory, CharacterSubCategory, ClientProfile, TokenSettings,
+    Coupon, CouponRedemption, CharacterAccessCode, UserCharacterAccess,
     TokenPackage, PaymentTransaction, SubscriptionPlan, UserSubscription,
     UserPremiumGrant, PaymentMethod,
     VideoConnectionConfig, VideoWorkflow, GeneratedVideo,
@@ -89,7 +89,7 @@ class UserPremiumGrantInline(admin.TabularInline):
 class ClientUserAdmin(UserAdmin):
     list_display = ('username', 'email', 'first_name', 'last_name', 'is_active', 'date_joined', 'get_tokens_remaining')
     list_filter = ('is_active', 'date_joined')
-    actions = [activate_users, deactivate_users] 
+    actions = [activate_users, deactivate_users]
     inlines = [ClientProfileInline, UserPremiumGrantInline]
 
     fieldsets = (
@@ -98,7 +98,7 @@ class ClientUserAdmin(UserAdmin):
         ('Important Dates', {'fields': ('last_login', 'date_joined')}),
         ('Status', {'fields': ('is_active',)}),
     )
-    
+
     def get_queryset(self, request):
         return super().get_queryset(request).filter(is_staff=False)
 
@@ -119,7 +119,7 @@ class AdminUserAdmin(UserAdmin):
 @admin.register(TokenSettings)
 class TokenSettingsAdmin(admin.ModelAdmin):
     list_display = ('default_token_allowance', 'reset_interval', 'allow_upscale_free', 'allow_face_detail_free', 'allow_eye_detail_free')
-    
+
     fieldsets = (
         ('Token Configuration', {
             'fields': ('default_token_allowance', 'reset_interval'),
@@ -232,7 +232,7 @@ class ConnectionConfigAdmin(admin.ModelAdmin):
 @admin.register(Workflow)
 class WorkflowAdmin(admin.ModelAdmin):
     list_display = ('name', 'download_file', 'workflow_actions')
-    
+
     def download_file(self, obj):
         if obj.json_file:
             return format_html('<a href="{}" download>Download JSON</a>', obj.json_file.url)
@@ -256,7 +256,7 @@ class WorkflowAdmin(admin.ModelAdmin):
 
     def configure_view(self, request, workflow_id):
         workflow = get_object_or_404(Workflow, pk=workflow_id)
-        
+
         # SEGURIDAD: Verificar permiso de edición
         if not self.has_change_permission(request, workflow):
             raise PermissionDenied("You do not have permission to configure this workflow.")
@@ -285,12 +285,22 @@ class WorkflowAdmin(admin.ModelAdmin):
                 if 'height' in saved_config: workflow_params['height'] = saved_config['height']
                 if 'seed' in saved_config: workflow_params['seed'] = saved_config['seed']
                 if 'upscale_by' in saved_config: workflow_params['upscale_by'] = saved_config['upscale_by']
-                if 'black_list_tags' in saved_config: workflow_params['black_list_tags'] = saved_config['black_list_tags']
-                if 'promp_detailers' in saved_config: workflow_params['promp_detailers'] = saved_config['promp_detailers']
-                if 'negative_prompt' in saved_config: workflow_params['negative_prompt'] = saved_config['negative_prompt']
-                if 'promp_character' in saved_config: workflow_params['promp_character'] = saved_config['promp_character']
-                if 'enable_blacklist' in saved_config: workflow_params['enable_blacklist'] = saved_config['enable_blacklist']
                 
+                # --- FIX: Only overwrite if saved_config has a value ---
+                if saved_config.get('black_list_tags'): 
+                    workflow_params['black_list_tags'] = saved_config['black_list_tags']
+                
+                if saved_config.get('promp_detailers'): 
+                    workflow_params['promp_detailers'] = saved_config['promp_detailers']
+                
+                if saved_config.get('negative_prompt'): 
+                    workflow_params['negative_prompt'] = saved_config['negative_prompt']
+                
+                if saved_config.get('promp_character'): 
+                    workflow_params['promp_character'] = saved_config['promp_character']
+
+                if 'enable_blacklist' in saved_config: workflow_params['enable_blacklist'] = saved_config['enable_blacklist']
+
                 if 'lora_names' in saved_config and 'lora_strengths' in saved_config:
                     workflow_params['loras'] = []
                     for name, strength in zip(saved_config['lora_names'], saved_config['lora_strengths']):
@@ -326,8 +336,8 @@ class WorkflowAdmin(admin.ModelAdmin):
             'workflow': workflow,
             'workflow_params': workflow_params,
             'comfyui_info': comfyui_info,
-            'saved_config': saved_config, 
-            **self.admin_site.each_context(request), 
+            'saved_config': saved_config,
+            **self.admin_site.each_context(request),
         }
         return render(request, 'admin/myapp/workflow/configure.html', context)
 
@@ -359,7 +369,7 @@ class CharacterImageAdmin(admin.ModelAdmin):
         }
         color = colors.get(obj.generation_type, '#6b7280')
         label = obj.get_generation_type_display()
-        
+
         return format_html(
             '<span style="background-color: {}; color: white; padding: 4px 8px; border-radius: 4px; font-weight: bold; font-size: 0.8rem;">{}</span>',
             color,
@@ -461,7 +471,7 @@ class BaseCharacterAdmin(admin.ModelAdmin):
             label = "Make Private"
             color = "#f59e0b"
             title = "Move to Private List"
-        
+
         url = reverse('admin:character_toggle_privacy', args=[obj.pk])
         return format_html(
             '<a class="button" href="{}" style="background-color:{}; color:white; border:none;" title="{}">{}</a>',
@@ -486,14 +496,14 @@ class BaseCharacterAdmin(admin.ModelAdmin):
 
     def toggle_privacy_view(self, request, character_id):
         character = get_object_or_404(Character, pk=character_id)
-        
+
         # SEGURIDAD: Verificar permiso de edición
         if not self.has_change_permission(request, character):
             raise PermissionDenied("You do not have permission to change this character.")
 
         character.is_private = not character.is_private
         character.save()
-        
+
         status_msg = "Private" if character.is_private else "Public"
         self.message_user(request, f"Character '{character.name}' is now {status_msg}.", level='success')
         return HttpResponseRedirect(request.META.get('HTTP_REFERER', reverse('admin:myapp_character_changelist')))
@@ -527,10 +537,10 @@ class BaseCharacterAdmin(admin.ModelAdmin):
         if workflow.active_config:
             try:
                 base_config = json.loads(workflow.active_config)
-                if 'promp_character' in base_config: workflow_params['promp_character'] = base_config['promp_character']
-                if 'promp_detailers' in base_config: workflow_params['promp_detailers'] = base_config['promp_detailers']
-                if 'negative_prompt' in base_config: workflow_params['negative_prompt'] = base_config['negative_prompt']
-                if 'black_list_tags' in base_config: workflow_params['black_list_tags'] = base_config['black_list_tags']
+                if base_config.get('promp_character'): workflow_params['promp_character'] = base_config['promp_character']
+                if base_config.get('promp_detailers'): workflow_params['promp_detailers'] = base_config['promp_detailers']
+                if base_config.get('negative_prompt'): workflow_params['negative_prompt'] = base_config['negative_prompt']
+                if base_config.get('black_list_tags'): workflow_params['black_list_tags'] = base_config['black_list_tags']
                 if 'enable_blacklist' in base_config: workflow_params['enable_blacklist'] = base_config['enable_blacklist']
             except json.JSONDecodeError: pass
 
@@ -544,14 +554,14 @@ class BaseCharacterAdmin(admin.ModelAdmin):
                 if 'height' in saved_config: workflow_params['height'] = saved_config['height']
                 if 'seed' in saved_config: workflow_params['seed'] = saved_config['seed']
                 if 'upscale_by' in saved_config: workflow_params['upscale_by'] = saved_config['upscale_by']
-                
+
                 # Sobreescribir prompts si existen en la config del personaje
-                if 'promp_character' in saved_config: workflow_params['promp_character'] = saved_config['promp_character']
-                if 'promp_detailers' in saved_config: workflow_params['promp_detailers'] = saved_config['promp_detailers']
-                if 'negative_prompt' in saved_config: workflow_params['negative_prompt'] = saved_config['negative_prompt']
-                if 'black_list_tags' in saved_config: workflow_params['black_list_tags'] = saved_config['black_list_tags']
+                if saved_config.get('promp_character'): workflow_params['promp_character'] = saved_config['promp_character']
+                if saved_config.get('promp_detailers'): workflow_params['promp_detailers'] = saved_config['promp_detailers']
+                if saved_config.get('negative_prompt'): workflow_params['negative_prompt'] = saved_config['negative_prompt']
+                if saved_config.get('black_list_tags'): workflow_params['black_list_tags'] = saved_config['black_list_tags']
                 if 'enable_blacklist' in saved_config: workflow_params['enable_blacklist'] = saved_config['enable_blacklist']
-                
+
                 if 'lora_names' in saved_config and 'lora_strengths' in saved_config:
                     workflow_params['loras'] = []
                     for name, strength in zip(saved_config['lora_names'], saved_config['lora_strengths']):
@@ -594,7 +604,7 @@ class BaseCharacterAdmin(admin.ModelAdmin):
             'workflow_params': workflow_params,
             'comfyui_info': comfyui_info,
             'saved_config': saved_config,
-            'readonly_params': True, 
+            'readonly_params': True,
             **self.admin_site.each_context(request), 
         }
         return render(request, 'admin/myapp/workflow/configure.html', context)
@@ -618,19 +628,19 @@ class BaseCharacterAdmin(admin.ModelAdmin):
             else:
                 try:
                     images_data_list, prompt_id, _ = async_to_sync(generate_image_from_character)(character, prompt)
-                    
+
                     if images_data_list:
                         count = 0
                         for i, (img_bytes, classification) in enumerate(images_data_list):
                             new_image = CharacterImage(
-                                character=character, 
+                                character=character,
                                 description=prompt,
                                 user=request.user
                             )
                             image_filename = f"generated_{character.name}_{prompt_id}_{classification}_{i}.png"
                             new_image.image.save(image_filename, ContentFile(img_bytes), save=True)
                             count += 1
-                        
+
                         if is_ajax: return JsonResponse({'status': 'success'})
                         self.message_user(request, f"{count} images generated and saved successfully.")
                     else:
@@ -641,7 +651,7 @@ class BaseCharacterAdmin(admin.ModelAdmin):
                     msg = f"Error during generation: {e}"
                     if is_ajax: return JsonResponse({'status': 'error', 'message': msg})
                     self.message_user(request, msg, level='error')
-            
+
             if character.is_private:
                 return redirect('admin:myapp_privatecharacter_change', character_id)
             return redirect('admin:myapp_character_change', character_id)
@@ -654,7 +664,7 @@ class BaseCharacterAdmin(admin.ModelAdmin):
 class CharacterAdmin(BaseCharacterAdmin):
     def get_queryset(self, request):
         return super().get_queryset(request).filter(is_private=False)
-    
+
     def save_model(self, request, obj, form, change):
         obj.is_private = False
         super().save_model(request, obj, form, change)
@@ -698,7 +708,7 @@ class CouponAdmin(admin.ModelAdmin):
     search_fields = ('code',)
     readonly_fields = ('times_redeemed', 'created_at')
     inlines = [CouponRedemptionInline]
-    
+
     fieldsets = (
         ('Coupon Details', {
             'fields': ('code', 'max_redemptions', 'times_redeemed')
@@ -718,7 +728,7 @@ class TokenPackageAdmin(admin.ModelAdmin):
     list_display = ('name', 'tokens', 'price', 'is_active')
     list_editable = ('is_active',)
     search_fields = ('name',)
-    
+
     fieldsets = (
         (None, {
             'fields': ('name', 'tokens', 'price', 'is_active')
@@ -735,7 +745,7 @@ class PaymentTransactionAdmin(admin.ModelAdmin):
     list_filter = ('status', 'created_at')
     search_fields = ('user__username', 'paypal_transaction_id')
     readonly_fields = ('user', 'package', 'amount', 'status', 'paypal_transaction_id', 'created_at', 'updated_at')
-    
+
     def has_add_permission(self, request):
         return False
 
@@ -744,7 +754,7 @@ class SubscriptionPlanAdmin(admin.ModelAdmin):
     list_display = ('name', 'price', 'billing_period', 'billing_period_unit', 'tokens_per_period', 'is_active', 'allow_upscale', 'allow_face_detail', 'allow_eye_detail')
     list_editable = ('is_active', 'allow_upscale', 'allow_face_detail', 'allow_eye_detail')
     search_fields = ('name',)
-    
+
     fieldsets = (
         ('Plan Details', {
             'fields': ('name', 'description', 'price', 'is_active')
@@ -783,7 +793,7 @@ class UserPremiumGrantAdmin(admin.ModelAdmin):
 class PaymentMethodAdmin(admin.ModelAdmin):
     list_display = ('name', 'config_key', 'is_active')
     list_editable = ('is_active',)
-    
+
     def get_readonly_fields(self, request, obj=None):
         if obj:
             return ('config_key',)
@@ -799,7 +809,7 @@ class VideoConnectionConfigAdmin(admin.ModelAdmin):
 @admin.register(VideoWorkflow)
 class VideoWorkflowAdmin(admin.ModelAdmin):
     list_display = ('name', 'download_file', 'workflow_actions')
-    
+
     def download_file(self, obj):
         if obj.json_file:
             return format_html('<a href="{}" download>Download JSON</a>', obj.json_file.url)
@@ -823,7 +833,7 @@ class VideoWorkflowAdmin(admin.ModelAdmin):
 
     def configure_view(self, request, workflow_id):
         workflow = get_object_or_404(VideoWorkflow, pk=workflow_id)
-        
+
         # SEGURIDAD: Verificar permiso de edición
         if not self.has_change_permission(request, workflow):
             raise PermissionDenied("You do not have permission to configure this workflow.")
@@ -865,7 +875,7 @@ class VideoWorkflowAdmin(admin.ModelAdmin):
                 'enable_blacklist': request.POST.get('enable_blacklist') == 'on', # NUEVO: Checkbox
             }
             new_config = {k: v for k, v in new_config.items() if v is not None and v != ""}
-            
+
             # Asegurar que enable_blacklist se guarde incluso si es False
             if 'enable_blacklist' not in new_config:
                 new_config['enable_blacklist'] = False
@@ -879,8 +889,8 @@ class VideoWorkflowAdmin(admin.ModelAdmin):
             'workflow': workflow,
             'workflow_params': workflow_params,
             'comfyui_info': comfyui_info,
-            'saved_config': saved_config, 
-            **self.admin_site.each_context(request), 
+            'saved_config': saved_config,
+            **self.admin_site.each_context(request),
         }
         return render(request, 'admin/myapp/videoworkflow/configure.html', context)
 
@@ -894,7 +904,7 @@ class GeneratedVideoAdmin(admin.ModelAdmin):
     def video_preview(self, obj):
         if obj.thumbnail:
              return format_html('<img src="{}" width="160" height="auto" style="border-radius: 5px;" />', obj.thumbnail.url)
-        
+
         if obj.video_file:
             try:
                 url = reverse('serve_private_media', kwargs={'path': obj.video_file.name})
@@ -952,9 +962,9 @@ class VideoQualityOptionInline(admin.TabularInline):
 @admin.register(VideoConfiguration)
 class VideoConfigurationAdmin(admin.ModelAdmin):
     inlines = [VideoDurationOptionInline, VideoQualityOptionInline]
-    
+
     def has_add_permission(self, request):
         if self.model.objects.exists(): return False
         return super().has_add_permission(request)
-    
+
     def has_delete_permission(self, request, obj=None): return False

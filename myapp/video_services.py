@@ -218,32 +218,86 @@ def analyze_video_workflow(workflow_json):
 def update_video_workflow(workflow, params, uploaded_image_name):
     """
     Actualiza el workflow de video con los parámetros de la petición web.
-    Se limita exclusivamente a la imagen, los prompts, resolución, seed, duración y FPS.
+    Busca nodos por TÍTULO en lugar de ID fijo para mayor robustez.
     """
     # Copia profunda
     wf = json.loads(json.dumps(workflow))
+    
+    # --- MAPEO DE TÍTULOS A PARÁMETROS ---
+    # Título del nodo (Upper) -> Clave en params
+    title_map = {
+        "PROMP_USUARIO": "prompt",
+        "BLACK_LIST_TAGS": "black_list_tags",
+        "WHITE_LIST_TAGS": "white_list_tags", # Si existiera en params
+        "SEGUNDOS": "duration",
+        "RES_LADO": "resolution",
+        "FPS": "fps",
+        "DW_SEED": "seed", # A veces se llama DW_seed o Seed
+        "SEED": "seed"
+    }
 
-    # --- 1. Imagen (Node 2) ---
-    if "2" in wf and uploaded_image_name:
-        wf["2"]["inputs"]["image"] = uploaded_image_name
+    # --- 1. Buscar nodos por título ---
+    nodes_found = {}
+    
+    for node_id, details in wf.items():
+        if not isinstance(details, dict): continue
+        
+        title = details.get("_meta", {}).get("title", "").upper()
+        class_type = details.get("class_type", "")
+        
+        # Detectar nodo de carga de imagen (LoadImage)
+        if class_type == "LoadImage":
+            nodes_found["load_image"] = node_id
+            
+        # Detectar nodo de guardado de video (DW_Img2Vid o similar)
+        if "IMG2VID" in class_type.upper() or "SAVE" in class_type.upper():
+             if "save_output" in details.get("inputs", {}):
+                 nodes_found["save_video"] = node_id
 
-    # --- 2. Prompts (Nodos 14 y 17) ---
-    # NOTA: En el JSON analizado, el prompt de usuario es el nodo 28 (PROMP_USUARIO)
-    if "28" in wf and "prompt" in params:
-        wf["28"]["inputs"]["text"] = params["prompt"]
+        # Detectar nodos por título específico
+        if title in title_map:
+            nodes_found[title] = node_id
+            
+        # Fallback para Seed si no tiene título específico pero es DW_seed
+        if class_type == "DW_seed":
+            nodes_found["DW_SEED"] = node_id
 
-    # NOTA: En el JSON analizado, el negative prompt es el nodo 30 (Negative Promp)
-    if "30" in wf and "negative_prompt" in params:
-        wf["30"]["inputs"]["text"] = params["negative_prompt"]
+    # --- 2. Inyectar Imagen ---
+    if "load_image" in nodes_found and uploaded_image_name:
+        wf[nodes_found["load_image"]]["inputs"]["image"] = uploaded_image_name
 
-    # --- 3. 'RES_LADO' > nodo 26 (Resolución) ---
-    # NOTA: En el JSON analizado, RES_LADO es el nodo 26
-    if "26" in wf:
-        res = int(params.get("resolution", 768))  # Default 768 si no se especifica
-        wf["26"]["inputs"]["value"] = res
+    # --- 3. Inyectar Prompts (Usuario) ---
+    if "PROMP_USUARIO" in nodes_found and "prompt" in params:
+        wf[nodes_found["PROMP_USUARIO"]]["inputs"]["text"] = params["prompt"]
 
-    # --- 4. 'DW_seed' > nodo 12 ---
-    # NOTA: En el JSON analizado, DW_seed es el nodo 12
+    # --- 4. Inyectar Blacklist ---
+    if "BLACK_LIST_TAGS" in nodes_found:
+        enable_blacklist = params.get("enable_blacklist", True)
+        if enable_blacklist and "black_list_tags" in params:
+            wf[nodes_found["BLACK_LIST_TAGS"]]["inputs"]["text"] = params["black_list_tags"]
+        elif not enable_blacklist:
+            wf[nodes_found["BLACK_LIST_TAGS"]]["inputs"]["text"] = ""
+
+    # --- 5. Inyectar Whitelist (si aplica) ---
+    if "WHITE_LIST_TAGS" in nodes_found and "white_list_tags" in params:
+         wf[nodes_found["WHITE_LIST_TAGS"]]["inputs"]["text"] = params["white_list_tags"]
+
+    # --- 6. Inyectar Resolución (RES_LADO) ---
+    if "RES_LADO" in nodes_found:
+        res = int(params.get("resolution", 768))
+        wf[nodes_found["RES_LADO"]]["inputs"]["value"] = res
+
+    # --- 7. Inyectar Duración (SEGUNDOS) ---
+    if "SEGUNDOS" in nodes_found:
+        duration_val = int(params.get("duration", 3))
+        wf[nodes_found["SEGUNDOS"]]["inputs"]["value"] = duration_val
+
+    # --- 8. Inyectar FPS ---
+    if "FPS" in nodes_found:
+        fps_val = int(params.get("fps", 24))
+        wf[nodes_found["FPS"]]["inputs"]["value"] = fps_val
+
+    # --- 9. Inyectar Seed ---
     used_seed = params.get("seed")
     if used_seed is None or str(used_seed) == "-1" or str(used_seed) == "":
         used_seed = random.randint(0, 2147483647)
@@ -253,38 +307,13 @@ def update_video_workflow(workflow, params, uploaded_image_name):
         except ValueError:
             used_seed = random.randint(0, 2147483647)
 
-    if "12" in wf:
-        wf["12"]["inputs"]["seed"] = used_seed
+    seed_node_id = nodes_found.get("DW_SEED") or nodes_found.get("SEED")
+    if seed_node_id:
+        wf[seed_node_id]["inputs"]["seed"] = used_seed
 
-    # --- 5. 'SEGUNDOS' > nodo 18 ---
-    # NOTA: En el JSON analizado, SEGUNDOS es el nodo 18
-    if "18" in wf:
-        duration_val = int(params.get("duration", 3))
-        wf["18"]["inputs"]["value"] = duration_val
-
-    # --- 6. 'FPS' > nodo 3 ---
-    # NOTA: En el JSON analizado, FPS es el nodo 3
-    if "3" in wf:
-        fps_val = int(params.get("fps", 24))
-        wf["3"]["inputs"]["value"] = fps_val
-
-    # --- 7. BLACK_LIST_TAGS > nodo 23 ---
-    # Si viene en params (desde la configuración activa), lo inyectamos
-    if "23" in wf:
-        enable_blacklist = params.get("enable_blacklist", True)
-        
-        if enable_blacklist:
-            # Si está activado, usamos el texto configurado (o el default si no hay)
-            if "black_list_tags" in params:
-                wf["23"]["inputs"]["text"] = params["black_list_tags"]
-        else:
-            # Si está desactivado, enviamos cadena vacía
-            wf["23"]["inputs"]["text"] = ""
-
-    # Forzar guardado de video (Node 17 - DW_Img2Vid)
-    # NOTA: En el JSON analizado, DW_Img2Vid es el nodo 17
-    if "17" in wf:
-        wf["17"]["inputs"]["save_output"] = True
+    # --- 10. Forzar guardado de video ---
+    if "save_video" in nodes_found:
+        wf[nodes_found["save_video"]]["inputs"]["save_output"] = True
 
     return wf, used_seed
 
