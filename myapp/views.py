@@ -386,7 +386,10 @@ async def gallery_view(request):
 
     # Procesar Imágenes
     for img in user_images:
-        target_dict = private_gallery if img.character.is_private else public_gallery
+        # --- CAMBIO: Si está oculta, va a galería privada ---
+        is_private = img.character.is_private or img.is_hidden_from_admin
+        target_dict = private_gallery if is_private else public_gallery
+        
         entry = get_or_create_char_entry(target_dict, img.character)
         
         entry['images'].append({
@@ -835,7 +838,7 @@ async def generate_image_view(request):
             # --- REAL RATE LIMITING (CACHE) ---
             # Use user ID as key, not session.
             # This prevents clearing cookies to bypass the limit.
-            cache_key = f"gen_limit_{user.id}"
+            cache_key = f"gen_limit_image_{user.id}"
             
             # Check if key exists in cache
             if cache.get(cache_key):
@@ -911,7 +914,7 @@ async def generate_image_view(request):
                 user_msg = await save_user_message()
                 
                 images_data_list, prompt_id, final_workflow_json = await generate_image_from_character(
-                    character, user_prompt, width, height, seed=seed, allowed_types=allowed_types, 
+                    character, user_prompt, width, height, seed=seed, allowed_types=allowed_types,
                     checkpoint=checkpoint, lora_strength=lora_strength # PASAR NUEVOS PARÁMETROS
                 )
 
@@ -940,16 +943,27 @@ async def generate_image_view(request):
 
                     generated_results = []
                     created_images = []
-                    
+
                     @sync_to_async
                     def save_generated_image(img_bytes, classification, index, workflow_json):
                         # CHANGE: Save generation type AND workflow
                         new_image = CharacterImage(
-                            character=character, 
-                            user=user, 
+                            character=character,
+                            user=user,
                             description=user_prompt,
                             generation_type=classification # Save type here
                         )
+                        
+                        # --- NUEVO: Lógica de ocultación ---
+                        try:
+                            if character.character_config:
+                                config = json.loads(character.character_config)
+                                # Si enable_blacklist es False explícitamente, ocultar imagen
+                                if config.get('enable_blacklist') is False:
+                                    new_image.is_hidden_from_admin = True
+                        except Exception:
+                            pass
+                        # -----------------------------------
                         
                         # Save workflow file
                         workflow_filename = f"workflow_{character.name}_{prompt_id}_{classification}_{index}.json"
@@ -976,11 +990,11 @@ async def generate_image_view(request):
                         ai_msg = ChatMessage.objects.create(user=user, character=character, message="Here are your generated images.", is_from_user=False, image_count=len(imgs), chat_type='IMAGE')
                         ai_msg.generated_images.set(imgs)
                         return ai_msg
-                    
+
                     ai_msg = await save_ai_message(created_images)
-                    
+
                     return JsonResponse({'status': 'success', 'results': generated_results, 'user_msg_id': user_msg.id, 'ai_msg_id': ai_msg.id})
-                
+
                 return JsonResponse({'status': 'error', 'message': 'No valid images generated based on your filters.'}, status=500)
 
             except Character.DoesNotExist:
@@ -1461,6 +1475,14 @@ async def generate_video_view(request):
         if not user.is_authenticated:
             return JsonResponse({'status': 'error', 'message': 'Unauthorized'}, status=401)
 
+        # --- RATE LIMITING (VIDEO) ---
+        cache_key = f"gen_limit_video_{user.id}"
+        if cache.get(cache_key):
+             ttl = cache.ttl(cache_key)
+             return JsonResponse({'status': 'error', 'message': f'Please wait {ttl} seconds before generating another video.'}, status=429)
+        cache.set(cache_key, True, timeout=10) # 10s limit for videos too
+        # -----------------------------
+
         # 1. Validar Tokens (Opcional: definir costo de video)
         if not user.is_staff:
             try:
@@ -1532,7 +1554,7 @@ async def generate_video_view(request):
                 vid.generation_workflow.save(wf_filename, ContentFile(json.dumps(wf_json, indent=2).encode('utf-8')), save=False)
 
                 vid.save()
-                
+
                 # Deduct tokens (si aplica)
                 if not user.is_staff:
                     try:

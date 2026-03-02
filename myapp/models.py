@@ -129,6 +129,9 @@ class CharacterImage(models.Model):
     height = models.IntegerField(default=0)
     generation_type = models.CharField(max_length=20, choices=TYPE_CHOICES, default='Gen_Normal', verbose_name="Generation Type")
     
+    # --- NUEVO: Campo para ocultar del admin y galería pública ---
+    is_hidden_from_admin = models.BooleanField(default=False, verbose_name="Hidden (Private Mode)", help_text="If true, this image is hidden from the admin list and public gallery.")
+
     def __str__(self):
         if self.user:
             return f"Image by {self.user.username} for {self.character.name}"
@@ -203,7 +206,8 @@ class GeneratedVideo(models.Model):
     # --- CAMBIO: Vincular video a un personaje ---
     character = models.ForeignKey(Character, on_delete=models.CASCADE, related_name='videos', null=True, blank=True)
     
-    video_file = models.FileField(upload_to=video_output_path)
+    # --- CAMBIO: Hacer video_file opcional para evitar conflictos de migración ---
+    video_file = models.FileField(upload_to=video_output_path, null=True, blank=True)
     thumbnail = models.ImageField(upload_to='video_thumbnails/', blank=True, null=True)
     
     # --- NEW: Field to save the JSON workflow ---

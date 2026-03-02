@@ -346,7 +346,12 @@ class CharacterImageAdmin(admin.ModelAdmin):
     list_display = ('image_preview', 'character', 'user', 'generation_type_badge', 'truncated_description', 'download_workflow_link')
     list_filter = ('character', 'user', 'generation_type')
     search_fields = ('description', 'user__username', 'character__name')
-    readonly_fields = ('image_preview', 'character', 'user', 'description', 'image', 'generation_type', 'width', 'height', 'download_workflow_link')
+    readonly_fields = ('image_preview', 'character', 'user', 'description', 'image', 'generation_type', 'width', 'height', 'download_workflow_link', 'is_hidden_from_admin')
+
+    def get_queryset(self, request):
+        qs = super().get_queryset(request)
+        # --- NUEVO: Ocultar imágenes privadas del admin ---
+        return qs.filter(is_hidden_from_admin=False)
 
     def image_preview(self, obj):
         if obj.image:
