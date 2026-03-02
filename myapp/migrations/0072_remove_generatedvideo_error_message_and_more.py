@@ -6,22 +6,10 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('myapp', '0071_generatedvideo_error_message_generatedvideo_status_and_more'),
+        ('myapp', '0070_generatedvideo_generation_workflow'),
     ]
 
     operations = [
-        migrations.RemoveField(
-            model_name='generatedvideo',
-            name='error_message',
-        ),
-        migrations.RemoveField(
-            model_name='generatedvideo',
-            name='status',
-        ),
-        migrations.RemoveField(
-            model_name='generatedvideo',
-            name='task_id',
-        ),
         migrations.AddField(
             model_name='characterimage',
             name='is_hidden_from_admin',

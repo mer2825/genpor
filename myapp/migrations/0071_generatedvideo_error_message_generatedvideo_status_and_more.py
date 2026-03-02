@@ -32,3 +32,4 @@ class Migration(migrations.Migration):
             field=models.FileField(blank=True, null=True, upload_to=myapp.models.video_output_path),
         ),
     ]
+# Re-upload fix
