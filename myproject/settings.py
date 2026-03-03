@@ -40,6 +40,8 @@ ALLOWED_HOSTS = os.getenv('ALLOWED_HOSTS', 'localhost,127.0.0.1').split(',')
 # Application definition
 
 INSTALLED_APPS = [
+    # 'jazzmin', # REMOVED: User requested native theme
+    'admin_reorder', # NEW: For reordering admin menu
     'django.contrib.admin',
     'django.contrib.auth',
     'django.contrib.contenttypes',
@@ -81,6 +83,9 @@ MIDDLEWARE = [
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
+    
+    # Admin Reorder Middleware (Must be after AuthenticationMiddleware)
+    'admin_reorder.middleware.ModelAdminReorder', # CORREGIDO: Nombre correcto del middleware
     
     # 2FA Middleware (después de AuthenticationMiddleware) (COMENTADO)
     # 'django_otp.middleware.OTPMiddleware',
@@ -332,3 +337,64 @@ ACCOUNT_FORMS = {'signup': 'myapp.forms.CustomSignupForm'}
 # Stripe Settings
 STRIPE_PUBLISHABLE_KEY = os.getenv('STRIPE_PUBLISHABLE_KEY')
 STRIPE_SECRET_KEY = os.getenv('STRIPE_SECRET_KEY')
+
+# --- ADMIN REORDER SETTINGS ---
+ADMIN_REORDER = (
+    # 1. Users & Clients
+    {
+        'app': 'myapp', 
+        'label': '👥 Users & Clients', 
+        'models': ('myapp.AdminUser', 'myapp.ClientUser', 'auth.Group')
+    },
+    
+    # 2. Global Settings
+    {
+        'app': 'myapp', 
+        'label': '⚙️ Global Settings', 
+        'models': ('myapp.CompanySettings', 'myapp.TokenSettings')
+    },
+    
+    # 3. Image Generation
+    {
+        'app': 'myapp', 
+        'label': '🤖 Image Generation', 
+        'models': (
+            'myapp.Character', 
+            'myapp.PrivateCharacter', 
+            'myapp.CharacterCategory', 
+            'myapp.CharacterSubCategory',
+            'myapp.Workflow',
+            'myapp.ConnectionConfig',
+            'myapp.CharacterImage',
+            'myapp.PrivateCharacterImage' # NUEVO: Imágenes Privadas
+        )
+    },
+    
+    # 4. Video Generation
+    {
+        'app': 'myapp', 
+        'label': '🎥 Video Generation', 
+        'models': (
+            'myapp.VideoConfiguration',
+            'myapp.VideoWorkflow',
+            'myapp.VideoConnectionConfig',
+            'myapp.GeneratedVideo'
+        )
+    },
+    
+    # 5. Economy & Payments
+    {
+        'app': 'myapp', 
+        'label': '💰 Economy & Payments', 
+        'models': (
+            'myapp.TokenPackage',
+            'myapp.SubscriptionPlan',
+            'myapp.Coupon',
+            'myapp.UserPremiumGrant',
+            'myapp.PaymentMethod',
+            'myapp.PaymentTransaction',
+            'myapp.UserSubscription',
+            'myapp.UserCharacterAccess'
+        )
+    },
+)

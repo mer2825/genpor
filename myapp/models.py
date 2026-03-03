@@ -137,6 +137,13 @@ class CharacterImage(models.Model):
             return f"Image by {self.user.username} for {self.character.name}"
         return f"{self.character.name} - {os.path.basename(self.image.name)}"
 
+# --- PROXY MODEL FOR PRIVATE IMAGES ---
+class PrivateCharacterImage(CharacterImage):
+    class Meta:
+        proxy = True
+        verbose_name = "Private Image (Hidden)"
+        verbose_name_plural = "Private Images (Hidden)"
+
 @receiver(post_delete, sender=CharacterImage)
 def delete_character_image_files(sender, instance, **kwargs):
     """Deletes image and workflow files from disk when a CharacterImage is deleted."""

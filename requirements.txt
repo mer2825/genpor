@@ -16,3 +16,4 @@ qrcode
 django-paypal
 django-recaptcha
 stripe
+django-modeladmin-reorder

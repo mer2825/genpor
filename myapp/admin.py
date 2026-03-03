@@ -20,6 +20,13 @@ from .models import (
     VideoConnectionConfig, VideoWorkflow, GeneratedVideo,
     VideoConfiguration, VideoDurationOption, VideoQualityOption # IMPORTAR NUEVOS MODELOS
 )
+# --- IMPORTAR PROXY MODEL MANUALMENTE (SI NO ESTÁ EN EL IMPORT DE ARRIBA) ---
+from .models import CharacterImage as PrivateCharacterImage # Truco: Usamos la clase base si no se exportó, pero mejor editar models.py para exportarlo bien o importarlo aquí si ya existe.
+# Espera, mejor lo importo bien si ya lo definí en models.py, pero como acabo de editar models.py, necesito asegurarme de que el import lo pille.
+# Voy a asumir que en el paso anterior se guardó bien.
+# Re-importando explícitamente para evitar errores:
+from .models import PrivateCharacterImage as RealPrivateCharacterImage # Si existe en models.py
+
 from .services import generate_image_from_character, get_active_comfyui_address, get_comfyui_object_info, analyze_workflow
 from .video_services import get_active_video_comfyui_address, analyze_video_workflow
 import json
@@ -392,6 +399,23 @@ class CharacterImageAdmin(admin.ModelAdmin):
     def has_add_permission(self, request): return False
     def has_delete_permission(self, request, obj=None):
         return super().has_delete_permission(request, obj)
+
+# --- NUEVO: ADMIN PARA IMÁGENES PRIVADAS ---
+@admin.register(RealPrivateCharacterImage)
+class PrivateCharacterImageAdmin(CharacterImageAdmin):
+    def get_queryset(self, request):
+        # Acceder al queryset original sin filtrar (super().super() es complicado, mejor llamar al manager)
+        # Pero como CharacterImageAdmin filtra, necesitamos sobreescribirlo completamente.
+        # Usamos el manager por defecto del modelo.
+        return self.model.objects.filter(is_hidden_from_admin=True)
+
+    def has_add_permission(self, request): return False
+    
+    # Opcional: Cambiar el título en el admin
+    def changelist_view(self, request, extra_context=None):
+        extra_context = extra_context or {}
+        extra_context['title'] = 'Private Images (Hidden from Public)'
+        return super().changelist_view(request, extra_context=extra_context)
 
 class CharacterCatalogImageInline(admin.TabularInline):
     model = CharacterCatalogImage
@@ -973,3 +997,6 @@ class VideoConfigurationAdmin(admin.ModelAdmin):
         return super().has_add_permission(request)
 
     def has_delete_permission(self, request, obj=None): return False
+
+# --- DISABLE NATIVE SIDEBAR (To avoid confusion with reordered menu) ---
+admin.site.enable_nav_sidebar = False
