@@ -310,7 +310,7 @@ class WorkflowAdmin(admin.ModelAdmin):
                     workflow_params['promp_character'] = saved_config['promp_character']
 
                 if 'enable_blacklist' in saved_config: workflow_params['enable_blacklist'] = saved_config['enable_blacklist']
-                if 'enable_whitelist' in saved_config: workflow_params['enable_whitelist'] = saved_config['enable_whitelist'] # NUEVO
+                if 'enable_whitelist' in saved_config: workflow_params['enable_whitelist'] = saved_config['enable_whitelist']
 
                 if 'lora_names' in saved_config and 'lora_strengths' in saved_config:
                     workflow_params['loras'] = []
@@ -336,8 +336,9 @@ class WorkflowAdmin(admin.ModelAdmin):
                 'promp_detailers': request.POST.get('promp_detailers'),
                 'negative_prompt': request.POST.get('negative_prompt'),
                 'promp_character': request.POST.get('promp_character'),
-                'enable_blacklist': request.POST.get('enable_blacklist') == 'on',
-                'enable_whitelist': request.POST.get('enable_whitelist') == 'on', # NUEVO
+                # --- CAMBIO: FORZAR TRUE EN WORKFLOW (ya que los checkboxes están ocultos) ---
+                'enable_blacklist': True,
+                'enable_whitelist': True,
             }
             new_config = {k: v for k, v in new_config.items() if v is not None}
             workflow.active_config = json.dumps(new_config)
@@ -578,7 +579,7 @@ class BaseCharacterAdmin(admin.ModelAdmin):
                 if base_config.get('black_list_tags'): workflow_params['black_list_tags'] = base_config['black_list_tags']
                 if base_config.get('white_list_tags'): workflow_params['white_list_tags'] = base_config['white_list_tags']
                 if 'enable_blacklist' in base_config: workflow_params['enable_blacklist'] = base_config['enable_blacklist']
-                if 'enable_whitelist' in base_config: workflow_params['enable_whitelist'] = base_config['enable_whitelist'] # NUEVO
+                if 'enable_whitelist' in base_config: workflow_params['enable_whitelist'] = base_config['enable_whitelist']
             except json.JSONDecodeError: pass
 
         # 2. Cargar configuración específica del personaje (sobrescribe la base)
@@ -596,10 +597,14 @@ class BaseCharacterAdmin(admin.ModelAdmin):
                 if saved_config.get('promp_character'): workflow_params['promp_character'] = saved_config['promp_character']
                 if saved_config.get('promp_detailers'): workflow_params['promp_detailers'] = saved_config['promp_detailers']
                 if saved_config.get('negative_prompt'): workflow_params['negative_prompt'] = saved_config['negative_prompt']
-                if saved_config.get('black_list_tags'): workflow_params['black_list_tags'] = saved_config['black_list_tags']
-                if saved_config.get('white_list_tags'): workflow_params['white_list_tags'] = saved_config['white_list_tags']
+                
+                # --- CAMBIO: NO SOBRESCRIBIR TAGS DE LISTAS (HERENCIA FORZADA) ---
+                # if saved_config.get('black_list_tags'): workflow_params['black_list_tags'] = saved_config['black_list_tags']
+                # if saved_config.get('white_list_tags'): workflow_params['white_list_tags'] = saved_config['white_list_tags']
+                
+                # PERO SÍ LOS CHECKBOXES
                 if 'enable_blacklist' in saved_config: workflow_params['enable_blacklist'] = saved_config['enable_blacklist']
-                if 'enable_whitelist' in saved_config: workflow_params['enable_whitelist'] = saved_config['enable_whitelist'] # NUEVO
+                if 'enable_whitelist' in saved_config: workflow_params['enable_whitelist'] = saved_config['enable_whitelist']
 
                 if 'lora_names' in saved_config and 'lora_strengths' in saved_config:
                     workflow_params['loras'] = []
@@ -618,10 +623,11 @@ class BaseCharacterAdmin(admin.ModelAdmin):
                 'promp_character': request.POST.get('promp_character'),
                 'promp_detailers': request.POST.get('promp_detailers'),
                 'negative_prompt': request.POST.get('negative_prompt'),
-                'black_list_tags': request.POST.get('black_list_tags'),
-                'white_list_tags': request.POST.get('white_list_tags'),
+                # --- CAMBIO: NO GUARDAR TAGS DE LISTAS EN PERSONAJE ---
+                # 'black_list_tags': request.POST.get('black_list_tags'),
+                # 'white_list_tags': request.POST.get('white_list_tags'),
                 'enable_blacklist': request.POST.get('enable_blacklist') == 'on',
-                'enable_whitelist': request.POST.get('enable_whitelist') == 'on', # NUEVO
+                'enable_whitelist': request.POST.get('enable_whitelist') == 'on',
             }
             
             for field in ['width', 'height', 'seed', 'seed_behavior', 'upscale_by']:
