@@ -203,7 +203,13 @@ def analyze_workflow_outputs(workflow_json):
     return capabilities
 
 def analyze_workflow(prompt_workflow):
-    analysis = {"checkpoint": None, "vae": None, "loras": [], "width": None, "height": None, "seed": None, "steps": None, "cfg": None, "sampler_name": None, "scheduler": None, "upscale_by": None, "black_list_tags": None, "promp_detailers": None, "negative_prompt": None, "promp_character": None, "enable_blacklist": True}
+    analysis = {
+        "checkpoint": None, "vae": None, "loras": [], "width": None, "height": None, 
+        "seed": None, "steps": None, "cfg": None, "sampler_name": None, "scheduler": None, 
+        "upscale_by": None, "black_list_tags": None, "white_list_tags": None,
+        "promp_detailers": None, "negative_prompt": None, "promp_character": None, 
+        "enable_blacklist": True, "enable_whitelist": True # NUEVO
+    }
     if not isinstance(prompt_workflow, dict): return analysis
     
     # --- DETECCIÓN DE FORMATO (API vs EDITOR) ---
@@ -284,6 +290,8 @@ def analyze_workflow(prompt_workflow):
         # --- NODOS DE TEXTO ---
         elif title == "BLACK_LIST_TAGS":
             analysis["black_list_tags"] = get_text_value()
+        elif title == "WHITE_LIST_TAGS":
+            analysis["white_list_tags"] = get_text_value()
         elif title == "PROMP_DETAILERS":
             analysis["promp_detailers"] = get_text_value()
         elif title == "NEGATIVE PROMP":
@@ -398,6 +406,12 @@ def update_workflow(prompt_workflow, new_values, lora_names=None, lora_strengths
             elif "black_list_tags" in new_values:
                 update_text(new_values["black_list_tags"])
         
+        if title == "WHITE_LIST_TAGS": # NUEVO: Lógica de Whitelist
+            if "enable_whitelist" in new_values and not new_values["enable_whitelist"]:
+                update_text("") # Si está desactivada, enviar vacío
+            elif "white_list_tags" in new_values:
+                update_text(new_values["white_list_tags"])
+
         if title == "PROMP_DETAILERS" and "promp_detailers" in new_values:
             update_text(new_values["promp_detailers"])
         
@@ -831,7 +845,7 @@ async def generate_image_from_character(character, user_prompt, width=None, heig
 
             # --- FIX: FORCE KEEP PROMPT NODES ---
             # Even if dependency tracing fails, we MUST keep these nodes for the record
-            titles_to_keep = ["PROMP_CHARACTER", "PROMP_USUARIO", "PROMP_DETAILERS", "NEGATIVE PROMP", "BLACK_LIST_TAGS"]
+            titles_to_keep = ["PROMP_CHARACTER", "PROMP_USUARIO", "PROMP_DETAILERS", "NEGATIVE PROMP", "BLACK_LIST_TAGS", "WHITE_LIST_TAGS"]
             for nid, node in updated_workflow.items():
                 # Convert title to UPPER to match case-insensitive
                 if node.get("_meta", {}).get("title", "").upper() in titles_to_keep:

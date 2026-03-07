@@ -150,6 +150,17 @@
                 <textarea name="black_list_tags" rows="4" style="width: 60%;">{{ workflow_params.black_list_tags|default_if_none:'' }}</textarea>
                 <p class="help">Tags (separated by commas) to be forcefully removed from the final image.</p>
             </div>
+            <!-- NUEVO CAMPO WHITELIST CON CHECKBOX -->
+            <div class="form-row">
+                <label for="enable_whitelist">Enable Whitelist:</label>
+                <input type="checkbox" name="enable_whitelist" id="enable_whitelist" {% if workflow_params.enable_whitelist %}checked{% endif %}>
+                <p class="help" style="display:inline; margin-left:10px;">If unchecked, the whitelist will be disabled (empty).</p>
+            </div>
+            <div class="form-row">
+                <label for="white_list_tags">Whitelist Tags:</label>
+                <textarea name="white_list_tags" rows="4" style="width: 60%;">{{ workflow_params.white_list_tags|default_if_none:'' }}</textarea>
+                <p class="help">Tags (separated by commas) that are explicitly allowed. <strong>Leave empty to inherit from the Base Workflow.</strong></p>
+            </div>
         </fieldset>
 
         <div class="submit-row">
