@@ -123,6 +123,14 @@
             </div>
             {% endif %}
 
+            {% if 'crypto' in active_methods %}
+            <!-- CRYPTO BUTTON -->
+            <a href="{% url 'crypto_payment_process' transaction.id %}" class="w-full py-3 rounded-xl bg-[#0ea5e9] hover:bg-[#0284c7] text-white font-bold transition-all flex items-center justify-center gap-2 shadow-lg shadow-sky-500/20">
+                <i class="fab fa-bitcoin text-xl"></i>
+                <span>Pay with USDT (Crypto)</span>
+            </a>
+            {% endif %}
+
             {% if not active_methods %}
             <div class="p-4 rounded-xl bg-red-500/10 border border-red-500/20 text-red-400 text-center text-sm">
                 <i class="fas fa-exclamation-circle mr-2"></i>

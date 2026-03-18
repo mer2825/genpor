@@ -403,6 +403,12 @@ class CompanySettings(models.Model):
     stripe_publishable_key = models.CharField(max_length=255, verbose_name="Stripe Publishable Key", blank=True, null=True, help_text="Starts with pk_test_ or pk_live_")
     stripe_secret_key = models.CharField(max_length=255, verbose_name="Stripe Secret Key", blank=True, null=True, help_text="Starts with sk_test_ or sk_live_")
 
+    # --- NEW: CRYPTO SETTINGS ---
+    crypto_usdt_address = models.CharField(max_length=100, verbose_name="USDT TRC20 Address", blank=True, null=True, help_text="Your TRC20 Wallet Address (e.g. TQ5b...)")
+    crypto_usdt_qr = models.ImageField(upload_to='company_logos/', verbose_name="USDT Wallet QR Code", blank=True, null=True, help_text="Upload the QR code image for your wallet.")
+    crypto_trongrid_api_key = models.CharField(max_length=100, verbose_name="TronGrid API Key", blank=True, null=True, help_text="TronGrid Pro API Key")
+    crypto_min_confirmations = models.PositiveIntegerField(default=10, verbose_name="Min Confirmations", help_text="Minimum blocks to confirm payment.")
+
     # --- NEW: LEGAL CONTENT ---
     terms_content = models.TextField(verbose_name="Terms & Conditions", blank=True, default="<p>Please add your Terms & Conditions here.</p>", help_text="HTML content for Terms & Conditions modal.")
     privacy_content = models.TextField(verbose_name="Privacy Policy", blank=True, default="<p>Please add your Privacy Policy here.</p>", help_text="HTML content for Privacy Policy modal.")
@@ -425,6 +431,10 @@ class CompanySettings(models.Model):
             if old_instance.favicon and old_instance.favicon != self.favicon:
                 if os.path.isfile(old_instance.favicon.path):
                     os.remove(old_instance.favicon.path)
+                    
+            if old_instance.crypto_usdt_qr and old_instance.crypto_usdt_qr != self.crypto_usdt_qr:
+                if os.path.isfile(old_instance.crypto_usdt_qr.path):
+                    os.remove(old_instance.crypto_usdt_qr.path)
         except CompanySettings.DoesNotExist:
             # New instance, nothing to delete
             pass
@@ -450,6 +460,23 @@ class HeroCarouselImage(models.Model):
         verbose_name_plural = "Hero Carousel Images"
     def __str__(self):
         return f"Hero Image {self.order}"
+    def delete(self, *args, **kwargs):
+        if self.image and os.path.isfile(self.image.path):
+            os.remove(self.image.path)
+        super().delete(*args, **kwargs)
+
+# --- NEW: CRYPTO GUIDE IMAGES ---
+class CryptoGuideImage(models.Model):
+    company_settings = models.ForeignKey(CompanySettings, related_name='crypto_guide_images', on_delete=models.CASCADE)
+    image = models.ImageField(upload_to='crypto_guide/', verbose_name="Guide Image")
+    caption = models.CharField(max_length=100, blank=True, verbose_name="Caption (Optional)")
+    order = models.PositiveIntegerField(default=0, help_text="Order in the slider")
+    class Meta:
+        ordering = ['order']
+        verbose_name = "Crypto Guide Image"
+        verbose_name_plural = "Crypto Guide Images"
+    def __str__(self):
+        return f"Guide Image {self.order}"
     def delete(self, *args, **kwargs):
         if self.image and os.path.isfile(self.image.path):
             os.remove(self.image.path)
@@ -660,6 +687,11 @@ class PaymentTransaction(models.Model):
     amount = models.DecimalField(max_digits=10, decimal_places=2)
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='PENDING')
     paypal_transaction_id = models.CharField(max_length=100, blank=True, null=True)
+    
+    # --- NEW CRYPTO FIELDS ---
+    crypto_amount = models.DecimalField(max_digits=16, decimal_places=6, blank=True, null=True, help_text="Unique exact amount for Crypto payment (e.g. 5.001234)")
+    crypto_tx_id = models.CharField(max_length=100, blank=True, null=True, help_text="Blockchain Transaction ID")
+    
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 

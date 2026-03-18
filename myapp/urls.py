@@ -29,6 +29,11 @@ urlpatterns = [
     path('payment/done/', views.payment_done, name='payment_done'),
     path('payment/canceled/', views.payment_canceled, name='payment_canceled'),
 
+    # Rutas de Cripto
+    path('payment/crypto/<uuid:transaction_id>/', views.crypto_payment_process, name='crypto_payment_process'),
+    path('payment/crypto/status/<uuid:transaction_id>/', views.check_payment_status, name='check_payment_status'),
+    path('subscription/crypto/<int:plan_id>/', views.crypto_subscription_process, name='crypto_subscription_process'), # NUEVA RUTA
+
     # Rutas de Stripe (Pagos Únicos)
     path('payment/stripe/create-checkout-session/<int:package_id>/', views.create_checkout_session, name='create_checkout_session'),
     

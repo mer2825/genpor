@@ -111,6 +111,22 @@
             </div>
             {% endif %}
 
+            {% if 'crypto' in active_methods %}
+            <!-- CRYPTO BUTTON FOR SUBSCRIPTIONS (Manual Renewal) -->
+            <div class="w-full">
+                <p class="text-xs text-yellow-400 mb-2 mt-2">
+                    <i class="fas fa-info-circle"></i> Crypto subscriptions are manual. You will need to renew this manually every billing period.
+                </p>
+                <form action="{% url 'crypto_subscription_process' plan.id %}" method="post" class="w-full">
+                    {% csrf_token %}
+                    <button type="submit" class="w-full py-3 rounded-xl bg-[#0ea5e9] hover:bg-[#0284c7] text-white font-bold transition-all flex items-center justify-center gap-2 shadow-lg shadow-sky-500/20">
+                        <i class="fab fa-bitcoin text-xl"></i>
+                        <span>Subscribe with USDT (Crypto)</span>
+                    </button>
+                </form>
+            </div>
+            {% endif %}
+
             {% if not active_methods %}
             <div class="p-4 rounded-xl bg-red-500/10 border border-red-500/20 text-red-400 text-center text-sm">
                 <i class="fas fa-exclamation-circle mr-2"></i>

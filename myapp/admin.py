@@ -12,7 +12,7 @@ from django.forms import ModelForm, ValidationError, CheckboxSelectMultiple, Tex
 from django.core.exceptions import PermissionDenied # IMPORTANTE: Para seguridad
 from .models import (
     Workflow, Character, PrivateCharacter, CharacterImage, CharacterCatalogImage,
-    ConnectionConfig, CompanySettings, HeroCarouselImage, AuthPageImage,
+    ConnectionConfig, CompanySettings, HeroCarouselImage, AuthPageImage, CryptoGuideImage, # NUEVO: CryptoGuideImage
     CharacterCategory, CharacterSubCategory, ClientProfile, TokenSettings,
     Coupon, CouponRedemption, CharacterAccessCode, UserCharacterAccess,
     TokenPackage, PaymentTransaction, SubscriptionPlan, UserSubscription,
@@ -175,6 +175,21 @@ class AuthPageImageInline(admin.TabularInline):
         return "(No image)"
     image_preview.short_description = "Preview"
 
+# --- NUEVO: INLINE PARA IMÁGENES DE GUÍA CRIPTO ---
+class CryptoGuideImageInline(admin.TabularInline):
+    model = CryptoGuideImage
+    extra = 1
+    fields = ('image_preview', 'image', 'caption', 'order')
+    readonly_fields = ('image_preview',)
+    verbose_name = "Crypto Guide Image"
+    verbose_name_plural = "Binance Crypto Guide Images (Tutorial Slider)"
+
+    def image_preview(self, obj):
+        if obj.image:
+            return format_html('<img src="{}" style="height: 100px; width: auto; border-radius: 5px;" />', obj.image.url)
+        return "(No image)"
+    image_preview.short_description = "Preview"
+
 class CompanySettingsForm(ModelForm):
     class Meta:
         model = CompanySettings
@@ -190,7 +205,7 @@ class CompanySettingsForm(ModelForm):
 @admin.register(CompanySettings)
 class CompanySettingsAdmin(admin.ModelAdmin):
     form = CompanySettingsForm
-    inlines = [HeroCarouselImageInline, AuthPageImageInline]
+    inlines = [HeroCarouselImageInline, AuthPageImageInline, CryptoGuideImageInline] # Añadido CryptoGuideImageInline
 
     fieldsets = (
         ('Company Identity', {
@@ -207,6 +222,10 @@ class CompanySettingsAdmin(admin.ModelAdmin):
         ('Sales & Subscriptions', {
             'fields': ('is_token_sale_active', 'is_subscription_active'),
             'description': 'Enable or disable the ability for users to purchase token packages or subscriptions.'
+        }),
+        ('Crypto Payment Configuration', {
+            'fields': ('crypto_usdt_address', 'crypto_usdt_qr', 'crypto_trongrid_api_key', 'crypto_min_confirmations'), # AÑADIDO QR AL ADMIN
+            'description': 'Configure TRC20 wallet, optional QR Code, and TronGrid API key to receive USDT payments automatically. Suba imágenes en la sección "Crypto Guide Images" para mostrar un tutorial.'
         }),
         ('PayPal Configuration', {
             'fields': ('paypal_receiver_email', 'paypal_is_sandbox'),
@@ -788,10 +807,10 @@ class TokenPackageAdmin(admin.ModelAdmin):
 
 @admin.register(PaymentTransaction)
 class PaymentTransactionAdmin(admin.ModelAdmin):
-    list_display = ('user', 'package', 'amount', 'status', 'created_at')
+    list_display = ('user', 'package', 'amount', 'crypto_amount', 'status', 'created_at')
     list_filter = ('status', 'created_at')
-    search_fields = ('user__username', 'paypal_transaction_id')
-    readonly_fields = ('user', 'package', 'amount', 'status', 'paypal_transaction_id', 'created_at', 'updated_at')
+    search_fields = ('user__username', 'paypal_transaction_id', 'crypto_tx_id')
+    readonly_fields = ('user', 'package', 'amount', 'status', 'paypal_transaction_id', 'crypto_amount', 'crypto_tx_id', 'created_at', 'updated_at')
 
     def has_add_permission(self, request):
         return False
@@ -917,7 +936,7 @@ class VideoWorkflowAdmin(admin.ModelAdmin):
                 'lora_strengths_low': request.POST.getlist('lora_strengths_low'), # NUEVO
                 'duration': request.POST.get('duration'),
                 'fps': request.POST.get('fps'),
-                'resolution': request.POST.get('resolution'),
+                'quality': request.POST.get('quality'), # CAMBIO: resolution -> quality
                 'black_list_tags': request.POST.get('black_list_tags'), # NUEVO: Guardar Blacklist
                 'enable_blacklist': request.POST.get('enable_blacklist') == 'on', # NUEVO: Checkbox
             }

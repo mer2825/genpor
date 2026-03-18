@@ -27,6 +27,7 @@ from paypal.standard.forms import PayPalPaymentsForm # IMPORTANTE: Para PayPal
 from django.views.decorators.csrf import csrf_exempt # IMPORTANTE: Para PayPal
 from datetime import timedelta
 import stripe # IMPORTANTE: Para Stripe
+import decimal
 
 # --- CLASE PERSONALIZADA PARA PAYPAL DINÁMICO ---
 class DynamicPayPalForm(PayPalPaymentsForm):
@@ -1197,6 +1198,16 @@ def payment_process(request, package_id):
         amount=package.price
     )
     
+    # --- NUEVO: Generar crypto_amount único si el método cripto está activo ---
+    active_methods = list(PaymentMethod.objects.filter(is_active=True).values_list('config_key', flat=True))
+    if 'crypto' in active_methods:
+        # Lógica para monto único: precio base + céntimos aleatorios o basados en ID
+        # Limitar explicitamente los céntimos a 6 decimales para que Decimal() en el monitor no falle al comparar
+        random_cents = decimal.Decimal(random.randrange(1, 9999)) / decimal.Decimal('1000000.0')
+        # Redondear y cuantificar para evitar problemas de flotantes (ej. 10.001234000001)
+        transaction.crypto_amount = (decimal.Decimal(package.price) + random_cents).quantize(decimal.Decimal('0.000001'))
+        transaction.save()
+
     # --- CONFIGURACIÓN DINÁMICA DE PAYPAL DESDE BD ---
     receiver_email = company_settings.paypal_receiver_email if company_settings.paypal_receiver_email else settings.PAYPAL_RECEIVER_EMAIL
 
@@ -1221,9 +1232,6 @@ def payment_process(request, package_id):
     # --- CALCULAR ENDPOINT EXPLÍCITAMENTE PARA EL TEMPLATE ---
     paypal_endpoint = form.get_endpoint()
 
-    # --- NUEVO: OBTENER MÉTODOS DE PAGO ACTIVOS ---
-    active_methods = list(PaymentMethod.objects.filter(is_active=True).values_list('config_key', flat=True))
-    
     # Stripe Config (Dynamic from DB)
     stripe_key = None
     if 'stripe' in active_methods:
@@ -1238,8 +1246,88 @@ def payment_process(request, package_id):
         'company': company_settings,
         'paypal_endpoint': paypal_endpoint, # PASAR VARIABLE AL CONTEXTO
         'active_methods': active_methods, # NUEVO
-        'stripe_key': stripe_key # NUEVO
+        'stripe_key': stripe_key, # NUEVO
+        'transaction': transaction # PASAR TRANSACCIÓN PARA CRIPTO
     })
+
+# --- NUEVAS VISTAS: PAGO CON CRIPTO ---
+@login_required
+def crypto_payment_process(request, transaction_id):
+    company_settings = CompanySettings.objects.last()
+    
+    # Asegurarse de que el método cripto esté activo
+    active_methods = list(PaymentMethod.objects.filter(is_active=True).values_list('config_key', flat=True))
+    if 'crypto' not in active_methods:
+        return redirect('token_packages')
+        
+    transaction = get_object_or_404(PaymentTransaction, id=transaction_id, user=request.user, status='PENDING')
+    
+    # Obtener imágenes de guía
+    guide_images = []
+    if company_settings:
+        guide_images = company_settings.crypto_guide_images.all()
+
+    return render(request, 'myapp/crypto_payment_process.html', {
+        'transaction': transaction,
+        'company': company_settings,
+        'address': company_settings.crypto_usdt_address if company_settings else '',
+        'min_confirmations': company_settings.crypto_min_confirmations if company_settings else 10,
+        'guide_images': guide_images # PASAR IMÁGENES AL CONTEXTO
+    })
+
+@login_required
+def crypto_subscription_process(request, plan_id):
+    company_settings = CompanySettings.objects.last()
+    active_methods = list(PaymentMethod.objects.filter(is_active=True).values_list('config_key', flat=True))
+    if 'crypto' not in active_methods:
+        return redirect('subscription_plans')
+
+    plan = get_object_or_404(SubscriptionPlan, id=plan_id)
+    
+    # --- ARREGLO DEL BUG: NO SOBRESCRIBIR LA SUSCRIPCIÓN ACTIVA AL NAVEGAR ---
+    try:
+        existing_sub = UserSubscription.objects.get(user=request.user)
+    except UserSubscription.DoesNotExist:
+        existing_sub = UserSubscription.objects.create(user=request.user, plan=plan, status='PENDING')
+    
+    import decimal
+    import random
+    random_cents = decimal.Decimal(random.randrange(1, 9999)) / decimal.Decimal('1000000.0')
+    
+    # Buscamos si existe una transacción PENDIENTE previa para ESTE plan y ESTE usuario
+    # para no crear transacciones infinitas si el usuario solo está "curioseando"
+    transaction = PaymentTransaction.objects.filter(
+        user=request.user, 
+        status='PENDING', 
+        paypal_transaction_id=f"SUB_PLAN_{plan.id}"
+    ).first()
+    
+    if not transaction:
+        # Si no existe, la creamos
+        transaction = PaymentTransaction.objects.create(
+            user=request.user,
+            amount=plan.price,
+            crypto_amount=(decimal.Decimal(plan.price) + random_cents).quantize(decimal.Decimal('0.000001')),
+            paypal_transaction_id=f"SUB_PLAN_{plan.id}" 
+        )
+
+    # Obtener imágenes de guía
+    guide_images = []
+    if company_settings:
+        guide_images = company_settings.crypto_guide_images.all()
+
+    return render(request, 'myapp/crypto_payment_process.html', {
+        'transaction': transaction,
+        'company': company_settings,
+        'address': company_settings.crypto_usdt_address if company_settings else '',
+        'min_confirmations': company_settings.crypto_min_confirmations if company_settings else 10,
+        'guide_images': guide_images # PASAR IMÁGENES AL CONTEXTO
+    })
+
+@login_required
+def check_payment_status(request, transaction_id):
+    transaction = get_object_or_404(PaymentTransaction, id=transaction_id, user=request.user)
+    return JsonResponse({'status': transaction.status})
 
 # --- NUEVA VISTA: CREAR SESIÓN DE STRIPE ---
 @login_required
@@ -1279,7 +1367,7 @@ def create_checkout_session(request, package_id):
                 mode='payment',
                 success_url=f'{protocol}://{host}{reverse("payment_done")}',
                 cancel_url=f'{protocol}://{host}{reverse("payment_canceled")}',
-                client_reference_id=str(request.user.id), # Para identificar al usuario en el webhook
+                client_reference_id=str(request.request.user.id), # Para identificar al usuario en el webhook
                 metadata={
                     'package_id': package.id,
                     'user_id': request.user.id
@@ -1338,10 +1426,12 @@ def subscription_process(request, plan_id):
     host = request.get_host()
     
     # Create or update pending subscription record
-    sub, created = UserSubscription.objects.get_or_create(user=request.user)
-    sub.plan = plan
-    sub.status = 'PENDING'
-    sub.save()
+    # --- ARREGLO DEL BUG: NO SOBRESCRIBIR LA SUSCRIPCIÓN ACTIVA AL NAVEGAR ---
+    try:
+        sub = UserSubscription.objects.get(user=request.user)
+        # Si ya tiene una, no la tocamos aquí, esperamos a que PayPal avise
+    except UserSubscription.DoesNotExist:
+        sub = UserSubscription.objects.create(user=request.user, plan=plan, status='PENDING')
     
     # --- CONFIGURACIÓN DINÁMICA DE PAYPAL DESDE BD ---
     receiver_email = company_settings.paypal_receiver_email if company_settings.paypal_receiver_email else settings.PAYPAL_RECEIVER_EMAIL
@@ -1361,7 +1451,7 @@ def subscription_process(request, plan_id):
         'notify_url': f'http://{host}{reverse("paypal-ipn")}',
         'return_url': f'http://{host}{reverse("subscription_done")}',
         'cancel_return': f'http://{host}{reverse("subscription_canceled")}',
-        'custom': str(request.user.id), # Pass User ID to identify who is subscribing
+        'custom': f"{request.user.id}_{plan.id}", # Pasamos User ID y Plan ID
     }
     
     # --- DEBUG LOG ---
