@@ -69,6 +69,10 @@
             transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
             position: relative;
             overflow: hidden;
+
+            /* Para que todas las tarjetas tengan al menos el mismo ancho en diseño centrado */
+            width: 100%;
+            max-width: 400px;
         }
 
         .premium-card:hover {
@@ -87,7 +91,7 @@
             position: absolute;
             top: 0; left: -100%;
             width: 100%; height: 100%;
-            background: linear-gradient(90deg, transparent, rgba(255,255,255,0.1), transparent); /* Brillo más intenso */
+            background: linear-gradient(90deg, transparent, rgba(255,255,255,0.1), transparent); /* Brillo más intense */
             transition: 0.5s;
             pointer-events: none;
         }
@@ -269,12 +273,13 @@
             {% endif %}
 
             {% if plans %}
-                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 items-start">
+                <!-- LÓGICA DE CENTRADO DINÁMICO -->
+                <div class="flex flex-wrap justify-center gap-8 items-start">
                     {% for plan in plans %}
 
-                    <div class="premium-card p-8 flex flex-col relative group {% if forloop.counter == 2 and plans|length == 3 %}transform md:-translate-y-4 border-t-white/30 shadow-2xl{% endif %} {% if current_sub.plan.id == plan.id and current_sub.status == 'ACTIVE' %}border-green-500/50{% endif %}">
+                    <div class="premium-card p-8 flex flex-col relative group {% if plans|length == 3 and forloop.counter == 2 %}md:-translate-y-4 border-t-white/30 shadow-2xl{% endif %} {% if current_sub.plan.id == plan.id and current_sub.status == 'ACTIVE' %}border-green-500/50{% endif %}">
 
-                        {% if forloop.counter == 2 and plans|length == 3 %}
+                        {% if plans|length == 3 and forloop.counter == 2 %}
                         <div class="absolute top-0 right-0 bg-white/10 text-white text-[10px] font-bold px-3 py-1 rounded-bl-xl border-l border-b border-white/10">
                             MOST POPULAR
                         </div>
