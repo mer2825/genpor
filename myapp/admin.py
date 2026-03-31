@@ -223,6 +223,10 @@ class CompanySettingsAdmin(admin.ModelAdmin):
             'fields': ('is_token_sale_active', 'is_subscription_active'),
             'description': 'Enable or disable the ability for users to purchase token packages or subscriptions.'
         }),
+        ('Workspace Features', {
+            'fields': ('is_image_generation_enabled', 'is_video_generation_enabled'),
+            'description': 'Enable or disable generation modes in the workspace.'
+        }),
         ('Crypto Payment Configuration', {
             'fields': ('crypto_usdt_address', 'crypto_usdt_qr', 'crypto_trongrid_api_key', 'crypto_min_confirmations'), # AÑADIDO QR AL ADMIN
             'description': 'Configure TRC20 wallet, optional QR Code, and TronGrid API key to receive USDT payments automatically. Suba imágenes en la sección "Crypto Guide Images" para mostrar un tutorial.'

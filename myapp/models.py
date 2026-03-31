@@ -395,6 +395,10 @@ class CompanySettings(models.Model):
     # --- NEW: SUBSCRIPTION SWITCH ---
     is_subscription_active = models.BooleanField(default=True, verbose_name="Enable Subscriptions", help_text="If unchecked, users cannot subscribe to plans.")
 
+    # --- NEW: WORKSPACE MODES SWITCH ---
+    is_image_generation_enabled = models.BooleanField(default=True, verbose_name="Enable Image Generation", help_text="If unchecked, users cannot generate images in the workspace.")
+    is_video_generation_enabled = models.BooleanField(default=True, verbose_name="Enable Video Generation", help_text="If unchecked, users cannot generate videos in the workspace.")
+
     # --- NEW: PAYPAL SETTINGS (ADMIN CONFIGURABLE) ---
     paypal_receiver_email = models.EmailField(verbose_name="PayPal Receiver Email", blank=True, null=True, help_text="The email of the PayPal Business account that receives payments.")
     paypal_is_sandbox = models.BooleanField(default=True, verbose_name="PayPal Sandbox Mode", help_text="If checked, payments will be processed in Sandbox (Test) mode. Uncheck for Live (Real Money).")

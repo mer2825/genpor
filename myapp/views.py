@@ -55,7 +55,7 @@ def serve_private_media(request, path):
     # --- SECURITY FIX (Path Traversal) ---
     # Normalize the path to remove '..' and redundancies
     normalized_path = os.path.normpath(path)
-    
+
     # Verify it doesn't try to exit the root directory
     if '..' in normalized_path or normalized_path.startswith(('/', '\\')):
         raise Http404("Invalid file path.")
@@ -90,12 +90,12 @@ def serve_private_media(request, path):
 
     # Check permissions
     has_access = False
-    
+
     # 1. If the user is authenticated and is the owner or staff
     if request.user.is_authenticated:
         if request.user.id == owner_id or request.user.is_staff:
             has_access = True
-    
+
     # 2. If no access yet, check if the image owner is staff (making it public)
     if not has_access:
         try:
@@ -118,18 +118,18 @@ def serve_private_media(request, path):
 def get_characters_with_images(user=None):
     # Base query: Active characters -> ORDERED BY SUBCATEGORY NAME, THEN CHARACTER NAME
     qs = Character.objects.filter(is_active=True).order_by('subcategory__name', 'name').prefetch_related('catalog_images_set').select_related('category', 'subcategory')
-    
+
     if user and user.is_authenticated:
         # If user is logged in, show public OR private ones they have unlocked
         # Subquery for unlocked private characters
         unlocked_ids = UserCharacterAccess.objects.filter(user=user).values_list('character_id', flat=True)
-        
+
         # Filter: (Public) OR (Private AND Unlocked)
         qs = qs.filter(Q(is_private=False) | Q(id__in=unlocked_ids))
     else:
         # If not logged in, only show public
         qs = qs.filter(is_private=False)
-        
+
     return list(qs.all())
 
 # --- FUNCTION TO GET COMPANY SETTINGS ---
@@ -143,7 +143,7 @@ def get_company_settings():
 def get_user_from_request(request):
     user = request.user
     if user.is_authenticated:
-        pass 
+        pass
     return user
 
 # --- HELPER: CHECK USER PERMISSIONS (UPDATED) ---
@@ -200,7 +200,7 @@ async def profile_view(request):
         tokens = await profile.get_tokens_remaining_async()
     except ClientProfile.DoesNotExist:
         tokens = 0
-        
+
     # Get stats (e.g., total images generated)
     total_images = await sync_to_async(CharacterImage.objects.filter(user=user).count)()
 
@@ -209,40 +209,40 @@ async def profile_view(request):
     google_accounts = await sync_to_async(list)(
         SocialAccount.objects.filter(user=user, provider='google').order_by('-last_login')
     )
-    
+
     active_google_account = None
 
     # --- LOGICA DE SUSTITUCIÓN DE CUENTA ---
     if google_accounts:
         latest_account = google_accounts[0] # La que acabamos de conectar/usar
         active_google_account = latest_account
-        
+
         # 1. Actualizar email del usuario si es diferente
         google_email = latest_account.extra_data.get('email')
         if google_email and google_email != user.email:
             # Guardamos el email antiguo para borrarlo de Allauth después
             old_email = user.email
-            
+
             user.email = google_email
-            
+
             # --- NUEVO: Actualizar Username Automáticamente ---
             base_username = google_email.split('@')[0]
             new_username = base_username
-            
+
             @sync_to_async
             def check_username_exists(uname):
                 return User.objects.filter(username=uname).exclude(pk=user.pk).exists()
-            
+
             counter = 1
             while await check_username_exists(new_username):
                 new_username = f"{base_username}{counter}"
                 counter += 1
-            
+
             user.username = new_username
             # --------------------------------------------------
 
             await sync_to_async(user.save)()
-            
+
             # --- LIMPIEZA PROFUNDA DE EMAILS (ALLAUTH) ---
             # Borramos el email antiguo de la tabla de EmailAddress para liberar la cuenta
             if old_email:
@@ -250,7 +250,7 @@ async def profile_view(request):
                 def clean_old_email_address(email_to_remove):
                     EmailAddress.objects.filter(email=email_to_remove).delete()
                 await clean_old_email_address(old_email)
-            
+
             # Creamos/Actualizamos el nuevo email en EmailAddress como verificado y primario
             @sync_to_async
             def update_new_email_address(user_obj, new_email):
@@ -265,7 +265,7 @@ async def profile_view(request):
                 )
             await update_new_email_address(user, google_email)
             # ---------------------------------------------
-            
+
         # 2. Eliminar cuentas antiguas (si hay más de una)
         if len(google_accounts) > 1:
             # Definimos una función síncrona para borrar
@@ -274,10 +274,10 @@ async def profile_view(request):
                 for acc in accounts_list:
                     if acc.id != keep_id:
                         acc.delete()
-            
+
             # Ejecutamos el borrado de las antiguas
             await delete_old_accounts(google_accounts, latest_account.id)
-    
+
     # --- LOGICA DE PLAN DE SUSCRIPCIÓN ---
     plan_name = "Free Plan"
     is_subscribed = False
@@ -294,7 +294,7 @@ async def profile_view(request):
             return "Free Plan", False
 
         plan_name, is_subscribed = await get_subscription_info(user)
-        
+
     except Exception:
         pass
 
@@ -314,7 +314,7 @@ async def update_username_view(request):
     user = await get_user_from_request(request)
     if not user.is_authenticated:
         return JsonResponse({'status': 'error', 'message': 'Unauthorized'}, status=401)
-    
+
     if request.method == 'POST':
         new_username = request.POST.get('username')
         if not new_username:
@@ -323,20 +323,20 @@ async def update_username_view(request):
         # Basic validation
         if len(new_username) < 3:
             return JsonResponse({'status': 'error', 'message': 'Username must be at least 3 characters long'})
-            
+
         try:
             @sync_to_async
             def perform_update(user_obj, username):
                 # Check if username exists (excluding current user)
                 if User.objects.filter(username=username).exclude(pk=user_obj.pk).exists():
                     return {"success": False, "message": "Username already taken."}
-                
+
                 user_obj.username = username
                 user_obj.save()
                 return {"success": True}
 
             result = await perform_update(user, new_username)
-            
+
             if result["success"]:
                 return JsonResponse({'status': 'success', 'message': 'Username updated successfully'})
             else:
@@ -344,7 +344,7 @@ async def update_username_view(request):
 
         except Exception as e:
             return JsonResponse({'status': 'error', 'message': str(e)}, status=500)
-            
+
     return JsonResponse({'status': 'error', 'message': 'Method not allowed'}, status=405)
 
 # --- GALLERY VIEW ---
@@ -352,27 +352,27 @@ async def gallery_view(request):
     user = await get_user_from_request(request)
     if not user.is_authenticated:
         return redirect('account_login')
-    
+
     company_settings = await get_company_settings()
-    
+
     # Get all images generated by the user
     user_images = await sync_to_async(list)(
         CharacterImage.objects.filter(user=user).select_related('character', 'character__category', 'character__subcategory').order_by('-id')
     )
-    
+
     # --- NUEVO: Get all videos generated by the user ---
     user_videos = await sync_to_async(list)(
         GeneratedVideo.objects.filter(user=user).select_related('character').order_by('-created_at')
     )
-    
+
     # --- NEW: Get all categories and subcategories ORDERED BY NAME ---
     all_categories = await sync_to_async(list)(CharacterCategory.objects.all().order_by('name'))
     all_subcategories = await sync_to_async(list)(CharacterSubCategory.objects.all().order_by('name'))
-    
+
     # Group by character
     public_gallery = {}
     private_gallery = {}
-    
+
     # Helper para inicializar estructura
     def get_or_create_char_entry(target_dict, char):
         if char.id not in target_dict:
@@ -390,9 +390,9 @@ async def gallery_view(request):
         # --- CAMBIO: Si está oculta, va a galería privada ---
         is_private = img.character.is_private or img.is_hidden_from_admin
         target_dict = private_gallery if is_private else public_gallery
-        
+
         entry = get_or_create_char_entry(target_dict, img.character)
-        
+
         entry['images'].append({
             'id': img.id,
             'url': img.image.url
@@ -403,17 +403,17 @@ async def gallery_view(request):
     # Procesar Videos
     for vid in user_videos:
         if not vid.character: continue # Ignorar videos sin personaje (legacy)
-        
+
         target_dict = private_gallery if vid.character.is_private else public_gallery
         entry = get_or_create_char_entry(target_dict, vid.character)
-        
+
         entry['videos'].append({
             'id': vid.id,
             'url': reverse('serve_private_media', kwargs={'path': vid.video_file.name}),
             'thumbnail': vid.thumbnail.url if vid.thumbnail else None
         })
         # No incrementamos 'count' para no duplicar visualmente, o podríamos hacerlo si queremos un total mixto
-    
+
     context = {
         'company': company_settings,
         'public_gallery': list(public_gallery.values()),
@@ -428,13 +428,13 @@ async def delete_images_view(request):
     user = await get_user_from_request(request)
     if not user.is_authenticated:
         return JsonResponse({'status': 'error', 'message': 'Unauthorized'}, status=401)
-    
+
     if request.method == 'POST':
         try:
             image_ids = request.POST.getlist('image_ids[]')
             if not image_ids:
                 return JsonResponse({'status': 'error', 'message': 'No images selected'})
-            
+
             @sync_to_async
             def perform_delete(ids, user_obj):
                 qs = CharacterImage.objects.filter(id__in=ids, user=user_obj)
@@ -450,7 +450,7 @@ async def delete_images_view(request):
             return JsonResponse({'status': 'success', 'deleted_count': count})
         except Exception as e:
             return JsonResponse({'status': 'error', 'message': str(e)}, status=500)
-    
+
     return JsonResponse({'status': 'error', 'message': 'Method not allowed'}, status=405)
 
 # --- VIEW TO DELETE INDIVIDUAL MESSAGE ---
@@ -458,17 +458,17 @@ async def delete_message_view(request):
     user = await get_user_from_request(request)
     if not user.is_authenticated:
         return JsonResponse({'status': 'error', 'message': 'Unauthorized'}, status=401)
-    
+
     if request.method == 'POST':
         try:
             message_id = request.POST.get('message_id')
             delete_images = request.POST.get('delete_images') == 'true'
-            
+
             @sync_to_async
             def perform_message_delete(msg_id, user_obj, del_imgs):
                 try:
                     msg = ChatMessage.objects.get(id=msg_id, user=user_obj)
-                    
+
                     if del_imgs:
                         # Delete associated images
                         images = msg.generated_images.all()
@@ -476,7 +476,7 @@ async def delete_message_view(request):
                             if img.image:
                                 img.image.delete(save=False) # Delete file
                             img.delete() # Delete record
-                        
+
                         # --- NUEVO: Delete associated videos ---
                         videos = msg.generated_videos.all()
                         for vid in videos:
@@ -485,22 +485,22 @@ async def delete_message_view(request):
                             if vid.thumbnail:
                                 vid.thumbnail.delete(save=False)
                             vid.delete()
-                    
+
                     msg.delete()
                     return True
                 except ChatMessage.DoesNotExist:
                     return False
 
             success = await perform_message_delete(message_id, user, delete_images)
-            
+
             if success:
                 return JsonResponse({'status': 'success'})
             else:
                 return JsonResponse({'status': 'error', 'message': 'Message not found'})
-                
+
         except Exception as e:
             return JsonResponse({'status': 'error', 'message': str(e)}, status=500)
-            
+
     return JsonResponse({'status': 'error', 'message': 'Method not allowed'}, status=405)
 
 # --- VIEW TO CLEAR ENTIRE CHAT HISTORY ---
@@ -508,17 +508,17 @@ async def clear_chat_history_view(request):
     user = await get_user_from_request(request)
     if not user.is_authenticated:
         return JsonResponse({'status': 'error', 'message': 'Unauthorized'}, status=401)
-    
+
     if request.method == 'POST':
         try:
             character_id = request.POST.get('character_id')
             delete_images = request.POST.get('delete_images') == 'true'
-            
+
             @sync_to_async
             def perform_clear_chat(char_id, user_obj, del_imgs):
                 # Get all messages for this chat
                 msgs = ChatMessage.objects.filter(user=user_obj, character_id=char_id)
-                
+
                 if del_imgs:
                     # Collect all images from these messages
                     for msg in msgs:
@@ -527,7 +527,7 @@ async def clear_chat_history_view(request):
                             if img.image:
                                 img.image.delete(save=False)
                             img.delete()
-                        
+
                         # --- NUEVO: Collect all videos ---
                         videos = msg.generated_videos.all()
                         for vid in videos:
@@ -536,17 +536,17 @@ async def clear_chat_history_view(request):
                             if vid.thumbnail:
                                 vid.thumbnail.delete(save=False)
                             vid.delete()
-                
+
                 # Delete the messages
                 count, _ = msgs.delete()
                 return count
 
             deleted_count = await perform_clear_chat(character_id, user, delete_images)
             return JsonResponse({'status': 'success', 'deleted_count': deleted_count})
-                
+
         except Exception as e:
             return JsonResponse({'status': 'error', 'message': str(e)}, status=500)
-            
+
     return JsonResponse({'status': 'error', 'message': 'Method not allowed'}, status=405)
 
 # --- WORKSPACE VIEW ---
@@ -606,11 +606,11 @@ async def workspace_view(request):
         recent_ids = list(ChatMessage.objects.filter(user=user)
                           .values_list('character_id', flat=True)
                           .order_by('-timestamp'))
-        
+
         # 2. Remove duplicates while maintaining order
         seen = set()
         unique_ids = [x for x in recent_ids if not (x in seen or seen.add(x))]
-        
+
         if not unique_ids:
             return []
 
@@ -618,13 +618,13 @@ async def workspace_view(request):
         # --- NEW: Filter by is_active=True ---
         chars_qs = Character.objects.filter(id__in=unique_ids, is_active=True).prefetch_related('catalog_images_set')
         chars_dict = {c.id: c for c in chars_qs}
-        
+
         # 4. Rebuild the list in the correct order
         ordered_chars = []
         for cid in unique_ids:
             if cid in chars_dict:
                 ordered_chars.append(chars_dict[cid])
-                
+
         return ordered_chars
 
     recent_chats = await get_recent_chats_list()
@@ -635,7 +635,7 @@ async def workspace_view(request):
         # 1. Get all active characters with their catalog images prefetched
         # --- CHANGE: Use the filtered list we already got ---
         all_active_chars = all_characters
-        
+
         # 2. Collect all catalog images into a single list
         all_catalog_images = []
         for char in all_active_chars:
@@ -646,7 +646,7 @@ async def workspace_view(request):
             random_images = random.sample(all_catalog_images, 2)
         else:
             random_images = all_catalog_images # Take all if less than 2
-            
+
         # 4. Format for the template
         for img in random_images:
             random_preview_images.append({
@@ -667,7 +667,7 @@ async def workspace_view(request):
                         config = json.loads(selected_character.character_config)
                         if 'width' in config: default_width = int(config['width'])
                         if 'height' in config: default_height = int(config['height'])
-                        
+
                         # Seed logic:
                         if config.get('seed_behavior') == 'fixed' and 'seed' in config:
                             default_seed = int(config['seed'])
@@ -675,19 +675,19 @@ async def workspace_view(request):
                             default_seed = -1
 
                     except (json.JSONDecodeError, ValueError):
-                        pass 
+                        pass
 
                 @sync_to_async
                 def get_workflow_json():
                     with open(selected_character.base_workflow.json_file.path, 'r', encoding='utf-8') as f:
                         return json.load(f)
-                
+
                 try:
                     wf_json = await get_workflow_json()
                     # analyze_workflow_outputs needs the node structure, so we use the base.
                     workflow_capabilities = analyze_workflow_outputs(wf_json)
                     print(f"DEBUG WORKFLOW (RAW): {workflow_capabilities}") # LOG
-                    
+
                     # --- NEW: FILTER CAPABILITIES BASED ON USER PERMISSIONS ---
                     # If user doesn't have permission, disable the capability even if the workflow supports it
                     if not user_permissions['can_upscale']:
@@ -698,7 +698,7 @@ async def workspace_view(request):
                         workflow_capabilities['can_eyedetailer'] = False
                     # ----------------------------------------------------------
                     print(f"DEBUG WORKFLOW (FILTERED): {workflow_capabilities}") # LOG
-                    
+
                 except Exception as e:
                     print(f"Error analyzing workflow: {e}")
 
@@ -707,7 +707,7 @@ async def workspace_view(request):
                 # --- SEPARAR HISTORIAL POR TIPO ---
                 chat_qs = await sync_to_async(list)(
                     ChatMessage.objects.filter(
-                        user=user, 
+                        user=user,
                         character=selected_character
                     ).prefetch_related('generated_images', 'generated_videos').order_by('timestamp')
                 )
@@ -724,11 +724,11 @@ async def workspace_view(request):
                     if not msg.is_from_user:
                         # Get associated images
                         imgs = await sync_to_async(list)(msg.generated_images.all())
-                        
+
                         # --- PLACEHOLDER LOGIC ---
                         real_images_count = len(imgs)
                         expected_count = msg.image_count
-                        
+
                         # First, add the real images
                         for img in imgs:
                             # --- CORRECCIÓN: Usar el campo de la BD en lugar de adivinar por nombre ---
@@ -736,7 +736,7 @@ async def workspace_view(request):
                             if img.generation_type == "Gen_UpScaler": img_type = "UPSCALER"
                             elif img.generation_type == "Gen_FaceDetailer": img_type = "FACEDETAILER"
                             elif img.generation_type == "Gen_EyeDetailer": img_type = "EYEDETAILER"
-                            
+
                             item['images'].append({
                                 'url': img.image.url,
                                 'type': img_type,
@@ -744,7 +744,7 @@ async def workspace_view(request):
                                 'height': img.height,
                                 'is_deleted': False
                             })
-                        
+
                         # Then fill with placeholders if any are missing
                         if expected_count > real_images_count:
                             missing_count = expected_count - real_images_count
@@ -754,7 +754,7 @@ async def workspace_view(request):
                                     'type': "DELETED",
                                     'is_deleted': True
                                 })
-                        
+
                         # --- NUEVO: Get associated videos ---
                         vids = await sync_to_async(list)(msg.generated_videos.all())
                         for vid in vids:
@@ -769,7 +769,7 @@ async def workspace_view(request):
                         chat_history_video.append(item)
                     else:
                         chat_history_image.append(item)
-                    
+
         except Exception:
             pass
 
@@ -801,7 +801,7 @@ async def get_models_view(request):
     user = await get_user_from_request(request)
     if not user.is_authenticated:
         return JsonResponse({'status': 'error', 'message': 'Unauthorized'}, status=401)
-    
+
     try:
         address = await get_active_comfyui_address()
         info = await get_comfyui_object_info(address)
@@ -819,7 +819,7 @@ async def generate_image_view(request):
         if request.method == 'POST':
             if not user.is_authenticated:
                 return JsonResponse({'status': 'error', 'message': 'You must be logged in to generate images.'}, status=401)
-            
+
             # --- TOKEN VALIDATION (NEW) ---
             # Only if not staff (admins have infinite tokens)
             if not user.is_staff:
@@ -885,7 +885,7 @@ async def generate_image_view(request):
 
             # --- NEW: SECURITY CHECK FOR PERMISSIONS ---
             user_permissions = await get_user_permissions(user)
-            
+
             if generation_type == "Gen_UpScaler" and not user_permissions['can_upscale']:
                 return JsonResponse({'status': 'error', 'message': 'Upscale is not available in your plan.'}, status=403)
             if generation_type == "Gen_FaceDetailer" and not user_permissions['can_facedetail']:
@@ -1037,7 +1037,7 @@ async def generate_image_view(request):
     if request.method == 'GET':
         characters = await get_characters_with_images(user)
         company_settings = await get_company_settings()
-        
+
         # --- FIX: Add loading of categories and subcategories ORDERED BY NAME ---
         all_categories = await sync_to_async(list)(CharacterCategory.objects.all().order_by('name'))
         all_subcategories = await sync_to_async(list)(CharacterSubCategory.objects.all().order_by('name'))
@@ -1047,13 +1047,13 @@ async def generate_image_view(request):
         if company_settings:
             # Get carousel images directly from the HeroCarouselImage model
             hero_images = await sync_to_async(list)(company_settings.hero_images.all())
-            
+
             for img in hero_images:
                 hero_items.append({
                     'image_url': img.image.url,
                     'name': img.caption or "" # Use caption or empty
                 })
-        
+
         context = {
             'characters': characters,
             'company': company_settings,
@@ -1062,47 +1062,47 @@ async def generate_image_view(request):
             'all_subcategories': all_subcategories, # Pass subcategories to template
         }
         return await sync_to_async(render)(request, 'myapp/generate.html', context)
-    
+
     return redirect('generate_image')
 
 async def redeem_coupon_view(request):
     user = await get_user_from_request(request)
     if not user.is_authenticated:
         return JsonResponse({'status': 'error', 'message': 'Unauthorized'}, status=401)
-    
+
     if request.method == 'POST':
         code = request.POST.get('code')
         if not code:
             return JsonResponse({'status': 'error', 'message': 'Code is required'})
-        
+
         try:
             @sync_to_async
             def process_redemption(user_obj, input_code):
                 # 1. Try to redeem as Token/Premium Coupon
                 try:
                     coupon = Coupon.objects.get(code=input_code)
-                    
+
                     # Check if user already redeemed this coupon
                     if CouponRedemption.objects.filter(user=user_obj, coupon=coupon).exists():
                         return {"success": False, "message": "You have already redeemed this coupon."}
-                    
+
                     # Check global limit
                     if coupon.max_redemptions is not None and coupon.times_redeemed >= coupon.max_redemptions:
                         return {"success": False, "message": "This coupon has reached its maximum usage limit."}
-                    
+
                     # Process redemption
                     CouponRedemption.objects.create(user=user_obj, coupon=coupon)
-                    
+
                     # Update coupon stats
                     coupon.times_redeemed += 1
                     coupon.save()
-                    
+
                     # Grant tokens (if any)
                     if coupon.tokens > 0:
                         profile, _ = ClientProfile.objects.get_or_create(user=user_obj)
                         profile.bonus_tokens += coupon.tokens
                         profile.save()
-                    
+
                     # Grant Premium Features (if duration > 0)
                     if coupon.duration_days > 0:
                         expires = timezone.now() + timedelta(days=coupon.duration_days)
@@ -1115,11 +1115,11 @@ async def redeem_coupon_view(request):
                             grant_face_detail=coupon.unlock_face_detail,
                             grant_eye_detail=coupon.unlock_eye_detail
                         )
-                    
+
                     msg_parts = []
                     if coupon.tokens > 0: msg_parts.append(f"{coupon.tokens} Tokens")
                     if coupon.duration_days > 0: msg_parts.append(f"{coupon.duration_days} Days Premium Access")
-                    
+
                     return {"success": True, "message": f"Successfully redeemed: {' + '.join(msg_parts)}!"}
 
                 except Coupon.DoesNotExist:
@@ -1128,15 +1128,15 @@ async def redeem_coupon_view(request):
                 # 2. Try to redeem as Character Access Code
                 try:
                     char_code = CharacterAccessCode.objects.get(code=input_code, is_active=True)
-                    
+
                     # --- NEW: Check Global Limit ---
                     if char_code.max_redemptions is not None and char_code.times_redeemed >= char_code.max_redemptions:
                         return {"success": False, "message": "This code has reached its maximum usage limit."}
-                    
+
                     # Check if user already has this character
                     if UserCharacterAccess.objects.filter(user=user_obj, character=char_code.character).exists():
                         return {"success": False, "message": "You already have access to this character."}
-                    
+
                     # Create access record
                     UserCharacterAccess.objects.create(
                         user=user_obj,
@@ -1156,7 +1156,7 @@ async def redeem_coupon_view(request):
                     return {"success": False, "message": "Invalid code."}
 
             result = await process_redemption(user, code)
-            
+
             if result["success"]:
                 return JsonResponse({'status': 'success', 'message': result["message"]})
             else:
@@ -1164,7 +1164,7 @@ async def redeem_coupon_view(request):
 
         except Exception as e:
             return JsonResponse({'status': 'error', 'message': str(e)}, status=500)
-            
+
     return JsonResponse({'status': 'error', 'message': 'Method not allowed'}, status=405)
 
 # --- PAYPAL VIEWS ---
@@ -1172,32 +1172,32 @@ async def redeem_coupon_view(request):
 @login_required
 def token_packages(request):
     company_settings = CompanySettings.objects.last() # CAMBIO: .last()
-    
+
     # --- NEW: Check if token sales are active ---
     if company_settings and not company_settings.is_token_sale_active:
         return redirect('profile') # Redirect to profile if disabled
-    
+
     packages = TokenPackage.objects.filter(is_active=True)
     return render(request, 'myapp/token_packages.html', {'packages': packages, 'company': company_settings})
 
 @login_required
 def payment_process(request, package_id):
     company_settings = CompanySettings.objects.last() # CAMBIO: .last()
-    
+
     # --- NEW: Check if token sales are active ---
     if company_settings and not company_settings.is_token_sale_active:
         return redirect('profile')
 
     package = get_object_or_404(TokenPackage, id=package_id)
     host = request.get_host()
-    
+
     # Crear transacción
     transaction = PaymentTransaction.objects.create(
         user=request.user,
         package=package,
         amount=package.price
     )
-    
+
     # --- NUEVO: Generar crypto_amount único si el método cripto está activo ---
     active_methods = list(PaymentMethod.objects.filter(is_active=True).values_list('config_key', flat=True))
     if 'crypto' in active_methods:
@@ -1222,13 +1222,13 @@ def payment_process(request, package_id):
         'cancel_return': f'http://{host}{reverse("payment_canceled")}',
         'custom': str(transaction.id), # Pasamos el ID de la transacción para recuperarlo en la señal
     }
-    
+
     # --- DEBUG LOG ---
     print(f"DEBUG PAYPAL: Sandbox Mode in DB = {company_settings.paypal_is_sandbox}")
 
     # --- USAR CLASE PERSONALIZADA PARA FORZAR ENDPOINT ---
     form = DynamicPayPalForm(initial=paypal_dict, is_sandbox=company_settings.paypal_is_sandbox)
-    
+
     # --- CALCULAR ENDPOINT EXPLÍCITAMENTE PARA EL TEMPLATE ---
     paypal_endpoint = form.get_endpoint()
 
@@ -1241,7 +1241,7 @@ def payment_process(request, package_id):
             stripe_key = settings.STRIPE_PUBLISHABLE_KEY # Fallback
 
     return render(request, 'myapp/payment_process.html', {
-        'form': form, 
+        'form': form,
         'package': package,
         'company': company_settings,
         'paypal_endpoint': paypal_endpoint, # PASAR VARIABLE AL CONTEXTO
@@ -1254,14 +1254,14 @@ def payment_process(request, package_id):
 @login_required
 def crypto_payment_process(request, transaction_id):
     company_settings = CompanySettings.objects.last()
-    
+
     # Asegurarse de que el método cripto esté activo
     active_methods = list(PaymentMethod.objects.filter(is_active=True).values_list('config_key', flat=True))
     if 'crypto' not in active_methods:
         return redirect('token_packages')
-        
+
     transaction = get_object_or_404(PaymentTransaction, id=transaction_id, user=request.user, status='PENDING')
-    
+
     # Obtener imágenes de guía
     guide_images = []
     if company_settings:
@@ -1283,32 +1283,32 @@ def crypto_subscription_process(request, plan_id):
         return redirect('subscription_plans')
 
     plan = get_object_or_404(SubscriptionPlan, id=plan_id)
-    
+
     # --- ARREGLO DEL BUG: NO SOBRESCRIBIR LA SUSCRIPCIÓN ACTIVA AL NAVEGAR ---
     try:
         existing_sub = UserSubscription.objects.get(user=request.user)
     except UserSubscription.DoesNotExist:
         existing_sub = UserSubscription.objects.create(user=request.user, plan=plan, status='PENDING')
-    
+
     import decimal
     import random
     random_cents = decimal.Decimal(random.randrange(1, 9999)) / decimal.Decimal('1000000.0')
-    
+
     # Buscamos si existe una transacción PENDIENTE previa para ESTE plan y ESTE usuario
     # para no crear transacciones infinitas si el usuario solo está "curioseando"
     transaction = PaymentTransaction.objects.filter(
-        user=request.user, 
-        status='PENDING', 
+        user=request.user,
+        status='PENDING',
         paypal_transaction_id=f"SUB_PLAN_{plan.id}"
     ).first()
-    
+
     if not transaction:
         # Si no existe, la creamos
         transaction = PaymentTransaction.objects.create(
             user=request.user,
             amount=plan.price,
             crypto_amount=(decimal.Decimal(plan.price) + random_cents).quantize(decimal.Decimal('0.000001')),
-            paypal_transaction_id=f"SUB_PLAN_{plan.id}" 
+            paypal_transaction_id=f"SUB_PLAN_{plan.id}"
         )
 
     # Obtener imágenes de guía
@@ -1334,23 +1334,23 @@ def check_payment_status(request, transaction_id):
 def create_checkout_session(request, package_id):
     if request.method == 'POST':
         company_settings = CompanySettings.objects.last()
-        
+
         # Obtener clave secreta
         stripe_secret_key = None
         if company_settings and company_settings.stripe_secret_key:
             stripe_secret_key = company_settings.stripe_secret_key
         else:
             stripe_secret_key = settings.STRIPE_SECRET_KEY
-            
+
         if not stripe_secret_key:
              return JsonResponse({'error': 'Stripe is not configured correctly.'}, status=500)
-             
+
         stripe.api_key = stripe_secret_key
-        
+
         package = get_object_or_404(TokenPackage, id=package_id)
         host = request.get_host()
         protocol = "https" if request.is_secure() else "http"
-        
+
         try:
             checkout_session = stripe.checkout.Session.create(
                 payment_method_types=['card'],
@@ -1398,7 +1398,7 @@ def subscription_plans(request):
     # --- NEW: Check if subscriptions are active ---
     if company_settings and not company_settings.is_subscription_active:
         return redirect('profile')
-        
+
     plans = SubscriptionPlan.objects.filter(is_active=True)
     
     # Check current subscription
@@ -1407,9 +1407,9 @@ def subscription_plans(request):
         current_sub = request.user.subscription
     except UserSubscription.DoesNotExist:
         pass
-        
+
     return render(request, 'myapp/subscription_plans.html', {
-        'plans': plans, 
+        'plans': plans,
         'company': company_settings,
         'current_sub': current_sub
     })
@@ -1432,7 +1432,7 @@ def subscription_process(request, plan_id):
         # Si ya tiene una, no la tocamos aquí, esperamos a que PayPal avise
     except UserSubscription.DoesNotExist:
         sub = UserSubscription.objects.create(user=request.user, plan=plan, status='PENDING')
-    
+
     # --- CONFIGURACIÓN DINÁMICA DE PAYPAL DESDE BD ---
     receiver_email = company_settings.paypal_receiver_email if company_settings.paypal_receiver_email else settings.PAYPAL_RECEIVER_EMAIL
 
@@ -1475,7 +1475,7 @@ def subscription_process(request, plan_id):
             stripe_key = settings.STRIPE_PUBLISHABLE_KEY # Fallback
 
     return render(request, 'myapp/subscription_process.html', {
-        'form': form, 
+        'form': form,
         'plan': plan,
         'company': company_settings,
         'paypal_endpoint': paypal_endpoint, # PASAR VARIABLE AL CONTEXTO
@@ -1488,23 +1488,23 @@ def subscription_process(request, plan_id):
 def create_subscription_checkout_session(request, plan_id):
     if request.method == 'POST':
         company_settings = CompanySettings.objects.last()
-        
+
         # Obtener clave secreta
         stripe_secret_key = None
         if company_settings and company_settings.stripe_secret_key:
             stripe_secret_key = company_settings.stripe_secret_key
         else:
             stripe_secret_key = settings.STRIPE_SECRET_KEY
-            
+
         if not stripe_secret_key:
              return JsonResponse({'error': 'Stripe is not configured correctly.'}, status=500)
-             
+
         stripe.api_key = stripe_secret_key
-        
+
         plan = get_object_or_404(SubscriptionPlan, id=plan_id)
         host = request.get_host()
         protocol = "https" if request.is_secure() else "http"
-        
+
         # Mapear unidad de tiempo de Django a Stripe
         interval_map = {
             'D': 'day',
@@ -1513,7 +1513,7 @@ def create_subscription_checkout_session(request, plan_id):
             'Y': 'year'
         }
         stripe_interval = interval_map.get(plan.billing_period_unit, 'month')
-        
+
         try:
             checkout_session = stripe.checkout.Session.create(
                 payment_method_types=['card'],
@@ -1543,7 +1543,7 @@ def create_subscription_checkout_session(request, plan_id):
             return JsonResponse({'id': checkout_session.id})
         except Exception as e:
             return JsonResponse({'error': str(e)}, status=400)
-            
+
     return JsonResponse({'error': 'Invalid request'}, status=400)
 
 @csrf_exempt
@@ -1673,7 +1673,7 @@ async def generate_video_view(request):
             ai_msg = await save_ai_message(video_obj)
 
             video_url = reverse('serve_private_media', kwargs={'path': video_obj.video_file.name})
-            
+
             return JsonResponse({
                 'status': 'success',
                 'video_url': video_url,
