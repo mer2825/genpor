@@ -136,6 +136,7 @@ DATABASES = {
     }
 }
 
+DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 # Password validation
 # https://docs.djangoproject.com/en/6.0/ref/settings/#auth-password-validators
@@ -200,8 +201,7 @@ LOGIN_REDIRECT_URL = '/workspace/'  # Redirigir al workspace después del login
 LOGOUT_REDIRECT_URL = '/'
 
 # Configuración corregida para evitar conflictos y warnings
-ACCOUNT_EMAIL_REQUIRED = True
-ACCOUNT_USERNAME_REQUIRED = False
+ACCOUNT_SIGNUP_FIELDS = ['email*', 'password1*', 'password2*']
 ACCOUNT_SESSION_REMEMBER = True # Recordar sesión por defecto
 
 # --- CONFIGURACIÓN SOCIALACCOUNT ---

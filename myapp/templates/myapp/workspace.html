@@ -484,23 +484,23 @@
             width: 100%;
         }
 
+        /* ELIMINAMOS RESTRICCIONES DE TAMAÑO EN LA TARJETA DEL RESULTADO */
         .result-card {
             position: relative;
             border-radius: 12px;
             overflow: hidden;
             box-shadow: 0 4px 6px rgba(0,0,0,0.1);
             transition: transform 0.2s;
-            max-width: 300px; /* LÍMITE DE ANCHO PARA QUE NO SEA GIGANTE */
-            width: 100%; /* Ocupa hasta el max-width */
-            cursor: pointer; /* CAMBIO: Cursor pointer en todo el contenedor */
+            width: 100%; /* Ocupa todo el ancho disponible */
+            cursor: pointer;
         }
 
+        /* PERMITIMOS QUE LA IMAGEN SE MUESTRE COMPLETA */
         .result-card img, .result-card video {
             width: 100%;
-            height: auto;
+            height: auto; /* Altura automática basada en la proporción real */
             display: block;
-            max-height: 300px; /* LÍMITE DE ALTURA TAMBIÉN */
-            object-fit: cover; /* O contain si prefieres verla entera sin recorte */
+            object-fit: contain; /* Asegura que se vea completa, sin recortar */
             cursor: pointer;
         }
 
@@ -542,11 +542,25 @@
         @keyframes fadeOut {
             to { opacity: 0; transform: translateY(-10px); }
         }
-    </style>
 
-    <!-- Ajustes para el modal de selección de personajes -->
-    <style>
-        /* 1. Nombres largos: Trunca el texto para que no rompa el modal */
+        /* --- ESTILOS ESPECÍFICOS PARA EL HEADER DEL PERSONAJE --- */
+        .character-header .char-avatar {
+            width: 60px; /* Aumentado de 48px */
+            height: 60px; /* Aumentado de 48px */
+            border-radius: 50%;
+            object-fit: cover;
+            border: 2px solid var(--primary-color); /* Borde para resaltar */
+            box-shadow: 0 0 10px rgba(0,0,0,0.5); /* Sombra sutil */
+        }
+
+        .character-header .char-info h2 {
+            font-size: 1.6rem; /* Aumentado de 1.25rem */
+            font-weight: 700; /* Asegurar que sea negrita */
+            color: white; /* Asegurar color blanco */
+            margin-bottom: 2px; /* Ajustar espacio */
+        }
+
+        /* Ajustes para el modal de selección de personajes */
         .char-list-item {
             display: flex;
             align-items: center;
@@ -575,6 +589,170 @@
         .char-list-placeholder {
             background: #334155;
         }
+
+        /* --- ESTILOS PARA LOS PANELES DESPLEGABLES EN EL INPUT (REFACTORIZADO) --- */
+        .settings-toggle-bar {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 10px;
+            width: 100%;
+        }
+
+        .dropdown-wrapper {
+            position: relative;
+        }
+
+        .settings-dropdown-btn {
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid var(--border-subtle);
+            color: var(--text-muted);
+            padding: 8px 12px;
+            border-radius: 20px;
+            cursor: pointer;
+            font-size: 0.85rem;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            transition: all 0.2s;
+        }
+
+        .settings-dropdown-btn:hover, .settings-dropdown-btn.active {
+            background: rgba(255, 255, 255, 0.1);
+            color: white;
+            border-color: var(--primary-color);
+        }
+
+        .settings-dropdown-btn .fa-chevron-down {
+            transition: transform 0.3s;
+        }
+        .settings-dropdown-btn.active .fa-chevron-down {
+            transform: rotate(180deg);
+        }
+
+        .settings-dropdown-menu {
+            position: absolute;
+            bottom: calc(100% + 8px);
+            left: 0;
+            z-index: 110;
+            background: #1e293b; /* slate-800 */
+            border-radius: 12px;
+            border: 1px solid var(--card-border);
+            box-shadow: 0 8px 25px rgba(0,0,0,0.5);
+            padding: 4px; /* REDUCIDO AÚN MÁS */
+            display: none;
+            min-width: auto; /* REDUCIDO AÚN MÁS: Que se adapte al contenido */
+            white-space: nowrap; /* Evitar saltos de línea indeseados */
+            animation: slideUpFadeIn 0.2s ease-out;
+            max-height: 50vh;
+            overflow-y: auto;
+        }
+
+        .settings-dropdown-menu.show {
+            display: block;
+        }
+
+        @keyframes slideUpFadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        /* Ajustes de contenido dentro de los menús */
+        .settings-dropdown-menu .sidebar-title {
+            font-size: 0.70rem; /* REDUCIDO */
+            text-transform: uppercase;
+            color: var(--text-muted);
+            padding: 2px 4px; /* REDUCIDO */
+            margin-bottom: 2px; /* REDUCIDO */
+        }
+
+        .settings-dropdown-menu .mode-switch,
+        .settings-dropdown-menu .output-options-grid {
+            display: flex;
+            flex-direction: column;
+            gap: 2px; /* REDUCIDO */
+            margin-bottom: 0;
+        }
+
+        .settings-dropdown-menu .mode-btn,
+        .settings-dropdown-menu .output-option-btn {
+            background: transparent;
+            border: none;
+            text-align: left;
+            padding: 4px 8px; /* REDUCIDO AÚN MÁS */
+            border-radius: 4px; /* REDUCIDO */
+            width: 100%;
+            justify-content: flex-start;
+            font-size: 0.75rem; /* REDUCIDO AÚN MÁS */
+        }
+        .settings-dropdown-menu .mode-btn:hover,
+        .settings-dropdown-menu .output-option-btn:hover {
+            background: rgba(255,255,255,0.1);
+        }
+
+        .settings-dropdown-menu .mode-btn.active,
+        .settings-dropdown-menu .output-option-btn.active {
+            background: var(--primary-gradient);
+            color: white;
+            box-shadow: none;
+        }
+        .settings-dropdown-menu .output-option-btn.active::after {
+            display: none; /* Ocultar el check de font-awesome, es redundante */
+        }
+
+        .settings-dropdown-menu .aspect-ratio-grid {
+            padding: 2px; /* REDUCIDO */
+            display: flex;
+            flex-direction: column;
+            gap: 2px; /* REDUCIDO AÚN MÁS */
+        }
+
+        .settings-dropdown-menu .aspect-ratio-grid .aspect-ratio-btn {
+            width: 100%;
+            justify-content: flex-start;
+            padding: 4px 8px; /* REDUCIDO AÚN MÁS */
+            border-radius: 4px; /* REDUCIDO */
+            background: transparent;
+            border: none;
+            font-size: 0.75rem; /* REDUCIDO AÚN MÁS */
+            gap: 6px; /* Espacio entre silueta y texto */
+        }
+
+        /* Reducir siluetas de aspecto */
+        .settings-dropdown-menu .aspect-ratio-grid .aspect-ratio-btn .silhouette {
+            transform: scale(0.7); /* Hacer los rectangulitos más pequeños */
+            transform-origin: left center;
+        }
+
+        .settings-dropdown-menu .aspect-ratio-grid .aspect-ratio-btn:hover {
+            background: rgba(255,255,255,0.1);
+        }
+
+        .settings-dropdown-menu .aspect-ratio-grid .aspect-ratio-btn.active {
+            background: var(--primary-gradient);
+            color: white;
+        }
+
+        .settings-dropdown-menu .seed-control-group {
+            padding: 0 4px 2px 4px; /* REDUCIDO */
+        }
+
+        .seed-input {
+            font-size: 0.75rem; /* REDUCIDO */
+            padding: 4px; /* REDUCIDO */
+        }
+        .seed-action-btn {
+            padding: 4px 6px; /* REDUCIDO */
+        }
+
+        /* Ajustes botones video options */
+        .video-options-grid {
+            gap: 4px; /* REDUCIDO */
+        }
+        .video-option-btn {
+            padding: 4px 8px; /* REDUCIDO */
+            font-size: 0.75rem; /* REDUCIDO */
+        }
+
     </style>
 </head>
 <body>
@@ -582,12 +760,14 @@
     <!-- Overlay para cerrar paneles -->
     <div id="sidebar-overlay" class="sidebar-overlay" onclick="closeAllSidebars()"></div>
 
-    <div class="layout-grid">
+    <!-- CAMBIO: Quitamos el sidebar-left del layout grid -->
+    <div class="layout-grid" style="grid-template-columns: 1fr var(--sidebar-width); grid-template-areas: 'header header' 'main sidebar-right';">
         <!-- Header -->
         <header class="workspace-header">
             <!-- Botón Izquierdo (Configuración / Personajes) -->
-            <button class="mobile-toggle-btn" onclick="toggleSidebar('left')">
-                <i class="fas fa-bars"></i>
+            <!-- Ya no abre el sidebar left, sino el modal de personajes en móvil -->
+            <button class="mobile-toggle-btn" onclick="document.getElementById('modal-characters').style.display='block'">
+                <i class="fas fa-users"></i>
             </button>
 
             <a href="/" class="logo-container" style="display:flex; align-items:center; gap:10px; text-decoration:none;">
@@ -623,111 +803,7 @@
             </div>
         </header>
 
-        <!-- Sidebar Izquierda -->
-        <aside class="sidebar" id="sidebar-left">
-            <div class="sidebar-title">
-                <span>Settings</span>
-                <button class="close-sidebar-btn" onclick="closeAllSidebars()"><i class="fas fa-times"></i></button>
-            </div>
-
-            <!-- SELECTOR DE MODO (IMAGEN / VIDEO) -->
-            <div class="mode-switch">
-                <button class="mode-btn active" id="mode-image-btn" onclick="setMode('image')">Image</button>
-                <button class="mode-btn" id="mode-video-btn" onclick="setMode('video')">Video</button>
-            </div>
-
-            <!-- CONFIGURACIÓN DE IMAGEN -->
-            <div id="config-panel-image">
-                <!-- SECCIÓN DE ASPECT RATIO -->
-                <div class="sidebar-title">Aspect Ratio</div>
-                <input type="hidden" id="width-input" value="{{ default_width }}">
-                <input type="hidden" id="height-input" value="{{ default_height }}">
-                <div class="aspect-ratio-grid">
-                    <button class="aspect-ratio-btn" data-width="1024" data-height="1024"><div class="silhouette" style="width: 24px; height: 24px;"></div><span>1:1</span></button>
-                    <button class="aspect-ratio-btn" data-width="768" data-height="1152"><div class="silhouette" style="width: 16px; height: 24px;"></div><span>2:3</span></button>
-                    <button class="aspect-ratio-btn" data-width="1152" data-height="768"><div class="silhouette" style="width: 24px; height: 16px;"></div><span>3:2</span></button>
-                    <button class="aspect-ratio-btn" data-width="1024" data-height="1280"><div class="silhouette" style="width: 19.2px; height: 24px;"></div><span>4:5</span></button>
-                    <button class="aspect-ratio-btn" data-width="1280" data-height="1024"><div class="silhouette" style="width: 24px; height: 19.2px;"></div><span>5:4</span></button>
-                    <button class="aspect-ratio-btn" data-width="720" data-height="1280"><div class="silhouette" style="width: 13.5px; height: 24px;"></div><span>9:16</span></button>
-                    <button class="aspect-ratio-btn" data-width="1280" data-height="720"><div class="silhouette" style="width: 24px; height: 13.5px;"></div><span>16:9</span></button>
-                </div>
-
-                <!-- Opciones de Salida (SINGLE SELECTION) -->
-                <div class="sidebar-title">Output Options</div>
-                <div class="output-options-grid" id="output-options-container">
-                    <!-- Botón Normal (Activo por defecto, JS lo cambiará si hay mejores) -->
-                    <button class="output-option-btn active" id="btn-normal" data-type="Gen_Normal" onclick="selectOutputOption(this)">Generate Normal (Fast)</button>
-
-                    {% if workflow_capabilities.can_upscale %}
-                    <!-- CAMBIO: Nombre actualizado a Upscaler -->
-                    <button class="output-option-btn" id="btn-upscale" data-type="Gen_UpScaler" onclick="selectOutputOption(this)">Generate Upscaler (HD)</button>
-                    {% endif %}
-
-                    {% if workflow_capabilities.can_facedetail %}
-                    <button class="output-option-btn" id="btn-face" data-type="Gen_FaceDetailer" onclick="selectOutputOption(this)">Face Detailer (Faces)</button>
-                    {% endif %}
-
-                    {% if workflow_capabilities.can_eyedetailer %}
-                    <button class="output-option-btn" id="btn-eye" data-type="Gen_EyeDetailer" onclick="selectOutputOption(this)">Eye Detailer (Eyes)</button>
-                    {% endif %}
-                </div>
-            </div>
-
-            <!-- CONFIGURACIÓN DE VIDEO (OCULTO POR DEFECTO) -->
-            <div id="config-panel-video" style="display: none;">
-                <div class="sidebar-title">Video Configuration</div>
-
-                <!-- DURACIÓN -->
-                <div class="video-config-row" style="flex-direction: column; align-items: flex-start;">
-                    <span class="video-config-label" style="margin-bottom: 5px;">Duration</span>
-                    <input type="hidden" id="video-duration" value="3"> <!-- Hidden input para el valor -->
-                    <div class="video-options-grid">
-                        {% for opt in video_durations %}
-                            <button class="video-option-btn {% if forloop.first %}active{% endif %}"
-                                    onclick="selectVideoOption('duration', {{ opt.duration }}, this)">
-                                {{ opt.duration }}s
-                            </button>
-                        {% empty %}
-                            <!-- Fallback si no hay opciones en BD -->
-                            <button class="video-option-btn active" onclick="selectVideoOption('duration', 3, this)">3s</button>
-                            <button class="video-option-btn" onclick="selectVideoOption('duration', 5, this)">5s</button>
-                        {% endfor %}
-                    </div>
-                </div>
-
-                <!-- CALIDAD (QUALITY) -->
-                <div class="video-config-row" style="flex-direction: column; align-items: flex-start; margin-top: 15px;">
-                    <span class="video-config-label" style="margin-bottom: 5px;">Video Quality</span>
-                    <input type="hidden" id="video-quality" value="25"> <!-- Hidden input para quality -->
-                    <div class="video-options-grid">
-                        {% for opt in video_qualities %}
-                            <button class="video-option-btn {% if forloop.first %}active{% endif %}"
-                                    onclick="selectVideoOption('quality', {{ opt.value }}, this)">
-                                {{ opt.name }}
-                            </button>
-                        {% empty %}
-                            <button class="video-option-btn active" onclick="selectVideoOption('quality', 25, this)">Standard</button>
-                        {% endfor %}
-                    </div>
-                </div>
-
-                <!-- RESOLUTION (Oculto/Fijo por ahora, ya que se usa quality) -->
-                <input type="hidden" id="video-resolution" value="1024">
-            </div>
-
-            <!-- Input de Semilla (COMPARTIDO) -->
-            <div class="sidebar-title">Seed</div>
-            <div style="margin-bottom:15px;">
-                <div class="seed-control-group">
-                    <button type="button" class="seed-action-btn" onclick="adjustSeed(-4)"><i class="fas fa-minus"></i></button>
-                    <input type="number" id="seed-input" class="seed-input" placeholder="Random (-1)" value="{% if default_seed != -1 %}{{ default_seed }}{% endif %}" step="4">
-                    <button type="button" class="seed-action-btn" onclick="adjustSeed(4)"><i class="fas fa-plus"></i></button>
-                </div>
-                <div style="font-size:0.7rem; color:var(--text-muted); margin-top:5px; text-align:center;">
-                    Leave empty or -1 for random.
-                </div>
-            </div>
-        </aside>
+        <!-- Sidebar Izquierda (Eliminada de aquí) -->
 
         <!-- Contenido Central -->
         <main class="main-content">
@@ -761,7 +837,7 @@
                     <div class="mobile-spacer" style="height: 20px; display: none;"></div>
 
                     <div class="message ai">
-                        Hello! I am <strong>{{ selected_character.name }}</strong>. What image would you like to create today? 🎨
+                        Hello! I am <strong>{{ selected_character.name }}</strong>. Tell me your deepest fantasies and let's create something exciting together! 🔥
                     </div>
 
                     <!-- HISTORIAL DE CHAT IMAGEN -->
@@ -835,29 +911,122 @@
                     <i class="fas fa-arrow-down"></i>
                 </button>
 
-                <div class="input-container" style="display: flex; align-items: flex-end; gap: 10px;">
-                    <!-- SELECCIÓN DE IMAGEN PARA VIDEO (IZQUIERDA DEL INPUT) -->
-                    <div id="video-source-container" style="display: none; margin-right: 5px; flex-shrink: 0;">
-                        <!-- Estado 1: Botón para seleccionar -->
-                        <button id="btn-select-video-source" onclick="openImageSelectModal()" style="width: 50px; height: 50px; border-radius: 12px; background: rgba(255,255,255,0.1); border: 1px dashed var(--text-muted); color: var(--text-muted); cursor: pointer; transition: all 0.2s; display: flex; align-items: center; justify-content: center;">
-                            <i class="fas fa-image" style="font-size: 1.2rem;"></i>
-                        </button>
+                <div class="input-container">
+                    <div class="input-wrapper">
+                        <!-- BOTONES DESPLEGABLES (NUEVA ESTRUCTURA) -->
+                        <div class="settings-toggle-bar">
+                            <!-- Dropdown de Modo -->
+                            <div class="dropdown-wrapper" id="mode-dropdown-wrapper">
+                                <button class="settings-dropdown-btn" onclick="toggleDropdownMenu('menu-mode', this)">
+                                    <i class="fas fa-sliders-h"></i> Mode <i class="fas fa-chevron-down" style="font-size: 0.7em;"></i>
+                                </button>
+                                <div id="menu-mode" class="settings-dropdown-menu">
+                                    <div class="mode-switch">
+                                        <button class="mode-btn active" id="mode-image-btn" onclick="setMode('image')">Image</button>
+                                        <button class="mode-btn" id="mode-video-btn" onclick="setMode('video')">Video</button>
+                                    </div>
+                                </div>
+                            </div>
 
-                        <!-- Estado 2: Vista previa de imagen seleccionada -->
-                        <div id="preview-video-source" style="display: none; position: relative; width: 70px; height: 70px;">
-                            <img id="video-src-img" src="" style="width: 100%; height: 100%; object-fit: cover; border-radius: 10px; border: 2px solid var(--primary-color); cursor: pointer;" onclick="openImageSelectModal()" title="Change image">
-                            <div onclick="clearVideoSelection()" style="position: absolute; top: -6px; right: -6px; background: #ef4444; color: white; border-radius: 50%; width: 20px; height: 20px; font-size: 12px; display: flex; align-items: center; justify-content: center; cursor: pointer; box-shadow: 0 2px 5px rgba(0,0,0,0.3);">
-                                <i class="fas fa-times"></i>
+                            <!-- Dropdown de Aspect Ratio -->
+                            <div class="dropdown-wrapper" id="aspect-dropdown-wrapper">
+                                <button class="settings-dropdown-btn" id="btn-toggle-aspect" onclick="toggleDropdownMenu('menu-aspect', this)">
+                                    <i class="fas fa-crop-alt"></i> Aspect <i class="fas fa-chevron-down" style="font-size: 0.7em;"></i>
+                                </button>
+                                <div id="menu-aspect" class="settings-dropdown-menu">
+                                    <input type="hidden" id="width-input" value="{{ default_width }}">
+                                    <input type="hidden" id="height-input" value="{{ default_height }}">
+                                    <div class="aspect-ratio-grid">
+                                        <button class="aspect-ratio-btn" data-width="1024" data-height="1024"><div class="silhouette" style="width: 24px; height: 24px;"></div><span>1:1</span></button>
+                                        <button class="aspect-ratio-btn" data-width="768" data-height="1152"><div class="silhouette" style="width: 16px; height: 24px;"></div><span>2:3</span></button>
+                                        <button class="aspect-ratio-btn" data-width="1152" data-height="768"><div class="silhouette" style="width: 24px; height: 16px;"></div><span>3:2</span></button>
+                                        <button class="aspect-ratio-btn" data-width="1024" data-height="1280"><div class="silhouette" style="width: 19.2px; height: 24px;"></div><span>4:5</span></button>
+                                        <button class="aspect-ratio-btn" data-width="1280" data-height="1024"><div class="silhouette" style="width: 24px; height: 19.2px;"></div><span>5:4</span></button>
+                                        <button class="aspect-ratio-btn" data-width="720" data-height="1280"><div class="silhouette" style="width: 13.5px; height: 24px;"></div><span>9:16</span></button>
+                                        <button class="aspect-ratio-btn" data-width="1280" data-height="720"><div class="silhouette" style="width: 24px; height: 13.5px;"></div><span>16:9</span></button>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Dropdown de Opciones -->
+                            <div class="dropdown-wrapper" id="options-dropdown-wrapper">
+                                <button class="settings-dropdown-btn" id="btn-toggle-options" onclick="toggleDropdownMenu('menu-options', this)">
+                                    <i class="fas fa-magic"></i> Options <i class="fas fa-chevron-down" style="font-size: 0.7em;"></i>
+                                </button>
+                                <div id="menu-options" class="settings-dropdown-menu">
+                                    <!-- Opciones de Imagen -->
+                                    <div id="config-panel-image">
+                                        <div class="sidebar-title">Output Options</div>
+                                        <div class="output-options-grid" id="output-options-container">
+                                            <button class="output-option-btn active" id="btn-normal" data-type="Gen_Normal" onclick="selectOutputOption(this)">Generate Normal (Fast)</button>
+                                            {% if workflow_capabilities.can_upscale %}
+                                            <button class="output-option-btn" id="btn-upscale" data-type="Gen_UpScaler" onclick="selectOutputOption(this)">Generate Upscaler (HD)</button>
+                                            {% endif %}
+                                            {% if workflow_capabilities.can_facedetail %}
+                                            <button class="output-option-btn" id="btn-face" data-type="Gen_FaceDetailer" onclick="selectOutputOption(this)">Face Detailer (Faces)</button>
+                                            {% endif %}
+                                            {% if workflow_capabilities.can_eyedetailer %}
+                                            <button class="output-option-btn" id="btn-eye" data-type="Gen_EyeDetailer" onclick="selectOutputOption(this)">Eye Detailer (Eyes)</button>
+                                            {% endif %}
+                                        </div>
+                                        <div class="sidebar-title" style="margin-top: 10px;">Seed</div>
+                                        <div class="seed-control-group">
+                                            <button type="button" class="seed-action-btn" onclick="adjustSeed(-4)"><i class="fas fa-minus"></i></button>
+                                            <input type="number" id="seed-input" class="seed-input" placeholder="Random (-1)" value="{% if default_seed != -1 %}{{ default_seed }}{% endif %}" step="4">
+                                            <button type="button" class="seed-action-btn" onclick="adjustSeed(4)"><i class="fas fa-plus"></i></button>
+                                        </div>
+                                    </div>
+                                    <!-- Opciones de Video -->
+                                    <div id="config-panel-video" style="display: none;">
+                                        <div class="sidebar-title">Video Duration</div>
+                                        <input type="hidden" id="video-duration" value="3">
+                                        <div class="video-options-grid" style="margin-bottom: 15px;">
+                                            {% for opt in video_durations %}
+                                                <button class="video-option-btn {% if forloop.first %}active{% endif %}" onclick="selectVideoOption('duration', {{ opt.duration }}, this)">{{ opt.duration }}s</button>
+                                            {% empty %}
+                                                <button class="video-option-btn active" onclick="selectVideoOption('duration', 3, this)">3s</button>
+                                                <button class="video-option-btn" onclick="selectVideoOption('duration', 5, this)">5s</button>
+                                            {% endfor %}
+                                        </div>
+
+                                        <div class="sidebar-title">Video Quality</div>
+                                        <input type="hidden" id="video-quality" value="25">
+                                        <div class="video-options-grid">
+                                            {% for opt in video_qualities %}
+                                                <button class="video-option-btn {% if forloop.first %}active{% endif %}" onclick="selectVideoOption('quality', {{ opt.value }}, this)">{{ opt.name }}</button>
+                                            {% empty %}
+                                                <button class="video-option-btn active" onclick="selectVideoOption('quality', 25, this)">Standard</button>
+                                            {% endfor %}
+                                        </div>
+                                        <input type="hidden" id="video-resolution" value="1024">
+                                    </div>
+                                </div>
                             </div>
                         </div>
-                        <input type="hidden" id="selected-image-url">
-                    </div>
 
-                    <div class="input-box" style="flex: 1;">
-                        <textarea id="prompt-input" placeholder="Describe your image here..." rows="1"></textarea>
-                        <button id="send-btn" class="send-btn">
-                            <i class="fas fa-arrow-up"></i>
-                        </button>
+                        <!-- CAJA DE INPUT -->
+                        <div style="display: flex; align-items: flex-end; gap: 10px; width: 100%;">
+                            <!-- SELECCIÓN DE IMAGEN PARA VIDEO -->
+                            <div id="video-source-container" style="display: none; margin-right: 5px; flex-shrink: 0;">
+                                <button id="btn-select-video-source" onclick="openImageSelectModal()" style="width: 50px; height: 50px; border-radius: 12px; background: rgba(255,255,255,0.1); border: 1px dashed var(--text-muted); color: var(--text-muted); cursor: pointer; transition: all 0.2s; display: flex; align-items: center; justify-content: center;">
+                                    <i class="fas fa-image" style="font-size: 1.2rem;"></i>
+                                </button>
+                                <div id="preview-video-source" style="display: none; position: relative; width: 70px; height: 70px;">
+                                    <img id="video-src-img" src="" style="width: 100%; height: 100%; object-fit: cover; border-radius: 10px; border: 2px solid var(--primary-color); cursor: pointer;" onclick="openImageSelectModal()" title="Change image">
+                                    <div onclick="clearVideoSelection()" style="position: absolute; top: -6px; right: -6px; background: #ef4444; color: white; border-radius: 50%; width: 20px; height: 20px; font-size: 12px; display: flex; align-items: center; justify-content: center; cursor: pointer; box-shadow: 0 2px 5px rgba(0,0,0,0.3);">
+                                        <i class="fas fa-times"></i>
+                                    </div>
+                                </div>
+                                <input type="hidden" id="selected-image-url">
+                            </div>
+
+                            <div class="input-box" style="flex: 1;">
+                                <textarea id="prompt-input" placeholder="Describe your image here..." rows="1"></textarea>
+                                <button id="send-btn" class="send-btn">
+                                    <i class="fas fa-arrow-up"></i>
+                                </button>
+                            </div>
+                        </div>
                     </div>
                 </div>
 
@@ -1108,6 +1277,41 @@
         const inputContainer = document.querySelector('.input-container');
         const scrollBottomBtn = document.getElementById('scroll-bottom-btn');
 
+        // --- FUNCIONES DEL DROPDOWN DE SETTINGS (REFACTORIZADO) ---
+        function toggleDropdownMenu(menuId, btn) {
+            const targetMenu = document.getElementById(menuId);
+            if (!targetMenu) return;
+
+            const isOpening = !targetMenu.classList.contains('show');
+
+            // Cerrar todos los menús y desactivar botones
+            document.querySelectorAll('.settings-dropdown-menu.show').forEach(menu => {
+                menu.classList.remove('show');
+            });
+            document.querySelectorAll('.settings-dropdown-btn.active').forEach(b => {
+                b.classList.remove('active');
+            });
+
+            // Si estamos abriendo un nuevo menú, mostrarlo y activar su botón
+            if (isOpening) {
+                targetMenu.classList.add('show');
+                btn.classList.add('active');
+            }
+        }
+
+        // Cerrar dropdowns al hacer clic fuera
+        document.addEventListener('click', function(e) {
+            if (!e.target.closest('.dropdown-wrapper')) {
+                document.querySelectorAll('.settings-dropdown-menu.show').forEach(menu => {
+                    menu.classList.remove('show');
+                });
+                document.querySelectorAll('.settings-dropdown-btn.active').forEach(btn => {
+                    btn.classList.remove('active');
+                });
+            }
+        });
+
+
         // --- MODE SWITCH LOGIC ---
         let currentMode = 'image'; // 'image' or 'video'
 
@@ -1115,11 +1319,18 @@
             currentMode = mode;
             localStorage.setItem('workspaceMode', mode); // GUARDAR MODO
 
-            // Update buttons
-            document.getElementById('mode-image-btn').classList.toggle('active', mode === 'image');
-            document.getElementById('mode-video-btn').classList.toggle('active', mode === 'video');
+            // Update buttons in the dropdown menu
+            document.querySelectorAll('#menu-mode .mode-btn').forEach(b => b.classList.remove('active'));
+            if (mode === 'image') {
+                document.getElementById('mode-image-btn').classList.add('active');
+            } else {
+                document.getElementById('mode-video-btn').classList.add('active');
+            }
 
-            // Toggle config panels
+            // Mostrar/Ocultar botón de aspect ratio
+            document.getElementById('aspect-dropdown-wrapper').style.display = mode === 'image' ? 'block' : 'none';
+
+            // Toggle config panels (dentro del tab 'options')
             document.getElementById('config-panel-image').style.display = mode === 'image' ? 'block' : 'none';
             document.getElementById('config-panel-video').style.display = mode === 'video' ? 'block' : 'none';
 
@@ -1127,11 +1338,24 @@
             if(chatAreaImage) chatAreaImage.style.display = mode === 'image' ? 'flex' : 'none';
             if(chatAreaVideo) chatAreaVideo.style.display = mode === 'video' ? 'flex' : 'none';
 
-            // Toggle image selector in input area (NUEVO LUGAR)
+            // Toggle image selector in input area
             document.getElementById('video-source-container').style.display = mode === 'video' ? 'block' : 'none';
 
             // Update placeholder
             textarea.placeholder = mode === 'image' ? "Describe your image here..." : "Describe the motion for your video...";
+
+            // Actualizar el texto del botón Mode
+            const modeBtn = document.querySelector('#mode-dropdown-wrapper .settings-dropdown-btn');
+            modeBtn.innerHTML = mode === 'image' ? '<i class="fas fa-image"></i> Image <i class="fas fa-chevron-down" style="font-size: 0.7em;"></i>' : '<i class="fas fa-video"></i> Video <i class="fas fa-chevron-down" style="font-size: 0.7em;"></i>';
+
+            // Cerrar el menú después de la selección explícitamente sin usar toggle
+            const targetMenu = document.getElementById('menu-mode');
+            if (targetMenu) {
+                targetMenu.classList.remove('show');
+            }
+            if (modeBtn) {
+                modeBtn.classList.remove('active');
+            }
 
             scrollToBottom();
         }
@@ -1232,7 +1456,10 @@
             const el = document.getElementById(`sidebar-${side}`);
             const overlay = document.getElementById('sidebar-overlay');
             const other = side === 'left' ? 'right' : 'left';
-            document.getElementById(`sidebar-${other}`).classList.remove('open');
+
+            if(document.getElementById(`sidebar-${other}`)) {
+                document.getElementById(`sidebar-${other}`).classList.remove('open');
+            }
 
             if (el.classList.contains('open')) {
                 el.classList.remove('open');
@@ -1246,8 +1473,8 @@
         };
 
         function closeAllSidebars() {
-            document.getElementById('sidebar-left').classList.remove('open');
-            document.getElementById('sidebar-right').classList.remove('open');
+            if(document.getElementById('sidebar-left')) document.getElementById('sidebar-left').classList.remove('open');
+            if(document.getElementById('sidebar-right')) document.getElementById('sidebar-right').classList.remove('open');
             const overlay = document.getElementById('sidebar-overlay');
             overlay.classList.remove('show');
             setTimeout(() => overlay.style.display = 'none', 300);
@@ -1287,30 +1514,44 @@
         const heightInput = document.getElementById('height-input');
 
         document.addEventListener('DOMContentLoaded', () => {
-            const buttons = ratioContainer.querySelectorAll('.aspect-ratio-btn');
-            let defaultFound = false;
-            buttons.forEach(btn => {
-                if (btn.dataset.width === widthInput.value && btn.dataset.height === heightInput.value) {
-                    btn.classList.add('active');
-                    defaultFound = true;
+            if(ratioContainer) {
+                const buttons = ratioContainer.querySelectorAll('.aspect-ratio-btn');
+                let defaultFound = false;
+                buttons.forEach(btn => {
+                    if (btn.dataset.width === widthInput.value && btn.dataset.height === heightInput.value) {
+                        btn.classList.add('active');
+                        defaultFound = true;
+                    }
+                });
+                if (!defaultFound && buttons.length > 0) {
+                    const firstButton = buttons[0];
+                    firstButton.classList.add('active');
+                    widthInput.value = firstButton.dataset.width;
+                    heightInput.value = firstButton.dataset.height;
                 }
-            });
-            if (!defaultFound && buttons.length > 0) {
-                const firstButton = buttons[0];
-                firstButton.classList.add('active');
-                widthInput.value = firstButton.dataset.width;
-                heightInput.value = firstButton.dataset.height;
             }
         });
 
-        ratioContainer.addEventListener('click', (e) => {
-            const clickedButton = e.target.closest('.aspect-ratio-btn');
-            if (!clickedButton) return;
-            ratioContainer.querySelectorAll('.aspect-ratio-btn').forEach(btn => btn.classList.remove('active'));
-            clickedButton.classList.add('active');
-            widthInput.value = clickedButton.dataset.width;
-            heightInput.value = clickedButton.dataset.height;
-        });
+        if(ratioContainer) {
+            ratioContainer.addEventListener('click', (e) => {
+                const clickedButton = e.target.closest('.aspect-ratio-btn');
+                if (!clickedButton) return;
+                ratioContainer.querySelectorAll('.aspect-ratio-btn').forEach(btn => btn.classList.remove('active'));
+                clickedButton.classList.add('active');
+                widthInput.value = clickedButton.dataset.width;
+                heightInput.value = clickedButton.dataset.height;
+
+                // Actualizar texto del botón dropdown
+                const aspectText = clickedButton.querySelector('span').innerText;
+                const aspectBtn = document.getElementById('btn-toggle-aspect');
+                aspectBtn.innerHTML = `<i class="fas fa-crop-alt"></i> ${aspectText} <i class="fas fa-chevron-down" style="font-size: 0.7em;"></i>`;
+
+                // Cerrar el panel automáticamente al seleccionar
+                const targetMenu = document.getElementById('menu-aspect');
+                if (targetMenu) targetMenu.classList.remove('show');
+                if (aspectBtn) aspectBtn.classList.remove('active');
+            });
+        }
 
         // --- SEED LOGIC (NUEVO) ---
         function adjustSeed(delta) {
@@ -1457,7 +1698,10 @@
         let isGeneratingVideo = false; // Flag para videos
 
         function sendPrompt() {
-            // --- CAMBIO: Usar flags separados ---
+            // CERRAR PANELES DE SETTINGS
+            document.querySelectorAll('.settings-dropdown-menu.show').forEach(menu => menu.classList.remove('show'));
+            document.querySelectorAll('.settings-dropdown-btn.active').forEach(btn => btn.classList.remove('active'));
+
             if (currentMode === 'image' && isGeneratingImage) return;
             if (currentMode === 'video' && isGeneratingVideo) return;
 
@@ -1465,20 +1709,14 @@
             if (!prompt || !characterId) return;
 
             if (currentMode === 'video' && !selectedImageBlob) {
-                // CAMBIO: Usar showToast en lugar de alert
                 showToast("Please select a source image for the video.", "error");
                 return;
             }
 
-            // --- CAMBIO: Activar flag específico ---
             if (currentMode === 'image') isGeneratingImage = true;
             else isGeneratingVideo = true;
 
             const sendBtn = document.getElementById('send-btn');
-            // NO DESHABILITAMOS EL BOTÓN NI EL TEXTAREA GLOBALMENTE
-            // sendBtn.disabled = true;
-            // textarea.disabled = true;
-
             const activeChat = getActiveChatArea();
 
             const userMsg = document.createElement('div');
@@ -1611,7 +1849,6 @@
                     checkPendingStatus();
                 })
                 .finally(() => {
-                    // --- CAMBIO: Desactivar flag específico ---
                     if (currentMode === 'image') isGeneratingImage = false;
                     else isGeneratingVideo = false;
 
@@ -1828,7 +2065,7 @@
         function toggleSubCategory(subId, btn) {
             btn.classList.toggle('active');
             const list = document.getElementById('char-list');
-            let activeSubs = list.dataset.activeSubs ? list.dataset.activeSubs.split(',') : [];
+            let activeSubs = list.dataset.activeSubs ? list.dataset.activeSubs.split(',').filter(Boolean) : [];
             if (btn.classList.contains('active')) {
                 activeSubs.push(subId);
             } else {
@@ -1995,7 +2232,7 @@
             e.preventDefault(); // Prevenir scroll de página
             if (e.touches.length === 1 && zoomLevel > 1 && isDragging) {
                 translateX = e.touches[0].clientX - startX;
-                translateY = e.touches[0].clientY - startY;
+                translateY = e.touches[0].clientY - translateY;
                 updateTransform();
             } else if (e.touches.length === 2) {
                 const currentDistance = Math.hypot(

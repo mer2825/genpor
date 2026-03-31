@@ -17,15 +17,16 @@ html, body {
 }
 
 /* ESCRITORIO: Grid de 3 columnas por defecto */
+/* AHORA ES DE 2 COLUMNAS (1fr para main, y sidebar-right) */
 .layout-grid {
     display: grid;
     height: 100%;
     width: 100%;
-    grid-template-columns: var(--sidebar-width) 1fr var(--sidebar-width);
+    grid-template-columns: 1fr var(--sidebar-width);
     grid-template-rows: var(--header-height) 1fr;
     grid-template-areas:
-        "header header header"
-        "sidebar-left main sidebar-right";
+        "header header"
+        "main sidebar-right";
 }
 
 /* --- HEADER --- */
@@ -54,16 +55,7 @@ html, body {
 .mobile-toggle-btn:hover { color: white; }
 
 /* --- SIDEBARS (ESCRITORIO) --- */
-#sidebar-left {
-    grid-area: sidebar-left;
-    background-color: rgba(10, 10, 10, 0.4);
-    border-right: 1px solid var(--card-border);
-    display: flex;
-    flex-direction: column;
-    padding: 20px;
-    overflow-y: auto;
-    backdrop-filter: blur(10px);
-}
+/* ELIMINADO EL #sidebar-left DE ESCRITORIO, AHORA ES DROPDOWN */
 
 #sidebar-right {
     grid-area: sidebar-right;
@@ -189,11 +181,10 @@ html, body {
     border-bottom-left-radius: 4px;
 }
 
-/* Resultados de Imagen (CORREGIDO TAMAÑO) */
+/* --- ESTILOS PARA IMAGEN GENERADA (ADAPTATIVA Y COMPLETA) --- */
 .result-grid {
-    display: grid;
-    /* Ajuste dinámico más flexible para evitar desbordes */
-    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    display: flex; /* Cambiado a flex para mejor control del tamaño máximo */
+    flex-direction: column; /* Si hay varias, apilarlas */
     gap: 12px;
     margin-top: 15px;
     width: 100%;
@@ -207,22 +198,33 @@ html, body {
     background: #000;
     position: relative;
     transition: transform 0.3s;
-    width: 100%;
-    aspect-ratio: 1 / 1; /* Mantener proporción cuadrada por defecto en grid */
-    display: flex; /* Centrar imagen */
+    /* Limitamos el tamaño máximo para que no se salga de la pantalla,
+       pero permitimos que crezca lo suficiente para verse bien */
+    max-width: 100%;
+    max-height: 35vh; /* Ajustado para que sea un poquito MÁS pequeña */
+    display: flex;
     justify-content: center;
     align-items: center;
     background-color: rgba(0,0,0,0.3);
-    cursor: pointer; /* Indicar que es clicable */
+    cursor: pointer;
 }
 
-.result-card:hover { transform: scale(1.01); border-color: var(--primary-color); }
+.result-card:hover {
+    transform: scale(1.01);
+    border-color: var(--primary-color);
+}
 
 .result-card img {
-    width: 100%;
-    height: 100%;
-    object-fit: cover; /* Llenar el cuadro */
+    /* La imagen se adaptará al tamaño del contenedor (result-card),
+       manteniendo su proporción y sin recortarse */
+    max-width: 100%;
+    max-height: 35vh; /* Ajustado a la par que result-card */
+    width: auto;
+    height: auto;
+    display: block;
+    object-fit: contain; /* CRUCIAL: Muestra toda la imagen sin recortes */
 }
+
 
 /* ETIQUETAS DE TIPO DE IMAGEN */
 .result-badge {
@@ -377,20 +379,59 @@ textarea:focus { outline: none; }
     padding: 12px;
     margin-bottom: 10px;
     border-radius: 12px;
-    border: 1px solid var(--card-border);
-    background: rgba(255,255,255,0.03);
+
+    /* EFECTO VIDRIO/LÚCIDO (GLASSMORPHISM) */
+    background: rgba(255, 255, 255, 0.05); /* Ligeramente más opaco */
+    backdrop-filter: blur(8px); /* Desenfocar lo que hay detrás */
+    -webkit-backdrop-filter: blur(8px); /* Safari */
+    border: 1px solid rgba(255, 255, 255, 0.1); /* Borde sutil blanco */
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1), inset 0 1px 0 rgba(255,255,255,0.1); /* Sombra exterior e interior */
+
     color: var(--text-muted);
     cursor: pointer;
     display: flex;
     align-items: center;
     gap: 10px;
-    transition: all 0.2s;
+    transition: all 0.3s ease;
     font-weight: 500;
+    position: relative;
+    overflow: hidden;
 }
+
+/* Efecto de brillo al pasar el ratón (Hover) */
+.resource-btn::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: -100%;
+    width: 50%;
+    height: 100%;
+    background: linear-gradient(to right, rgba(255,255,255,0) 0%, rgba(255,255,255,0.1) 50%, rgba(255,255,255,0) 100%);
+    transform: skewX(-25deg);
+    transition: all 0.5s ease;
+    z-index: 1;
+}
+
+.resource-btn:hover::before {
+    left: 150%; /* Anima el brillo de izquierda a derecha */
+}
+
 .resource-btn:hover {
-    background: rgba(255,255,255,0.08);
+    background: rgba(255, 255, 255, 0.1); /* Más brillante en hover */
     color: white;
-    border-color: rgba(255,255,255,0.2);
+    border-color: rgba(255, 255, 255, 0.2);
+    box-shadow: 0 6px 12px rgba(0, 0, 0, 0.2), inset 0 1px 0 rgba(255,255,255,0.2);
+    transform: translateY(-2px); /* Se levanta un poco */
+}
+
+.resource-btn i {
+    z-index: 2; /* Asegurar que el icono esté por encima del brillo */
+    font-size: 1.1rem;
+    filter: drop-shadow(0 0 5px currentColor); /* Hacer que el icono también brille un poco */
+}
+
+.resource-btn span {
+    z-index: 2;
 }
 
 .aspect-ratio-grid {
@@ -558,46 +599,73 @@ textarea:focus { outline: none; }
 .history-item {
     display: flex;
     align-items: center;
-    gap: 12px;
-    padding: 10px 12px;
-    background-color: transparent;
-    border-radius: 10px;
+    gap: 10px;
+    padding: 8px 12px; /* Reducido aún más el padding */
+    border-radius: 10px; /* Borde un poco menos curvo para acompañar el tamaño */
     text-decoration: none;
+    margin-bottom: 6px; /* Separación más ajustada */
+    position: relative;
+    overflow: hidden;
+    transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+    min-height: 48px; /* Altura mínima más pequeña */
+    box-sizing: border-box;
+
+    /* Estilo base (Glassmorphism sutil) */
+    background: rgba(30, 41, 59, 0.4);
+    border: 1px solid rgba(255, 255, 255, 0.05);
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
     color: var(--text-muted);
-    transition: all 0.2s ease;
-    margin-bottom: 5px;
-    border: 1px solid transparent;
 }
 
 .history-item:hover {
-    background-color: rgba(255, 255, 255, 0.05);
+    background: rgba(45, 55, 72, 0.6);
     color: white;
+    border-color: rgba(255, 255, 255, 0.15);
+    transform: translateY(-1px);
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.25);
 }
 
 .history-item.active {
-    background-color: rgba(255, 75, 75, 0.1);
-    border-color: rgba(255, 75, 75, 0.3);
-    color: var(--primary-color);
+    background: var(--primary-gradient);
+    color: white;
     font-weight: 600;
+    border-color: transparent;
+    box-shadow: 0 4px 12px -4px var(--primary-glow);
+    transform: scale(1.01);
 }
 
-.history-item img {
-    width: 32px;
+/* Ajuste del contenedor de la imagen/placeholder */
+.history-item > img,
+.history-item > div {
+    width: 32px; /* Avatar aún más pequeño */
     height: 32px;
     border-radius: 50%;
     object-fit: cover;
-    border: 1px solid rgba(255, 255, 255, 0.1);
-}
-
-.history-item div {
-    width: 32px;
-    height: 32px;
-    border-radius: 50%;
-    background-color: rgba(255, 255, 255, 0.1);
+    border: 2px solid rgba(255, 255, 255, 0.1);
+    flex-shrink: 0;
+    background-color: #334155;
     display: flex;
     align-items: center;
     justify-content: center;
-    font-size: 0.8rem;
+    font-size: 0.85rem;
+    transition: border-color 0.3s;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.5);
+}
+
+.history-item.active > img,
+.history-item.active > div {
+    border-color: rgba(255, 255, 255, 0.6);
+}
+
+/* Ajuste del texto */
+.history-item span {
+    flex: 1;
+    font-size: 0.85rem; /* Texto un poquito más pequeño para ajustarse */
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    display: flex;
+    align-items: center;
 }
 
 /* --- MODALES (ESTILOS GLOBALES) --- */
@@ -847,9 +915,10 @@ textarea:focus { outline: none; }
     }
 
     .layout-grid {
+        /* CAMBIO: En móvil ya no hay sidebar left */
         display: block;
-        height: 100%; /* CAMBIO: Forzar altura completa para que el hijo scrollee */
-        overflow: hidden; /* Evitar scroll en el grid */
+        height: 100%;
+        overflow: hidden;
     }
 
     .workspace-header {
@@ -897,7 +966,8 @@ textarea:focus { outline: none; }
     .bottom-nav { display: flex !important; }
 
     /* Sidebars Off-canvas (Ocultos por defecto) */
-    #sidebar-left, #sidebar-right {
+    /* ELIMINADO EL SIDEBAR LEFT DEL CSS MOVIL */
+    #sidebar-right {
         position: fixed;
         top: 0;
         height: 100%;
@@ -917,15 +987,11 @@ textarea:focus { outline: none; }
     }
 
     /* Ocultar barra de scroll en Webkit (Chrome/Safari/Android) */
-    #sidebar-left::-webkit-scrollbar,
     #sidebar-right::-webkit-scrollbar {
         display: none;
     }
 
-    #sidebar-left { left: 0; transform: translateX(-100%); border-right: 1px solid var(--card-border); }
     #sidebar-right { right: 0; transform: translateX(100%); border-left: 1px solid var(--card-border); }
-
-    #sidebar-left.open { transform: translateX(0); }
     #sidebar-right.open { transform: translateX(0); }
 
     .input-container {
@@ -936,7 +1002,7 @@ textarea:focus { outline: none; }
         margin-bottom: 0;
         background: rgba(5, 5, 5, 0.95);
         backdrop-filter: blur(10px);
-        padding: 10px 15px;
+        padding: 10px 15px; /* AQUÍ ESTÁ EL PADDING INFERIOR EN MOVIL */
         box-sizing: border-box;
         border-top: 1px solid var(--card-border);
         z-index: 99;
