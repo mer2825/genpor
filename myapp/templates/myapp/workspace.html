@@ -853,8 +853,9 @@
                     </button>
                 </div>
 
-                <!-- CHAT DE IMÁGENES (VISIBLE POR DEFECTO) -->
-                <div class="chat-area" id="chat-area-image">
+                {% if company.is_image_generation_enabled %}
+                <!-- CHAT DE IMÁGENES -->
+                <div class="chat-area" id="chat-area-image" {% if not company.is_image_generation_enabled and company.is_video_generation_enabled %}style="display: none;"{% endif %}>
                     <!-- ESPACIADOR INVISIBLE PARA MÓVIL -->
                     <div class="mobile-spacer" style="height: 20px; display: none;"></div>
 
@@ -900,9 +901,11 @@
                         </div>
                     {% endfor %}
                 </div>
+                {% endif %}
 
-                <!-- CHAT DE VIDEO (OCULTO POR DEFECTO) -->
-                <div class="chat-area" id="chat-area-video" style="display: none;">
+                {% if company.is_video_generation_enabled %}
+                <!-- CHAT DE VIDEO -->
+                <div class="chat-area" id="chat-area-video" {% if company.is_image_generation_enabled %}style="display: none;"{% endif %}>
                     <!-- ESPACIADOR INVISIBLE PARA MÓVIL -->
                     <div class="mobile-spacer" style="height: 20px; display: none;"></div>
 
@@ -927,6 +930,7 @@
                         </div>
                     {% endfor %}
                 </div>
+                {% endif %}
 
                 <!-- BOTÓN SCROLL TO BOTTOM -->
                 <button id="scroll-bottom-btn" class="scroll-bottom-btn" onclick="scrollToBottomSmooth()">
@@ -937,7 +941,8 @@
                     <div class="input-wrapper">
                         <!-- BOTONES DESPLEGABLES (NUEVA ESTRUCTURA) -->
                         <div class="settings-toggle-bar">
-                            <!-- Dropdown de Modo -->
+                            {% if company.is_image_generation_enabled and company.is_video_generation_enabled %}
+                            <!-- Dropdown de Modo solo si ambos están habilitados -->
                             <div class="dropdown-wrapper" id="mode-dropdown-wrapper">
                                 <button class="settings-dropdown-btn" onclick="toggleDropdownMenu('menu-mode', this)">
                                     <i class="fas fa-sliders-h"></i> Mode <i class="fas fa-chevron-down" style="font-size: 0.7em;"></i>
@@ -949,9 +954,11 @@
                                     </div>
                                 </div>
                             </div>
+                            {% endif %}
 
+                            {% if company.is_image_generation_enabled %}
                             <!-- Dropdown de Aspect Ratio -->
-                            <div class="dropdown-wrapper" id="aspect-dropdown-wrapper">
+                            <div class="dropdown-wrapper" id="aspect-dropdown-wrapper" {% if not company.is_image_generation_enabled and company.is_video_generation_enabled %}style="display:none;"{% endif %}>
                                 <button class="settings-dropdown-btn" id="btn-toggle-aspect" onclick="toggleDropdownMenu('menu-aspect', this)">
                                     <i class="fas fa-crop-alt"></i> Aspect <i class="fas fa-chevron-down" style="font-size: 0.7em;"></i>
                                 </button>
@@ -982,13 +989,45 @@
                                     </div>
                                 </div>
                             </div>
+                            {% endif %}
+
+                            {% if company.is_video_generation_enabled %}
+                            <!-- Dropdown de Video Settings (Añadido) -->
+                            <div class="dropdown-wrapper" id="video-settings-dropdown-wrapper" {% if company.is_image_generation_enabled %}style="display:none;"{% endif %}>
+                                <button class="settings-dropdown-btn" id="btn-toggle-video-settings" onclick="toggleDropdownMenu('menu-video-settings', this)">
+                                    <i class="fas fa-film"></i> Video <i class="fas fa-chevron-down" style="font-size: 0.7em;"></i>
+                                </button>
+                                <div id="menu-video-settings" class="settings-dropdown-menu" style="padding: 8px; min-width: 180px;">
+                                    {% if video_durations %}
+                                    <div class="sidebar-title">Duration</div>
+                                    <div class="video-options-grid" style="margin-bottom: 10px;">
+                                        {% for option in video_durations %}
+                                            <button class="video-option-btn {% if forloop.first %}active{% endif %}" onclick="selectVideoOption('duration', '{{ option.duration }}', this)">{{ option.duration }}s</button>
+                                        {% endfor %}
+                                    </div>
+                                    <input type="hidden" id="video-duration" value="{{ video_durations.0.duration }}">
+                                    {% endif %}
+
+                                    {% if video_qualities %}
+                                    <div class="sidebar-title">Quality</div>
+                                    <div class="video-options-grid">
+                                        {% for option in video_qualities %}
+                                            <button class="video-option-btn {% if forloop.first %}active{% endif %}" onclick="selectVideoOption('quality', '{{ option.value }}', this)">{{ option.name }}</button>
+                                        {% endfor %}
+                                    </div>
+                                    <input type="hidden" id="video-quality" value="{{ video_qualities.0.value }}">
+                                    {% endif %}
+                                </div>
+                            </div>
+                            {% endif %}
 
                         </div>
 
                         <!-- CAJA DE INPUT -->
                         <div style="display: flex; align-items: flex-end; gap: 10px; width: 100%;">
+                            {% if company.is_video_generation_enabled %}
                             <!-- SELECCIÓN DE IMAGEN PARA VIDEO -->
-                            <div id="video-source-container" style="display: none; margin-right: 5px; flex-shrink: 0;">
+                            <div id="video-source-container" style="margin-right: 5px; flex-shrink: 0; {% if company.is_image_generation_enabled %}display: none;{% else %}display: block;{% endif %}">
                                 <button id="btn-select-video-source" onclick="openImageSelectModal()" style="width: 50px; height: 50px; border-radius: 12px; background: rgba(255,255,255,0.1); border: 1px dashed var(--text-muted); color: var(--text-muted); cursor: pointer; transition: all 0.2s; display: flex; align-items: center; justify-content: center;">
                                     <i class="fas fa-image" style="font-size: 1.2rem;"></i>
                                 </button>
@@ -1000,9 +1039,10 @@
                                 </div>
                                 <input type="hidden" id="selected-image-url">
                             </div>
+                            {% endif %}
 
                             <div class="input-box" style="flex: 1;">
-                                <textarea id="prompt-input" placeholder="Describe your image here..." rows="1"></textarea>
+                                <textarea id="prompt-input" placeholder="{% if company.is_image_generation_enabled %}Describe your image here...{% else %}Describe the motion for your video...{% endif %}" rows="1"></textarea>
                                 <button id="send-btn" class="send-btn">
                                     <i class="fas fa-arrow-up"></i>
                                 </button>
@@ -1043,12 +1083,16 @@
                     <i class="fas fa-images" style="color:#60a5fa;"></i> References
                 </button>
                 <!-- NUEVOS BOTONES -->
+                {% if company.is_image_generation_enabled %}
                 <button id="btn-show-gallery-images" class="resource-btn">
                     <i class="fas fa-image" style="color:#34d399;"></i> Image Gallery
                 </button>
+                {% endif %}
+                {% if company.is_video_generation_enabled %}
                 <button id="btn-show-gallery-videos" class="resource-btn">
                     <i class="fas fa-video" style="color:#f472b6;"></i> Video Gallery
                 </button>
+                {% endif %}
             {% else %}
                 <p style="color:var(--text-muted); text-align:center; font-size:0.9rem; margin-top: 20px;">Select a character to see resources.</p>
             {% endif %}
@@ -1253,8 +1297,8 @@
             canUpscale: {{ workflow_capabilities.can_upscale|yesno:"true,false"|default:"false" }},
             canFaceDetail: {{ workflow_capabilities.can_facedetail|yesno:"true,false"|default:"false" }},
             canEyeDetail: {{ workflow_capabilities.can_eyedetailer|yesno:"true,false"|default:"false" }},
-            isImageEnabled: {{ company.is_image_generation_enabled|yesno:"true,false"|default:"true" }},
-            isVideoEnabled: {{ company.is_video_generation_enabled|yesno:"true,false"|default:"true" }}
+            isImageEnabled: {% if company %}{{ company.is_image_generation_enabled|yesno:"true,false"|default:"true" }}{% else %}true{% endif %},
+            isVideoEnabled: {% if company %}{{ company.is_video_generation_enabled|yesno:"true,false"|default:"true" }}{% else %}true{% endif %}
         };
     </script>
     <script src="{% static 'myapp/js/workspace.js' %}"></script>

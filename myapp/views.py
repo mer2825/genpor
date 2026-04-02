@@ -28,6 +28,7 @@ from django.views.decorators.csrf import csrf_exempt # IMPORTANTE: Para PayPal
 from datetime import timedelta
 import stripe # IMPORTANTE: Para Stripe
 import decimal
+from django_ratelimit.decorators import ratelimit # IMPORTANTE: Para Rate Limiting Seguro
 
 # --- CLASE PERSONALIZADA PARA PAYPAL DINÁMICO ---
 class DynamicPayPalForm(PayPalPaymentsForm):
@@ -1180,6 +1181,8 @@ def token_packages(request):
     packages = TokenPackage.objects.filter(is_active=True)
     return render(request, 'myapp/token_packages.html', {'packages': packages, 'company': company_settings})
 
+# 🛡️ PROTECCIÓN CONTRA BOTS EN PAGOS (Máximo 10 intentos de pago por IP cada hora)
+@ratelimit(key='ip', rate='10/h', block=True)
 @login_required
 def payment_process(request, package_id):
     company_settings = CompanySettings.objects.last() # CAMBIO: .last()
@@ -1330,6 +1333,8 @@ def check_payment_status(request, transaction_id):
     return JsonResponse({'status': transaction.status})
 
 # --- NUEVA VISTA: CREAR SESIÓN DE STRIPE ---
+# 🛡️ PROTECCIÓN CONTRA BOTS EN PAGOS (Máximo 10 intentos de pago por IP cada hora)
+@ratelimit(key='ip', rate='10/h', block=True)
 @login_required
 def create_checkout_session(request, package_id):
     if request.method == 'POST':
@@ -1414,6 +1419,8 @@ def subscription_plans(request):
         'current_sub': current_sub
     })
 
+# 🛡️ PROTECCIÓN CONTRA BOTS EN PAGOS (Máximo 10 intentos de suscripción por IP cada hora)
+@ratelimit(key='ip', rate='10/h', block=True)
 @login_required
 def subscription_process(request, plan_id):
     company_settings = CompanySettings.objects.last() # CAMBIO: .last()
@@ -1484,6 +1491,8 @@ def subscription_process(request, plan_id):
     })
 
 # --- NUEVA VISTA: CREAR SESIÓN DE SUSCRIPCIÓN STRIPE ---
+# 🛡️ PROTECCIÓN CONTRA BOTS EN PAGOS (Máximo 10 intentos de pago por IP cada hora)
+@ratelimit(key='ip', rate='10/h', block=True)
 @login_required
 def create_subscription_checkout_session(request, plan_id):
     if request.method == 'POST':

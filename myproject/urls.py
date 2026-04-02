@@ -18,13 +18,24 @@ from django.contrib import admin
 from django.urls import path, include
 from django.conf import settings
 from django.conf.urls.static import static
-# from two_factor.urls import urlpatterns as tf_urls # Importar URLs de 2FA (COMENTADO)
+from django_ratelimit.decorators import ratelimit
+from allauth.account import views as allauth_views
+
+# 🛡️ Proteger vistas críticas (Fuerza Bruta y Spam)
+# Limitar a 5 intentos de login cada 5 minutos por IP
+login_ratelimited = ratelimit(key='ip', rate='5/5m', block=True)(allauth_views.login)
+# Limitar a 3 registros cada 10 minutos por IP
+signup_ratelimited = ratelimit(key='ip', rate='3/10m', block=True)(allauth_views.signup)
 
 urlpatterns = [
     # CAMBIO DE SEGURIDAD: URL de admin personalizada
     path('gestion-segura/', admin.site.urls),
     
-    # Rutas de autenticación de allauth (deben ir PRIMERO)
+    # Interceptar URLs de login y registro de allauth con nuestro rate limit ANTES del include
+    path('accounts/login/', login_ratelimited, name='account_login'),
+    path('accounts/signup/', signup_ratelimited, name='account_signup'),
+
+    # Rutas de autenticación de allauth
     path('accounts/', include('allauth.urls')),
     
     # Rutas de 2FA (Ahora bajo 'security/' para evitar conflictos) (COMENTADO)

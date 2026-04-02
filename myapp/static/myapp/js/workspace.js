@@ -16,7 +16,6 @@ const {
 
 // --- UI LOGIC ---
 const textarea = document.getElementById('prompt-input');
-const chatArea = document.getElementById('chat-area'); // Fallback
 const chatAreaImage = document.getElementById('chat-area-image');
 const chatAreaVideo = document.getElementById('chat-area-video');
 const bottomNav = document.querySelector('.bottom-nav');
@@ -59,9 +58,17 @@ document.addEventListener('click', function(e) {
 
 
 // --- MODE SWITCH LOGIC ---
-let currentMode = 'image'; // 'image' or 'video'
+// Si isImageEnabled es false, forzamos modo video si está habilitado, sino defaults a image
+let currentMode = (isImageEnabled || (!isImageEnabled && !isVideoEnabled)) ? 'image' : 'video';
 
 function setMode(mode) {
+    // Si se intenta cambiar a un modo deshabilitado y el otro está habilitado, forzar al habilitado
+    if (mode === 'image' && !isImageEnabled && isVideoEnabled) {
+        mode = 'video';
+    } else if (mode === 'video' && !isVideoEnabled && isImageEnabled) {
+        mode = 'image';
+    }
+
     currentMode = mode;
     localStorage.setItem('workspaceMode', mode); // GUARDAR MODO
 
@@ -75,31 +82,60 @@ function setMode(mode) {
         if (videoBtn) videoBtn.classList.add('active');
     }
 
-    // Mostrar/Ocultar botón de aspect ratio
+    // Mostrar/Ocultar botón de aspect ratio (SOLO IMAGEN)
     const aspectDropdownWrapper = document.getElementById('aspect-dropdown-wrapper');
     if (aspectDropdownWrapper) {
-        aspectDropdownWrapper.style.display = mode === 'image' ? 'block' : 'none';
+        aspectDropdownWrapper.style.display = (mode === 'image' && isImageEnabled) ? 'block' : 'none';
     }
 
-    // Toggle chat areas
-    if(chatAreaImage) chatAreaImage.style.display = mode === 'image' ? 'flex' : 'none';
-    if(chatAreaVideo) chatAreaVideo.style.display = mode === 'video' ? 'flex' : 'none';
+    // Mostrar/Ocultar botón de video settings (SOLO VIDEO)
+    const videoSettingsDropdownWrapper = document.getElementById('video-settings-dropdown-wrapper');
+    if (videoSettingsDropdownWrapper) {
+        videoSettingsDropdownWrapper.style.display = (mode === 'video' && isVideoEnabled) ? 'block' : 'none';
+    }
+
+    // Toggle chat areas (también asegurando que respete la habilitación)
+    if(chatAreaImage) {
+        if(mode === 'image' && isImageEnabled) {
+            chatAreaImage.style.display = 'flex';
+        } else {
+            chatAreaImage.style.display = 'none';
+        }
+    }
+
+    if(chatAreaVideo) {
+        if(mode === 'video' && isVideoEnabled) {
+            chatAreaVideo.style.display = 'flex';
+        } else {
+            chatAreaVideo.style.display = 'none';
+        }
+    }
 
     // Toggle image selector in input area
     const videoSourceContainer = document.getElementById('video-source-container');
     if (videoSourceContainer) {
-        videoSourceContainer.style.display = mode === 'video' ? 'block' : 'none';
+        videoSourceContainer.style.display = (mode === 'video' && isVideoEnabled) ? 'block' : 'none';
     }
 
     // Update placeholder
     if (textarea) {
-        textarea.placeholder = mode === 'image' ? "Describe your image here..." : "Describe the motion for your video...";
+        if (mode === 'image' && isImageEnabled) {
+            textarea.placeholder = "Describe your image here...";
+        } else if (mode === 'video' && isVideoEnabled) {
+            textarea.placeholder = "Describe the motion for your video...";
+        } else {
+            textarea.placeholder = "Generation disabled...";
+        }
     }
 
     // Actualizar el texto del botón Mode
     const modeBtn = document.querySelector('#mode-dropdown-wrapper .settings-dropdown-btn');
     if (modeBtn) {
-        modeBtn.innerHTML = mode === 'image' ? '<i class="fas fa-image"></i> Image <i class="fas fa-chevron-down" style="font-size: 0.7em;"></i>' : '<i class="fas fa-video"></i> Video <i class="fas fa-chevron-down" style="font-size: 0.7em;"></i>';
+        if (mode === 'image') {
+            modeBtn.innerHTML = '<i class="fas fa-image"></i> Image <i class="fas fa-chevron-down" style="font-size: 0.7em;"></i>';
+        } else {
+            modeBtn.innerHTML = '<i class="fas fa-film"></i> Video <i class="fas fa-chevron-down" style="font-size: 0.7em;"></i>';
+        }
     }
 
     // Cerrar el menú después de la selección explícitamente sin usar toggle
@@ -115,7 +151,19 @@ function setMode(mode) {
     const isDisabled = (mode === 'image' && !isImageEnabled) || (mode === 'video' && !isVideoEnabled);
 
     const sendBtn = document.getElementById('send-btn');
-    if (textarea) textarea.disabled = isDisabled;
+    if (textarea) {
+        textarea.disabled = isDisabled;
+        // Restaurar estilos cuando esté habilitado/deshabilitado
+        textarea.style.opacity = isDisabled ? '0.5' : '1';
+        if (!isDisabled) {
+            textarea.style.height = 'auto'; // Resetear para calcularscrollHeight
+            // Usamos un pequeño delay porque a veces el DOM necesita un frame para renderizar el textarea correctamente
+            setTimeout(() => {
+                textarea.style.height = Math.min(textarea.scrollHeight || 24, 120) + 'px';
+            }, 10);
+        }
+    }
+
     if (sendBtn) {
         sendBtn.disabled = isDisabled;
         sendBtn.style.opacity = isDisabled ? '0.5' : '1';
@@ -147,19 +195,38 @@ function setMode(mode) {
 if (textarea) {
     textarea.addEventListener('input', function() {
         this.style.height = 'auto';
-        this.style.height = Math.min(this.scrollHeight, 150) + 'px';
+        this.style.height = Math.min(this.scrollHeight, 120) + 'px';
     });
 }
 
 // Scroll al fondo al cargar y restaurar modo
 window.onload = function() {
     // Restaurar modo guardado
-    const savedMode = localStorage.getItem('workspaceMode');
+    let savedMode = localStorage.getItem('workspaceMode');
+
+    // Si tenemos modo guardado pero está deshabilitado
+    if (savedMode === 'image' && !isImageEnabled && isVideoEnabled) {
+        savedMode = 'video';
+    } else if (savedMode === 'video' && !isVideoEnabled && isImageEnabled) {
+        savedMode = 'image';
+    }
+
     if (savedMode && (savedMode === 'image' || savedMode === 'video')) {
         setMode(savedMode);
     } else {
-        setMode('image'); // Default
+        setMode((isImageEnabled || (!isImageEnabled && !isVideoEnabled)) ? 'image' : 'video');
     }
+
+    // Solucionar el problema de altura inicial del textarea
+    // A veces al cargar la página, el scrollHeight puede calcularse mal si no hay contenido.
+    if (textarea && !textarea.disabled) {
+        // Fijamos una altura inicial forzada primero, para evitar que suba.
+        textarea.style.height = 'auto';
+        setTimeout(() => {
+            textarea.style.height = Math.min(textarea.scrollHeight || 24, 120) + 'px';
+        }, 50); // Darle un poco más de tiempo de renderizado
+    }
+
     scrollToBottom();
 };
 
@@ -507,7 +574,7 @@ function sendPrompt() {
 
     if (textarea) {
         textarea.value = '';
-        textarea.style.height = 'auto';
+        textarea.style.height = '24px'; // reset height explicitly
     }
     scrollToBottom();
 

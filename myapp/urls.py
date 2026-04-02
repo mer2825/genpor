@@ -9,14 +9,14 @@ urlpatterns = [
     path('delete-images/', views.delete_images_view, name='delete_images'),
     # Nueva ruta específica para archivos privados
     path('private-media/<path:path>', views.serve_private_media, name='serve_private_media'),
-    
+
     # Rutas para gestión de chat
     path('delete-message/', views.delete_message_view, name='delete_message'),
     path('clear-chat/', views.clear_chat_history_view, name='clear_chat'),
-    
+
     # Ruta para canjear cupones
     path('redeem-coupon/', views.redeem_coupon_view, name='redeem_coupon'),
-    
+
     # Ruta para actualizar username
     path('update-username/', views.update_username_view, name='update_username'),
 
@@ -36,7 +36,7 @@ urlpatterns = [
 
     # Rutas de Stripe (Pagos Únicos)
     path('payment/stripe/create-checkout-session/<int:package_id>/', views.create_checkout_session, name='create_checkout_session'),
-    
+
     # Rutas de Stripe (Suscripciones)
     path('subscription/stripe/create-checkout-session/<int:plan_id>/', views.create_subscription_checkout_session, name='create_subscription_checkout_session'),
 

@@ -339,9 +339,9 @@ html, body {
     background-color: rgba(30, 30, 30, 0.9);
     border: 1px solid var(--card-border);
     border-radius: 30px;
-    padding: 8px 8px 8px 20px;
+    padding: 5px 8px 5px 20px;
     display: flex;
-    align-items: flex-end;
+    align-items: center;
     gap: 10px;
     backdrop-filter: blur(10px);
 }
@@ -352,18 +352,22 @@ textarea {
     border: none;
     color: white;
     font-family: inherit;
-    font-size: 1rem;
+    font-size: 0.95rem; /* Un poco más pequeña la fuente */
     resize: none;
+    height: 44px; /* Altura inicial controlada y uniforme */
     max-height: 120px;
-    padding: 10px 0;
+    padding: 12px 0; /* Padding interno menor */
+    box-sizing: border-box;
+    display: block; /* Asegura un bloque uniforme */
+    line-height: 1.2;
 }
 textarea:focus { outline: none; }
 
 .send-btn {
     background: var(--primary-gradient);
     color: white;
-    width: 40px;
-    height: 40px;
+    width: 36px; /* Botón un poco más pequeño para encajar */
+    height: 36px; /* Botón un poco más pequeño para encajar */
     border-radius: 50%;
     border: none;
     cursor: pointer;

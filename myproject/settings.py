@@ -398,3 +398,11 @@ ADMIN_REORDER = (
         )
     },
 )
+
+# CONFIGURACIÓN DE CACHÉ (Para el Rate Limiting)
+CACHES = {
+    'default': {
+        'BACKEND': 'django.core.cache.backends.locmem.LocMemCache',
+        'LOCATION': 'unique-snowflake',
+    }
+}
