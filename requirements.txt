@@ -17,3 +17,4 @@ django-paypal
 django-recaptcha
 stripe
 django-modeladmin-reorder
+django-ratelimit
