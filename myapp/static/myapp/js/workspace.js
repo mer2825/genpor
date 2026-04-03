@@ -72,14 +72,12 @@ function setMode(mode) {
     currentMode = mode;
     localStorage.setItem('workspaceMode', mode); // GUARDAR MODO
 
-    // Update buttons in the dropdown menu
-    document.querySelectorAll('#menu-mode .mode-btn').forEach(b => b.classList.remove('active'));
-    if (mode === 'image') {
-        const imageBtn = document.getElementById('mode-image-btn');
-        if (imageBtn) imageBtn.classList.add('active');
-    } else {
-        const videoBtn = document.getElementById('mode-video-btn');
-        if (videoBtn) videoBtn.classList.add('active');
+    // --- NUEVO: Actualizar el interruptor de escritorio ---
+    const desktopImageBtn = document.getElementById('mode-btn-image');
+    const desktopVideoBtn = document.getElementById('mode-btn-video');
+    if (desktopImageBtn && desktopVideoBtn) {
+        desktopImageBtn.classList.toggle('active', mode === 'image');
+        desktopVideoBtn.classList.toggle('active', mode === 'video');
     }
 
     // Mostrar/Ocultar botón de aspect ratio (SOLO IMAGEN)
@@ -128,7 +126,7 @@ function setMode(mode) {
         }
     }
 
-    // Actualizar el ícono del botón de cambio de modo
+    // Actualizar el ícono del botón de cambio de modo móvil
     const modeIcon = document.getElementById('mode-toggle-icon');
     if (modeIcon) {
         if (mode === 'image') {
@@ -136,16 +134,6 @@ function setMode(mode) {
         } else {
             modeIcon.className = 'fas fa-film';
         }
-    }
-
-    // Cerrar el menú después de la selección explícitamente sin usar toggle
-    const targetMenu = document.getElementById('menu-mode');
-    if (targetMenu) {
-        targetMenu.classList.remove('show');
-    }
-    const modeBtn = document.querySelector('#mode-dropdown-wrapper .settings-dropdown-btn');
-    if (modeBtn) {
-        modeBtn.classList.remove('active');
     }
 
     // Check if mode is disabled

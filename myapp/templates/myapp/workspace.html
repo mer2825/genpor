@@ -766,6 +766,59 @@
             font-size: 0.75rem; /* REDUCIDO */
         }
 
+        /* Responsive Mode Toggle */
+        .desktop-mode-switch {
+            display: none; /* Oculto por defecto en móvil */
+            background: rgba(255,255,255,0.1);
+            border-radius: 15px;
+            padding: 3px;
+            gap: 3px;
+            align-items: center;
+        }
+
+        .mode-switch-btn {
+            background: transparent;
+            border: none;
+            color: var(--text-muted);
+            padding: 6px 10px;
+            border-radius: 12px; /* Más redondeado para los botones internos */
+            cursor: pointer;
+            font-size: 0.85rem;
+            font-weight: 600;
+            transition: all 0.2s;
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+
+        .mode-switch-btn:hover {
+            color: white;
+        }
+
+        .mode-switch-btn.active {
+            background: var(--primary-gradient);
+            color: white;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+        }
+
+        @media (min-width: 769px) { /* Para pantallas de escritorio */
+            .mobile-mode-toggle {
+                display: none !important; /* Ocultar el botón de alternancia móvil */
+            }
+            .desktop-mode-switch {
+                display: flex; /* Mostrar el interruptor de escritorio */
+            }
+        }
+
+        @media (max-width: 768px) { /* Para pantallas móviles/tablets */
+            .mobile-mode-toggle {
+                display: flex !important; /* Asegurar que el botón móvil se muestre */
+            }
+            .desktop-mode-switch {
+                display: none; /* Ocultar el interruptor de escritorio */
+            }
+        }
+
     </style>
 </head>
 <body>
@@ -958,11 +1011,22 @@
                         <!-- Fila Inferior: Botones de Configuración -->
                         <div class="settings-toggle-bar" style="margin-top: 0; margin-bottom: 0; flex-shrink: 0; width: auto; gap: 5px; flex-direction: row;">
                             {% if company.is_image_generation_enabled and company.is_video_generation_enabled %}
-                            <!-- Dropdown de Modo -->
+                            <!-- Selector de Modo (Móvil y Escritorio) -->
                             <div class="dropdown-wrapper" id="mode-dropdown-wrapper">
-                                <button class="settings-dropdown-btn" onclick="setMode(currentMode === 'image' ? 'video' : 'image')" style="padding: 6px 10px; border-radius: 15px; border: none; background: rgba(255,255,255,0.1);">
+                                <!-- Botón para móvil/tablet -->
+                                <button class="settings-dropdown-btn mobile-mode-toggle" onclick="setMode(currentMode === 'image' ? 'video' : 'image')" style="padding: 6px 10px; border-radius: 15px; border: none; background: rgba(255,255,255,0.1);">
                                     <i id="mode-toggle-icon" class="fas fa-image"></i>
                                 </button>
+
+                                <!-- Interruptor para desktop -->
+                                <div class="desktop-mode-switch">
+                                    <button class="mode-switch-btn" id="mode-btn-image" onclick="setMode('image')">
+                                        <i class="fas fa-image"></i> Image
+                                    </button>
+                                    <button class="mode-switch-btn" id="mode-btn-video" onclick="setMode('video')">
+                                        <i class="fas fa-film"></i> Video
+                                    </button>
+                                </div>
                             </div>
                             {% endif %}
 
