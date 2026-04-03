@@ -4,7 +4,7 @@
     --sidebar-width: 280px;
     --header-height: 70px;
     --bottom-nav-height: 65px;
-    --mobile-header-height: 60px;
+    --mobile-header-height: 45px; /* REDUCIDO DE 50px A 45px */
 }
 
 /* --- LAYOUT PRINCIPAL --- */
@@ -198,14 +198,16 @@ html, body {
     background: #000;
     position: relative;
     transition: transform 0.3s;
-    /* Limitamos el tamaño máximo para que no se salga de la pantalla,
-       pero permitimos que crezca lo suficiente para verse bien */
+
+    /* MODIFICACIÓN: Contenedor con proporciones fijas en móvil y escritorio, y que las imágenes se adapten sin recortes */
+    /* En escritorio lo hacemos más grande */
+    width: 260px;
+    height: 260px;
     max-width: 100%;
-    max-height: 35vh; /* Ajustado para que sea un poquito MÁS pequeña */
     display: flex;
     justify-content: center;
     align-items: center;
-    background-color: rgba(0,0,0,0.3);
+    background-color: rgba(0,0,0,0.5); /* Fondo un poco más oscuro para mejor contraste */
     cursor: pointer;
 }
 
@@ -214,15 +216,13 @@ html, body {
     border-color: var(--primary-color);
 }
 
-.result-card img {
+.result-card img, .result-card video {
     /* La imagen se adaptará al tamaño del contenedor (result-card),
        manteniendo su proporción y sin recortarse */
-    max-width: 100%;
-    max-height: 35vh; /* Ajustado a la par que result-card */
-    width: auto;
-    height: auto;
+    width: 100%;
+    height: 100%;
     display: block;
-    object-fit: contain; /* CRUCIAL: Muestra toda la imagen sin recortes */
+    object-fit: contain; /* CRUCIAL: Muestra toda la imagen dentro del limite sin recortes */
 }
 
 
@@ -940,12 +940,24 @@ textarea:focus { outline: none; }
         top: var(--mobile-header-height);
         width: 100%;
         z-index: 100;
+        /* REDUCIR PADDING DEL SUBHEADER */
+        padding: 4px 15px;
         box-sizing: border-box;
+    }
+
+    /* REDUCIR TAMAÑO DEL AVATAR Y TEXTO EN MÓVIL */
+    .character-header .char-avatar {
+        width: 28px;
+        height: 28px;
+    }
+
+    .character-header .char-info h2 {
+        font-size: 0.85rem;
     }
 
     .main-content {
         height: 100%; /* CAMBIO: Ocupar todo el alto */
-        padding-top: 130px; /* Espacio para los dos headers fijos */
+        padding-top: 90px; /* Ajustado el espacio porque el header/subheader es más pequeño */
         padding-bottom: 150px; /* Espacio para el input y nav fijos */
         overflow-y: auto; /* CAMBIO: El scroll ocurre AQUÍ */
         -webkit-overflow-scrolling: touch; /* Suavidad en iOS */
@@ -1045,6 +1057,26 @@ textarea:focus { outline: none; }
         display: block !important; /* Forzar visibilidad en móvil */
         height: 40px !important; /* Altura suficiente para empujar el contenido */
     }
+
+    /* Result card responsive para móviles */
+    .result-card {
+        width: 160px; /* Reducido un poco para móviles */
+        height: 200px; /* Reducido en móviles */
+    }
+
+    /* AJUSTES PARA BOTONES DE SETTINGS EN MÓVIL */
+    .settings-toggle-bar .settings-dropdown-btn {
+        padding: 4px 8px;
+        font-size: 0.9rem;
+    }
+
+    .settings-toggle-bar .settings-dropdown-btn .fa-chevron-down {
+        display: none; /* Ocultar la flecha en móvil para ahorrar espacio */
+    }
+
+    .settings-toggle-bar {
+        gap: 5px; /* Reducir el espacio entre botones */
+    }
 }
 
 /* --- RESPONSIVE EXTRA (MÓVIL PEQUEÑO) --- */
@@ -1065,6 +1097,13 @@ textarea:focus { outline: none; }
         gap: 8px;
     }
 
+    .result-card {
+        width: 100%;
+        max-width: 180px; /* Tamaño máximo aún más reducido */
+        height: 220px; /* Menos altura para ajustarse a los requisitos del usuario en móviles */
+        margin: 0 auto;
+    }
+
     .result-badge {
         font-size: 0.6rem;
         padding: 3px 6px;
@@ -1077,5 +1116,11 @@ textarea:focus { outline: none; }
         width: 40px;
         height: 40px;
         font-size: 1rem;
+    }
+
+    /* AJUSTES MÁS AGRESIVOS PARA BOTONES DE SETTINGS EN MÓVIL PEQUEÑO */
+    .settings-toggle-bar .settings-dropdown-btn {
+        padding: 2px 6px;
+        font-size: 0.8rem; /* Reducir tamaño del ícono */
     }
 }

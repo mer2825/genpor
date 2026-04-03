@@ -128,13 +128,13 @@ function setMode(mode) {
         }
     }
 
-    // Actualizar el texto del botón Mode
-    const modeBtn = document.querySelector('#mode-dropdown-wrapper .settings-dropdown-btn');
-    if (modeBtn) {
+    // Actualizar el ícono del botón de cambio de modo
+    const modeIcon = document.getElementById('mode-toggle-icon');
+    if (modeIcon) {
         if (mode === 'image') {
-            modeBtn.innerHTML = '<i class="fas fa-image"></i> Image <i class="fas fa-chevron-down" style="font-size: 0.7em;"></i>';
+            modeIcon.className = 'fas fa-image';
         } else {
-            modeBtn.innerHTML = '<i class="fas fa-film"></i> Video <i class="fas fa-chevron-down" style="font-size: 0.7em;"></i>';
+            modeIcon.className = 'fas fa-film';
         }
     }
 
@@ -143,6 +143,7 @@ function setMode(mode) {
     if (targetMenu) {
         targetMenu.classList.remove('show');
     }
+    const modeBtn = document.querySelector('#mode-dropdown-wrapper .settings-dropdown-btn');
     if (modeBtn) {
         modeBtn.classList.remove('active');
     }
@@ -1107,7 +1108,7 @@ if (viewerContainer) {
         e.preventDefault(); // Prevenir scroll de página
         if (e.touches.length === 1 && zoomLevel > 1 && isDragging) {
             translateX = e.touches[0].clientX - startX;
-            translateY = e.touches[0].clientY - translateY;
+            translateY = e.touches[0].clientY - startY;
             updateTransform();
         } else if (e.touches.length === 2) {
             const currentDistance = Math.hypot(

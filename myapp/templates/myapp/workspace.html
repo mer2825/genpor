@@ -475,39 +475,6 @@
         .message.user .delete-msg-btn { left: -35px; }
         .message.ai .delete-msg-btn { right: -35px; }
 
-        /* Ajuste para grids de resultados dentro de burbujas */
-        .result-grid {
-            margin-top: 15px;
-            display: flex; /* CAMBIO: Flex para mejor control de tamaño */
-            flex-wrap: wrap;
-            gap: 10px;
-            width: 100%;
-        }
-
-        /* ELIMINAMOS RESTRICCIONES DE TAMAÑO EN LA TARJETA DEL RESULTADO */
-        .result-card {
-            position: relative;
-            border-radius: 12px;
-            overflow: hidden;
-            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
-            transition: transform 0.2s;
-            width: 100%; /* Ocupa todo el ancho disponible */
-            cursor: pointer;
-        }
-
-        /* PERMITIMOS QUE LA IMAGEN SE MUESTRE COMPLETA */
-        .result-card img, .result-card video {
-            width: 100%;
-            height: auto; /* Altura automática basada en la proporción real */
-            display: block;
-            object-fit: contain; /* Asegura que se vea completa, sin recortar */
-            cursor: pointer;
-        }
-
-        .result-card:hover {
-            transform: scale(1.02);
-        }
-
         /* --- TOAST NOTIFICATIONS (NUEVO) --- */
         .toast-container {
             position: fixed;
@@ -591,10 +558,34 @@
         }
 
         /* --- ESTILOS PARA LOS PANELES DESPLEGABLES EN EL INPUT (REFACTORIZADO) --- */
+        /* CAMBIO: Contenedor global para organizar prompt y botones */
+        .input-wrapper {
+            background-color: rgba(30, 30, 30, 0.9);
+            border: 1px solid var(--card-border);
+            border-radius: 20px; /* Bordes más rectos para que parezca una caja de contenido */
+            padding: 10px;
+            backdrop-filter: blur(10px);
+            display: flex;
+            flex-direction: column;
+            gap: 8px; /* Espacio entre el texto y los botones */
+        }
+
+        /* CAMBIO: El input box ya no tiene fondo ni bordes porque los hereda del wrapper */
+        .input-box {
+            background-color: transparent;
+            border: none;
+            border-radius: 0;
+            padding: 0;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            backdrop-filter: none;
+        }
+
         .settings-toggle-bar {
             display: flex;
             gap: 10px;
-            margin-bottom: 10px;
+            margin-top: 0;
             width: 100%;
         }
 
@@ -939,28 +930,47 @@
 
                 <div class="input-container">
                     <div class="input-wrapper">
-                        <!-- BOTONES DESPLEGABLES (NUEVA ESTRUCTURA) -->
-                        <div class="settings-toggle-bar">
-                            {% if company.is_image_generation_enabled and company.is_video_generation_enabled %}
-                            <!-- Dropdown de Modo solo si ambos están habilitados -->
-                            <div class="dropdown-wrapper" id="mode-dropdown-wrapper">
-                                <button class="settings-dropdown-btn" onclick="toggleDropdownMenu('menu-mode', this)">
-                                    <i class="fas fa-sliders-h"></i> Mode <i class="fas fa-chevron-down" style="font-size: 0.7em;"></i>
+                        <!-- Fila Superior: Prompt y Enviar -->
+                        <div class="input-main-row" style="display: flex; align-items: flex-end; gap: 10px;">
+                            {% if company.is_video_generation_enabled %}
+                            <!-- SELECCIÓN DE IMAGEN PARA VIDEO -->
+                            <div id="video-source-container" style="flex-shrink: 0; display: none;">
+                                <button id="btn-select-video-source" onclick="openImageSelectModal()" style="width: 44px; height: 44px; border-radius: 50%; background: rgba(255,255,255,0.05); border: 1px dashed rgba(255,255,255,0.3); color: var(--text-muted); cursor: pointer; transition: all 0.2s; display: flex; align-items: center; justify-content: center;">
+                                    <i class="fas fa-image" style="font-size: 1rem;"></i>
                                 </button>
-                                <div id="menu-mode" class="settings-dropdown-menu">
-                                    <div class="mode-switch">
-                                        <button class="mode-btn active" id="mode-image-btn" onclick="setMode('image')">Image</button>
-                                        <button class="mode-btn" id="mode-video-btn" onclick="setMode('video')">Video</button>
+                                <div id="preview-video-source" style="display: none; position: relative; width: 44px; height: 44px;">
+                                    <img id="video-src-img" src="" style="width: 100%; height: 100%; object-fit: cover; border-radius: 50%; border: 2px solid var(--primary-color); cursor: pointer;" onclick="openImageSelectModal()" title="Change image">
+                                    <div onclick="clearVideoSelection()" style="position: absolute; top: -4px; right: -4px; background: #ef4444; color: white; border-radius: 50%; width: 16px; height: 16px; font-size: 10px; display: flex; align-items: center; justify-content: center; cursor: pointer; box-shadow: 0 2px 5px rgba(0,0,0,0.3);">
+                                        <i class="fas fa-times"></i>
                                     </div>
                                 </div>
+                                <input type="hidden" id="selected-image-url">
+                            </div>
+                            {% endif %}
+                            <div class="input-box" style="flex: 1;">
+                                <textarea id="prompt-input" placeholder="Describe your image here..." rows="1"></textarea>
+                            </div>
+                            <button id="send-btn" class="send-btn">
+                                <i class="fas fa-arrow-up"></i>
+                            </button>
+                        </div>
+
+                        <!-- Fila Inferior: Botones de Configuración -->
+                        <div class="settings-toggle-bar" style="margin-top: 0; margin-bottom: 0; flex-shrink: 0; width: auto; gap: 5px; flex-direction: row;">
+                            {% if company.is_image_generation_enabled and company.is_video_generation_enabled %}
+                            <!-- Dropdown de Modo -->
+                            <div class="dropdown-wrapper" id="mode-dropdown-wrapper">
+                                <button class="settings-dropdown-btn" onclick="setMode(currentMode === 'image' ? 'video' : 'image')" style="padding: 6px 10px; border-radius: 15px; border: none; background: rgba(255,255,255,0.1);">
+                                    <i id="mode-toggle-icon" class="fas fa-image"></i>
+                                </button>
                             </div>
                             {% endif %}
 
                             {% if company.is_image_generation_enabled %}
                             <!-- Dropdown de Aspect Ratio -->
                             <div class="dropdown-wrapper" id="aspect-dropdown-wrapper" {% if not company.is_image_generation_enabled and company.is_video_generation_enabled %}style="display:none;"{% endif %}>
-                                <button class="settings-dropdown-btn" id="btn-toggle-aspect" onclick="toggleDropdownMenu('menu-aspect', this)">
-                                    <i class="fas fa-crop-alt"></i> Aspect <i class="fas fa-chevron-down" style="font-size: 0.7em;"></i>
+                                <button class="settings-dropdown-btn" id="btn-toggle-aspect" onclick="toggleDropdownMenu('menu-aspect', this)" style="padding: 6px 10px; border-radius: 15px; border: none; background: rgba(255,255,255,0.1);">
+                                    <i class="fas fa-crop-alt"></i> <i class="fas fa-chevron-down" style="font-size: 0.6em;"></i>
                                 </button>
                                 <div id="menu-aspect" class="settings-dropdown-menu">
                                     <input type="hidden" id="width-input" value="{{ default_width }}">
@@ -992,10 +1002,10 @@
                             {% endif %}
 
                             {% if company.is_video_generation_enabled %}
-                            <!-- Dropdown de Video Settings (Añadido) -->
+                            <!-- Dropdown de Video Settings -->
                             <div class="dropdown-wrapper" id="video-settings-dropdown-wrapper" {% if company.is_image_generation_enabled %}style="display:none;"{% endif %}>
-                                <button class="settings-dropdown-btn" id="btn-toggle-video-settings" onclick="toggleDropdownMenu('menu-video-settings', this)">
-                                    <i class="fas fa-film"></i> Video <i class="fas fa-chevron-down" style="font-size: 0.7em;"></i>
+                                <button class="settings-dropdown-btn" id="btn-toggle-video-settings" onclick="toggleDropdownMenu('menu-video-settings', this)" style="padding: 6px 10px; border-radius: 15px; border: none; background: rgba(255,255,255,0.1);">
+                                    <i class="fas fa-film"></i> <i class="fas fa-chevron-down" style="font-size: 0.6em;"></i>
                                 </button>
                                 <div id="menu-video-settings" class="settings-dropdown-menu" style="padding: 8px; min-width: 180px;">
                                     {% if video_durations %}
@@ -1020,33 +1030,6 @@
                                 </div>
                             </div>
                             {% endif %}
-
-                        </div>
-
-                        <!-- CAJA DE INPUT -->
-                        <div style="display: flex; align-items: flex-end; gap: 10px; width: 100%;">
-                            {% if company.is_video_generation_enabled %}
-                            <!-- SELECCIÓN DE IMAGEN PARA VIDEO -->
-                            <div id="video-source-container" style="margin-right: 5px; flex-shrink: 0; {% if company.is_image_generation_enabled %}display: none;{% else %}display: block;{% endif %}">
-                                <button id="btn-select-video-source" onclick="openImageSelectModal()" style="width: 50px; height: 50px; border-radius: 12px; background: rgba(255,255,255,0.1); border: 1px dashed var(--text-muted); color: var(--text-muted); cursor: pointer; transition: all 0.2s; display: flex; align-items: center; justify-content: center;">
-                                    <i class="fas fa-image" style="font-size: 1.2rem;"></i>
-                                </button>
-                                <div id="preview-video-source" style="display: none; position: relative; width: 70px; height: 70px;">
-                                    <img id="video-src-img" src="" style="width: 100%; height: 100%; object-fit: cover; border-radius: 10px; border: 2px solid var(--primary-color); cursor: pointer;" onclick="openImageSelectModal()" title="Change image">
-                                    <div onclick="clearVideoSelection()" style="position: absolute; top: -6px; right: -6px; background: #ef4444; color: white; border-radius: 50%; width: 20px; height: 20px; font-size: 12px; display: flex; align-items: center; justify-content: center; cursor: pointer; box-shadow: 0 2px 5px rgba(0,0,0,0.3);">
-                                        <i class="fas fa-times"></i>
-                                    </div>
-                                </div>
-                                <input type="hidden" id="selected-image-url">
-                            </div>
-                            {% endif %}
-
-                            <div class="input-box" style="flex: 1;">
-                                <textarea id="prompt-input" placeholder="{% if company.is_image_generation_enabled %}Describe your image here...{% else %}Describe the motion for your video...{% endif %}" rows="1"></textarea>
-                                <button id="send-btn" class="send-btn">
-                                    <i class="fas fa-arrow-up"></i>
-                                </button>
-                            </div>
                         </div>
                     </div>
                 </div>
