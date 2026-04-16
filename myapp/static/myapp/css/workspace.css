@@ -1184,7 +1184,7 @@ textarea:focus { outline: none; }
 
 /* --- ANIMATION STYLES --- */
 .animation-container {
-    position: fixed;
+    position: absolute; /* Posición por defecto para escritorio */
     top: 0;
     left: 0;
     width: 100%;
@@ -1192,6 +1192,13 @@ textarea:focus { outline: none; }
     overflow: hidden;
     z-index: 0;
     pointer-events: none;
+}
+
+/* En móvil, cambiamos a 'fixed' para que no se mueva con el scroll */
+@media (max-width: 1024px) {
+    .animation-container {
+        position: fixed;
+    }
 }
 
 .shape {
