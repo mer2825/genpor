@@ -594,7 +594,6 @@ textarea:focus { outline: none; }
     gap: 10px;
     padding: 8px 12px; /* Reducido aún más el padding */
     border-radius: 10px; /* Borde un poco menos curvo para acompañar el tamaño */
-    text-decoration: none;
     margin-bottom: 6px; /* Separación más ajustada */
     position: relative;
     overflow: hidden;
@@ -1185,7 +1184,7 @@ textarea:focus { outline: none; }
 
 /* --- ANIMATION STYLES --- */
 .animation-container {
-    position: absolute;
+    position: fixed;
     top: 0;
     left: 0;
     width: 100%;
