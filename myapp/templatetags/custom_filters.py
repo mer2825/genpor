@@ -11,3 +11,13 @@ def split(value, arg):
     if value:
         return [item.strip() for item in value.split(arg) if item.strip()]
     return []
+
+@register.filter
+def trim(value):
+    """
+    Removes leading and trailing whitespace from a string.
+    Usage: {{ value|trim }}
+    """
+    if isinstance(value, str):
+        return value.strip()
+    return value

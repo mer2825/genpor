@@ -17,16 +17,15 @@ html, body {
 }
 
 /* ESCRITORIO: Grid de 3 columnas por defecto */
-/* AHORA ES DE 2 COLUMNAS (1fr para main, y sidebar-right) */
 .layout-grid {
     display: grid;
     height: 100%;
     width: 100%;
-    grid-template-columns: 1fr var(--sidebar-width);
+    grid-template-columns: var(--sidebar-width) 1fr var(--sidebar-width);
     grid-template-rows: var(--header-height) 1fr;
     grid-template-areas:
-        "header header"
-        "main sidebar-right";
+        "header header header"
+        "sidebar-left main sidebar-right";
 }
 
 /* --- HEADER --- */
@@ -55,7 +54,16 @@ html, body {
 .mobile-toggle-btn:hover { color: white; }
 
 /* --- SIDEBARS (ESCRITORIO) --- */
-/* ELIMINADO EL #sidebar-left DE ESCRITORIO, AHORA ES DROPDOWN */
+#sidebar-left {
+    grid-area: sidebar-left;
+    background-color: rgba(10, 10, 10, 0.4);
+    border-right: 1px solid var(--card-border);
+    display: flex;
+    flex-direction: column;
+    padding: 20px;
+    overflow-y: auto;
+    backdrop-filter: blur(10px);
+}
 
 #sidebar-right {
     grid-area: sidebar-right;
@@ -383,14 +391,8 @@ textarea:focus { outline: none; }
     padding: 12px;
     margin-bottom: 10px;
     border-radius: 12px;
-
-    /* EFECTO VIDRIO/LÚCIDO (GLASSMORPHISM) */
-    background: rgba(255, 255, 255, 0.05); /* Ligeramente más opaco */
-    backdrop-filter: blur(8px); /* Desenfocar lo que hay detrás */
-    -webkit-backdrop-filter: blur(8px); /* Safari */
-    border: 1px solid rgba(255, 255, 255, 0.1); /* Borde sutil blanco */
-    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1), inset 0 1px 0 rgba(255,255,255,0.1); /* Sombra exterior e interior */
-
+    background: #1a1a1a; /* Fondo más sólido y oscuro */
+    border: 1px solid #2a2a2a; /* Borde sutil */
     color: var(--text-muted);
     cursor: pointer;
     display: flex;
@@ -402,36 +404,22 @@ textarea:focus { outline: none; }
     overflow: hidden;
 }
 
-/* Efecto de brillo al pasar el ratón (Hover) */
-.resource-btn::before {
-    content: '';
-    position: absolute;
-    top: 0;
-    left: -100%;
-    width: 50%;
-    height: 100%;
-    background: linear-gradient(to right, rgba(255,255,255,0) 0%, rgba(255,255,255,0.1) 50%, rgba(255,255,255,0) 100%);
-    transform: skewX(-25deg);
-    transition: all 0.5s ease;
-    z-index: 1;
-}
-
-.resource-btn:hover::before {
-    left: 150%; /* Anima el brillo de izquierda a derecha */
-}
-
 .resource-btn:hover {
-    background: rgba(255, 255, 255, 0.1); /* Más brillante en hover */
+    background: #222; /* Ligeramente más claro al pasar el ratón */
     color: white;
-    border-color: rgba(255, 255, 255, 0.2);
-    box-shadow: 0 6px 12px rgba(0, 0, 0, 0.2), inset 0 1px 0 rgba(255,255,255,0.2);
-    transform: translateY(-2px); /* Se levanta un poco */
+    border-color: var(--primary-color); /* Borde de color primario al pasar el ratón */
+    box-shadow: 0 0 15px var(--primary-glow); /* Resplandor sutil */
+    transform: translateY(-2px);
 }
 
 .resource-btn i {
-    z-index: 2; /* Asegurar que el icono esté por encima del brillo */
+    z-index: 2;
     font-size: 1.1rem;
-    filter: drop-shadow(0 0 5px currentColor); /* Hacer que el icono también brille un poco */
+    transition: color 0.3s ease;
+}
+
+.resource-btn:hover i {
+    color: var(--primary-color); /* El ícono toma el color primario */
 }
 
 .resource-btn span {
@@ -982,8 +970,7 @@ textarea:focus { outline: none; }
     .bottom-nav { display: flex !important; }
 
     /* Sidebars Off-canvas (Ocultos por defecto) */
-    /* ELIMINADO EL SIDEBAR LEFT DEL CSS MOVIL */
-    #sidebar-right {
+    #sidebar-left, #sidebar-right {
         position: fixed;
         top: 0;
         height: 100%;
@@ -1003,9 +990,12 @@ textarea:focus { outline: none; }
     }
 
     /* Ocultar barra de scroll en Webkit (Chrome/Safari/Android) */
-    #sidebar-right::-webkit-scrollbar {
+    #sidebar-left::-webkit-scrollbar, #sidebar-right::-webkit-scrollbar {
         display: none;
     }
+
+    #sidebar-left { left: 0; transform: translateX(-100%); border-right: 1px solid var(--card-border); }
+    #sidebar-left.open { transform: translateX(0); }
 
     #sidebar-right { right: 0; transform: translateX(100%); border-left: 1px solid var(--card-border); }
     #sidebar-right.open { transform: translateX(0); }
@@ -1122,5 +1112,138 @@ textarea:focus { outline: none; }
     .settings-toggle-bar .settings-dropdown-btn {
         padding: 2px 6px;
         font-size: 0.8rem; /* Reducir tamaño del ícono */
+    }
+}
+
+/* --- ESTILOS PARA EL CARRUSEL DE EJEMPLOS --- */
+.example-carousel {
+    position: relative;
+    overflow: hidden;
+    border-radius: 12px;
+    border: 1px solid var(--card-border);
+}
+
+.example-carousel .carousel-track {
+    display: flex;
+    transition: transform 0.3s ease-in-out;
+}
+
+.example-carousel .carousel-slide {
+    min-width: 100%;
+    position: relative;
+    cursor: pointer;
+}
+
+.example-carousel .carousel-slide img {
+    width: 100%;
+    display: block;
+}
+
+.example-carousel .carousel-prompt-overlay {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    width: 100%;
+    padding: 10px;
+    background: linear-gradient(to top, rgba(0,0,0,0.8), transparent);
+    color: white;
+    font-size: 0.8rem;
+    text-shadow: 1px 1px 3px black;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.example-carousel .carousel-btn {
+    position: absolute;
+    top: 50%;
+    transform: translateY(-50%);
+    background: rgba(0, 0, 0, 0.5);
+    color: white;
+    border: none;
+    border-radius: 50%;
+    width: 30px;
+    height: 30px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: background 0.2s;
+}
+
+.example-carousel .carousel-btn:hover {
+    background: rgba(0, 0, 0, 0.8);
+}
+
+.example-carousel .carousel-btn.prev {
+    left: 10px;
+}
+
+.example-carousel .carousel-btn.next {
+    right: 10px;
+}
+
+/* --- ANIMATION STYLES --- */
+.animation-container {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
+    z-index: 0;
+    pointer-events: none;
+}
+
+.shape {
+    position: absolute;
+    left: var(--start-x);
+    top: var(--start-y);
+    opacity: 0;
+    animation-name: bounceAndDrift;
+    animation-timing-function: ease-in-out;
+    animation-iteration-count: infinite;
+    animation-duration: var(--anim-duration);
+    animation-delay: var(--anim-delay);
+    filter: drop-shadow(0 0 5px rgba(255, 255, 255, 0.5)); /* White glow */
+}
+
+.bubble {
+    border-radius: 50%;
+    background-color: rgba(255, 105, 180, 0.4);
+    border: 1.5px solid rgba(255, 255, 255, 0.7); /* Bright white border */
+    box-shadow: 0 0 18px 6px rgba(255, 105, 180, 0.3);
+}
+
+.heart {
+    color: rgba(255, 20, 147, 0.6);
+    text-shadow: 0 0 12px rgba(255, 20, 147, 0.8), 0 0 4px rgba(255, 255, 255, 0.7); /* Pink and white glow */
+}
+
+@keyframes bounceAndDrift {
+    0% {
+        transform: translate(0, 0) scale(0.9);
+        opacity: 0;
+    }
+    10% {
+        transform: translate(calc(var(--drift-x) * 0.1), calc(var(--drift-y) * -0.1)) scale(1.05);
+        opacity: 0.9;
+    }
+    20% {
+        transform: translate(calc(var(--drift-x) * 0.2), calc(var(--drift-y) * -0.2) + 10px) scale(1); /* Bounce down */
+    }
+    40% {
+        transform: translate(calc(var(--drift-x) * 0.4), calc(var(--drift-y) * -0.4) - 10px) scale(1.1); /* Bounce up */
+    }
+    60% {
+        transform: translate(calc(var(--drift-x) * 0.6), calc(var(--drift-y) * -0.6) + 5px) scale(1); /* Bounce down */
+    }
+    80% {
+        transform: translate(calc(var(--drift-x) * 0.8), calc(var(--drift-y) * -0.8) - 5px) scale(1.05); /* Bounce up */
+        opacity: 0.5;
+    }
+    100% {
+        transform: translate(var(--drift-x), calc(var(--drift-y) * -1)) scale(0.8);
+        opacity: 0;
     }
 }

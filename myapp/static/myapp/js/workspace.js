@@ -216,6 +216,7 @@ window.onload = function() {
         }, 50); // Darle un poco más de tiempo de renderizado
     }
 
+    createAnimatedShapes();
     scrollToBottom();
 };
 
@@ -1213,5 +1214,118 @@ function navigateVideo(direction) {
     if (newIndex >= 0 && newIndex < allVideos.length) {
         currentVideoIndex = newIndex;
         updateViewerVideo();
+    }
+}
+
+// --- SHOWCASE EXAMPLES LOGIC ---
+document.addEventListener('DOMContentLoaded', () => {
+    const carousel = document.querySelector('.example-carousel');
+    if (!carousel) return;
+
+    const track = carousel.querySelector('.carousel-track');
+    const slides = Array.from(track.children);
+    const nextButton = carousel.querySelector('.next');
+    const prevButton = carousel.querySelector('.prev');
+
+    if (slides.length <= 1) {
+        if(nextButton) nextButton.style.display = 'none';
+        if(prevButton) prevButton.style.display = 'none';
+        return;
+    };
+
+    let currentIndex = 0;
+    let autoSlideInterval;
+
+    const updateCarousel = () => {
+        slides.forEach((slide, index) => {
+            slide.style.display = index === currentIndex ? 'block' : 'none';
+        });
+    };
+
+    const startAutoSlide = () => {
+        clearInterval(autoSlideInterval);
+        autoSlideInterval = setInterval(() => {
+            currentIndex = (currentIndex + 1) % slides.length;
+            updateCarousel();
+        }, 2000);
+    };
+
+    const resetAutoSlide = () => {
+        startAutoSlide();
+    };
+
+    if(nextButton) {
+        nextButton.addEventListener('click', () => {
+            currentIndex = (currentIndex + 1) % slides.length;
+            updateCarousel();
+            resetAutoSlide();
+        });
+    }
+
+    if(prevButton) {
+        prevButton.addEventListener('click', () => {
+            currentIndex = (currentIndex - 1 + slides.length) % slides.length;
+            updateCarousel();
+            resetAutoSlide();
+        });
+    }
+
+    // Add click listener to copy prompt
+    slides.forEach(slide => {
+        slide.addEventListener('click', () => {
+            const promptText = slide.dataset.prompt;
+            const promptInput = document.getElementById('prompt-input');
+            if (promptInput) {
+                promptInput.value = promptText;
+                promptInput.dispatchEvent(new Event('input', { bubbles: true }));
+                showToast('Prompt copied!', 'success');
+            }
+        });
+    });
+
+    updateCarousel(); // Initial setup
+    startAutoSlide(); // Start automatic sliding
+});
+
+// --- ANIMATION LOGIC ---
+function createAnimatedShapes() {
+    const container = document.querySelector('.main-content');
+    if (!container) return;
+
+    let animationContainer = document.querySelector('.animation-container');
+    if (!animationContainer) {
+        animationContainer = document.createElement('div');
+        animationContainer.className = 'animation-container';
+        container.prepend(animationContainer); // Añadir al principio para que esté detrás
+    }
+
+    const shapes = ['heart', 'bubble'];
+    const shapeCount = 25; // Aumentamos un poco la cantidad
+
+    // Limpiar formas existentes para evitar duplicados
+    animationContainer.innerHTML = '';
+
+    for (let i = 0; i < shapeCount; i++) {
+        const shapeType = shapes[Math.floor(Math.random() * shapes.length)];
+        const shape = document.createElement('div');
+        shape.classList.add('shape', shapeType);
+
+        // Establecer variables CSS para el estado inicial y la animación
+        shape.style.setProperty('--start-x', `${Math.random() * 100}%`);
+        shape.style.setProperty('--start-y', `${Math.random() * 100}%`);
+        shape.style.setProperty('--anim-duration', `${Math.random() * 12 + 18}s`); // 18-30s
+        shape.style.setProperty('--anim-delay', `${Math.random() * 1}s`); // 0-1s de retraso
+        shape.style.setProperty('--drift-x', `${Math.random() * 300 - 150}px`); // Deriva horizontal más amplia
+        shape.style.setProperty('--drift-y', `${Math.random() * 150 + 100}px`); // Variación de deriva vertical
+
+        if (shapeType === 'heart') {
+             shape.innerHTML = '❤';
+             shape.style.fontSize = `${Math.random() * 20 + 12}px`; // Un poco más grandes
+        } else {
+             shape.style.width = `${Math.random() * 25 + 8}px`; // Burbujas más grandes
+             shape.style.height = shape.style.width;
+        }
+
+        animationContainer.appendChild(shape);
     }
 }

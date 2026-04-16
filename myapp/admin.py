@@ -12,7 +12,7 @@ from django.forms import ModelForm, ValidationError, CheckboxSelectMultiple, Tex
 from django.core.exceptions import PermissionDenied # IMPORTANTE: Para seguridad
 from .models import (
     Workflow, Character, PrivateCharacter, CharacterImage, CharacterCatalogImage,
-    ConnectionConfig, CompanySettings, HeroCarouselImage, AuthPageImage, CryptoGuideImage, # NUEVO: CryptoGuideImage
+    ConnectionConfig, CompanySettings, HeroCarouselImage, AuthPageImage, CryptoGuideImage, ShowcaseItem, # NUEVO: ShowcaseItem
     CharacterCategory, CharacterSubCategory, ClientProfile, TokenSettings,
     Coupon, CouponRedemption, CharacterAccessCode, UserCharacterAccess,
     TokenPackage, PaymentTransaction, SubscriptionPlan, UserSubscription,
@@ -161,6 +161,20 @@ class HeroCarouselImageInline(admin.TabularInline):
         return "(No image)"
     image_preview.short_description = "Preview"
 
+class ShowcaseItemInline(admin.TabularInline):
+    model = ShowcaseItem
+    extra = 1
+    fields = ('image_preview', 'image', 'prompt', 'order')
+    readonly_fields = ('image_preview',)
+    verbose_name = "Showcase Item"
+    verbose_name_plural = "Showcase Items (Typewriter Section)"
+
+    def image_preview(self, obj):
+        if obj.image:
+            return format_html('<img src="{}" style="height: 100px; width: auto; border-radius: 5px;" />', obj.image.url)
+        return "(No image)"
+    image_preview.short_description = "Preview"
+
 class AuthPageImageInline(admin.TabularInline):
     model = AuthPageImage
     extra = 1
@@ -205,7 +219,7 @@ class CompanySettingsForm(ModelForm):
 @admin.register(CompanySettings)
 class CompanySettingsAdmin(admin.ModelAdmin):
     form = CompanySettingsForm
-    inlines = [HeroCarouselImageInline, AuthPageImageInline, CryptoGuideImageInline] # Añadido CryptoGuideImageInline
+    inlines = [HeroCarouselImageInline, AuthPageImageInline, CryptoGuideImageInline, ShowcaseItemInline] # Añadido ShowcaseItemInline
 
     fieldsets = (
         ('Company Identity', {

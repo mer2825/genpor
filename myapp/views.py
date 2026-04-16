@@ -1,6 +1,9 @@
 from django.shortcuts import render, redirect, get_object_or_404
 from django.db import models
-from .models import Workflow, Character, CharacterImage, ConnectionConfig, CompanySettings, ChatMessage, CharacterCategory, CharacterSubCategory, ClientProfile, Coupon, CouponRedemption, CharacterAccessCode, UserCharacterAccess, TokenPackage, PaymentTransaction, SubscriptionPlan, UserSubscription, TokenSettings, UserPremiumGrant, PaymentMethod, GeneratedVideo, VideoWorkflow, VideoConfiguration # IMPORTAR NUEVO MODELO
+from .models import Workflow, Character, CharacterImage, ConnectionConfig, CompanySettings, ChatMessage, \
+    CharacterCategory, CharacterSubCategory, ClientProfile, Coupon, CouponRedemption, CharacterAccessCode, \
+    UserCharacterAccess, TokenPackage, PaymentTransaction, SubscriptionPlan, UserSubscription, TokenSettings, \
+    UserPremiumGrant, PaymentMethod, GeneratedVideo, VideoWorkflow, VideoConfiguration  # IMPORTAR NUEVO MODELO
 import json
 import os
 import uuid
@@ -13,22 +16,24 @@ from django.utils import timezone
 from django.urls import reverse
 from django.db.models import Prefetch, Q, Count, Max
 from django.contrib.auth.models import User
-from .services import generate_image_from_character, get_active_comfyui_address, get_comfyui_object_info, analyze_workflow, update_workflow, queue_prompt, get_history, get_image, get_protocols, analyze_workflow_outputs
-from .video_services import generate_video_task # IMPORTANTE: Importar servicio de video
+from .services import generate_image_from_character, get_active_comfyui_address, get_comfyui_object_info, \
+    analyze_workflow, update_workflow, queue_prompt, get_history, get_image, get_protocols, analyze_workflow_outputs
+from .video_services import generate_video_task  # IMPORTANTE: Importar servicio de video
 from PIL import Image as PILImage
 import io
 import httpx
 import websockets
-from django.core.cache import cache # IMPORTANTE: Para Rate Limiting Real
-from allauth.socialaccount.models import SocialAccount # IMPORTANTE: Para verificar cuentas vinculadas
-from allauth.account.models import EmailAddress # IMPORTANTE: Para limpiar emails antiguos
-import random # IMPORTANTE: Para seleccionar imágenes aleatorias
-from paypal.standard.forms import PayPalPaymentsForm # IMPORTANTE: Para PayPal
-from django.views.decorators.csrf import csrf_exempt # IMPORTANTE: Para PayPal
+from django.core.cache import cache  # IMPORTANTE: Para Rate Limiting Real
+from allauth.socialaccount.models import SocialAccount  # IMPORTANTE: Para verificar cuentas vinculadas
+from allauth.account.models import EmailAddress  # IMPORTANTE: Para limpiar emails antiguos
+import random  # IMPORTANTE: Para seleccionar imágenes aleatorias
+from paypal.standard.forms import PayPalPaymentsForm  # IMPORTANTE: Para PayPal
+from django.views.decorators.csrf import csrf_exempt  # IMPORTANTE: Para PayPal
 from datetime import timedelta
-import stripe # IMPORTANTE: Para Stripe
+import stripe  # IMPORTANTE: Para Stripe
 import decimal
-from django_ratelimit.decorators import ratelimit # IMPORTANTE: Para Rate Limiting Seguro
+from django_ratelimit.decorators import ratelimit  # IMPORTANTE: Para Rate Limiting Seguro
+
 
 # --- CLASE PERSONALIZADA PARA PAYPAL DINÁMICO ---
 class DynamicPayPalForm(PayPalPaymentsForm):
@@ -43,6 +48,7 @@ class DynamicPayPalForm(PayPalPaymentsForm):
             return "https://www.sandbox.paypal.com/cgi-bin/webscr"
         else:
             return "https://www.paypal.com/cgi-bin/webscr"
+
 
 # --- SECURE MEDIA SERVING VIEW ---
 def serve_private_media(request, path):
@@ -62,7 +68,7 @@ def serve_private_media(request, path):
         raise Http404("Invalid file path.")
 
     file_path = os.path.join(settings.MEDIA_ROOT, normalized_path)
-    
+
     # Double check: ensure the final path is still within MEDIA_ROOT
     if not os.path.abspath(file_path).startswith(os.path.abspath(settings.MEDIA_ROOT)):
         raise Http404("Access denied: Path traversal attempt.")
@@ -70,19 +76,19 @@ def serve_private_media(request, path):
 
     try:
         # Use normalized_path instead of raw path
-        parts = normalized_path.split(os.sep) # Use system separator
-        
+        parts = normalized_path.split(os.sep)  # Use system separator
+
         # Robust path handling (Windows/Linux)
         if len(parts) > 1 and parts[0] == 'user_images':
             owner_id = int(parts[1])
-        elif len(parts) > 1 and parts[0] == 'user_videos': # NUEVO: Soporte para videos
+        elif len(parts) > 1 and parts[0] == 'user_videos':  # NUEVO: Soporte para videos
             owner_id = int(parts[1])
         else:
             # If not user_images, it could be another public or protected folder
             # By default, if it doesn't follow the user_images/ID/... pattern, deny access for now
             # unless it's staff.
             if request.user.is_staff:
-                owner_id = request.user.id # Bypass for staff
+                owner_id = request.user.id  # Bypass for staff
             else:
                 raise Http404("Not a user file.")
 
@@ -114,11 +120,13 @@ def serve_private_media(request, path):
     else:
         raise Http404("Access denied.")
 
+
 # --- NEW SECURE FUNCTION TO GET CHARACTERS ---
 @sync_to_async
 def get_characters_with_images(user=None):
     # Base query: Active characters -> ORDERED BY SUBCATEGORY NAME, THEN CHARACTER NAME
-    qs = Character.objects.filter(is_active=True).order_by('subcategory__name', 'name').prefetch_related('catalog_images_set').select_related('category', 'subcategory')
+    qs = Character.objects.filter(is_active=True).order_by('subcategory__name', 'name').prefetch_related(
+        'catalog_images_set').select_related('category', 'subcategory')
 
     if user and user.is_authenticated:
         # If user is logged in, show public OR private ones they have unlocked
@@ -133,11 +141,13 @@ def get_characters_with_images(user=None):
 
     return list(qs.all())
 
+
 # --- FUNCTION TO GET COMPANY SETTINGS ---
 @sync_to_async
 def get_company_settings():
-    # Prefetch to get hero carousel images
-    return CompanySettings.objects.prefetch_related('hero_images').last() # CAMBIO: .last()
+    # Prefetch to get hero carousel images and showcase items
+    return CompanySettings.objects.prefetch_related('hero_images', 'showcase_items').last()  # CAMBIO: .last()
+
 
 # --- HELPER FUNCTION TO GET USER SAFELY ---
 @sync_to_async
@@ -147,6 +157,7 @@ def get_user_from_request(request):
         pass
     return user
 
+
 # --- HELPER: CHECK USER PERMISSIONS (UPDATED) ---
 @sync_to_async
 def get_user_permissions(user):
@@ -154,14 +165,14 @@ def get_user_permissions(user):
     Returns a dict of permissions based on subscription status, grants, and global settings.
     """
     settings = TokenSettings.load()
-    
+
     # Default: Assume Free Tier (Base Plan)
     perms = {
         'can_upscale': settings.allow_upscale_free,
         'can_facedetail': settings.allow_face_detail_free,
         'can_eyedetailer': settings.allow_eye_detail_free,
     }
-    
+
     # If user is staff, they can do everything
     if user.is_staff:
         return {'can_upscale': True, 'can_facedetail': True, 'can_eyedetailer': True}
@@ -175,11 +186,11 @@ def get_user_permissions(user):
             perms['can_eyedetailer'] = perms['can_eyedetailer'] or sub.plan.allow_eye_detail
     except UserSubscription.DoesNotExist:
         pass
-        
+
     # 2. Check Active Grants (Becas) - Additive Permissions
     now = timezone.now()
     active_grants = UserPremiumGrant.objects.filter(user=user, expires_at__gt=now)
-    
+
     for grant in active_grants:
         if grant.grant_upscale: perms['can_upscale'] = True
         if grant.grant_face_detail: perms['can_facedetail'] = True
@@ -187,14 +198,15 @@ def get_user_permissions(user):
 
     return perms
 
+
 # --- PROFILE VIEW ---
 async def profile_view(request):
     user = await get_user_from_request(request)
     if not user.is_authenticated:
         return redirect('account_login')
-    
+
     company_settings = await get_company_settings()
-    
+
     # Get profile data (tokens, etc.)
     try:
         profile = await sync_to_async(lambda: user.clientprofile)()
@@ -215,7 +227,7 @@ async def profile_view(request):
 
     # --- LOGICA DE SUSTITUCIÓN DE CUENTA ---
     if google_accounts:
-        latest_account = google_accounts[0] # La que acabamos de conectar/usar
+        latest_account = google_accounts[0]  # La que acabamos de conectar/usar
         active_google_account = latest_account
 
         # 1. Actualizar email del usuario si es diferente
@@ -250,6 +262,7 @@ async def profile_view(request):
                 @sync_to_async
                 def clean_old_email_address(email_to_remove):
                     EmailAddress.objects.filter(email=email_to_remove).delete()
+
                 await clean_old_email_address(old_email)
 
             # Creamos/Actualizamos el nuevo email en EmailAddress como verificado y primario
@@ -264,6 +277,7 @@ async def profile_view(request):
                     verified=True,
                     primary=True
                 )
+
             await update_new_email_address(user, google_email)
             # ---------------------------------------------
 
@@ -303,12 +317,13 @@ async def profile_view(request):
         'company': company_settings,
         'tokens': tokens,
         'total_images': total_images,
-        'google_account': active_google_account, # Pasamos UN SOLO objeto (o None)
+        'google_account': active_google_account,  # Pasamos UN SOLO objeto (o None)
         'is_google_linked': active_google_account is not None,
-        'plan_name': plan_name, # NUEVO
-        'is_subscribed': is_subscribed # NUEVO
+        'plan_name': plan_name,  # NUEVO
+        'is_subscribed': is_subscribed  # NUEVO
     }
     return await sync_to_async(render)(request, 'myapp/profile.html', context)
+
 
 # --- UPDATE USERNAME VIEW ---
 async def update_username_view(request):
@@ -320,7 +335,7 @@ async def update_username_view(request):
         new_username = request.POST.get('username')
         if not new_username:
             return JsonResponse({'status': 'error', 'message': 'Username cannot be empty'})
-        
+
         # Basic validation
         if len(new_username) < 3:
             return JsonResponse({'status': 'error', 'message': 'Username must be at least 3 characters long'})
@@ -348,6 +363,7 @@ async def update_username_view(request):
 
     return JsonResponse({'status': 'error', 'message': 'Method not allowed'}, status=405)
 
+
 # --- GALLERY VIEW ---
 async def gallery_view(request):
     user = await get_user_from_request(request)
@@ -358,7 +374,8 @@ async def gallery_view(request):
 
     # Get all images generated by the user
     user_images = await sync_to_async(list)(
-        CharacterImage.objects.filter(user=user).select_related('character', 'character__category', 'character__subcategory').order_by('-id')
+        CharacterImage.objects.filter(user=user).select_related('character', 'character__category',
+                                                                'character__subcategory').order_by('-id')
     )
 
     # --- NUEVO: Get all videos generated by the user ---
@@ -380,7 +397,7 @@ async def gallery_view(request):
             target_dict[char.id] = {
                 'character': char,
                 'images': [],
-                'videos': [], # NUEVO
+                'videos': [],  # NUEVO
                 'count': 0,
                 'latest_image': None
             }
@@ -399,11 +416,11 @@ async def gallery_view(request):
             'url': img.image.url
         })
         entry['count'] += 1
-        if not entry['latest_image']: entry['latest_image'] = img # Primera imagen es la más reciente
+        if not entry['latest_image']: entry['latest_image'] = img  # Primera imagen es la más reciente
 
     # Procesar Videos
     for vid in user_videos:
-        if not vid.character: continue # Ignorar videos sin personaje (legacy)
+        if not vid.character: continue  # Ignorar videos sin personaje (legacy)
 
         target_dict = private_gallery if vid.character.is_private else public_gallery
         entry = get_or_create_char_entry(target_dict, vid.character)
@@ -419,10 +436,11 @@ async def gallery_view(request):
         'company': company_settings,
         'public_gallery': list(public_gallery.values()),
         'private_gallery': list(private_gallery.values()),
-        'all_categories': all_categories, # Pass categories to template
-        'all_subcategories': all_subcategories, # Pass subcategories to template
+        'all_categories': all_categories,  # Pass categories to template
+        'all_subcategories': all_subcategories,  # Pass subcategories to template
     }
     return await sync_to_async(render)(request, 'myapp/gallery.html', context)
+
 
 # --- VIEW TO DELETE IMAGES ---
 async def delete_images_view(request):
@@ -454,6 +472,7 @@ async def delete_images_view(request):
 
     return JsonResponse({'status': 'error', 'message': 'Method not allowed'}, status=405)
 
+
 # --- VIEW TO DELETE INDIVIDUAL MESSAGE ---
 async def delete_message_view(request):
     user = await get_user_from_request(request)
@@ -475,8 +494,8 @@ async def delete_message_view(request):
                         images = msg.generated_images.all()
                         for img in images:
                             if img.image:
-                                img.image.delete(save=False) # Delete file
-                            img.delete() # Delete record
+                                img.image.delete(save=False)  # Delete file
+                            img.delete()  # Delete record
 
                         # --- NUEVO: Delete associated videos ---
                         videos = msg.generated_videos.all()
@@ -503,6 +522,7 @@ async def delete_message_view(request):
             return JsonResponse({'status': 'error', 'message': str(e)}, status=500)
 
     return JsonResponse({'status': 'error', 'message': 'Method not allowed'}, status=405)
+
 
 # --- VIEW TO CLEAR ENTIRE CHAT HISTORY ---
 async def clear_chat_history_view(request):
@@ -550,55 +570,57 @@ async def clear_chat_history_view(request):
 
     return JsonResponse({'status': 'error', 'message': 'Method not allowed'}, status=405)
 
+
 # --- WORKSPACE VIEW ---
 async def workspace_view(request):
     user = await get_user_from_request(request)
     if not user.is_authenticated:
         return redirect('account_login')
-    
+
     company_settings = await get_company_settings()
-    
+
     # Get all characters for the selection modal (Filtered by user access)
     all_characters = await get_characters_with_images(user)
-    
+
     # --- NEW: Get all categories and subcategories ORDERED BY NAME ---
     all_categories = await sync_to_async(list)(CharacterCategory.objects.all().order_by('name'))
     all_subcategories = await sync_to_async(list)(CharacterSubCategory.objects.all().order_by('name'))
-    
+
     # --- NEW: Get Video Configuration Options ---
     # Usamos el método load() para obtener la configuración global
     video_config = await sync_to_async(VideoConfiguration.load)()
-    
+
     # Obtenemos las opciones relacionadas
     video_durations = await sync_to_async(list)(video_config.durations.filter(is_active=True).order_by('duration'))
-    video_qualities = await sync_to_async(list)(video_config.qualities.filter(is_active=True)) # CAMBIO: resolutions -> qualities
-    
+    video_qualities = await sync_to_async(list)(
+        video_config.qualities.filter(is_active=True))  # CAMBIO: resolutions -> qualities
+
     # Check if a character is selected
     character_id = request.GET.get('character_id')
-    
+
     # CHANGE: Always load history if a character is selected
     should_load_history = True
-    
+
     selected_character = None
-    chat_history_image = [] # List for IMAGE chat
-    chat_history_video = [] # List for VIDEO chat
-    recent_chats = [] # List for the left sidebar
-    
+    chat_history_image = []  # List for IMAGE chat
+    chat_history_video = []  # List for VIDEO chat
+    recent_chats = []  # List for the left sidebar
+
     # Default values if no character
     default_width = 1024
     default_height = 1024
-    default_seed = -1 # -1 means random
+    default_seed = -1  # -1 means random
 
     # Workflow capabilities (to show/hide checkboxes)
     workflow_capabilities = {
         'can_upscale': False,
         'can_facedetail': False,
-        'can_eyedetailer': False # NUEVO: Por defecto False
+        'can_eyedetailer': False  # NUEVO: Por defecto False
     }
 
     # --- NEW: Get User Permissions ---
     user_permissions = await get_user_permissions(user)
-    print(f"DEBUG PERMISSIONS: User={user.username}, Staff={user.is_staff}, Perms={user_permissions}") # LOG
+    print(f"DEBUG PERMISSIONS: User={user.username}, Staff={user.is_staff}, Perms={user_permissions}")  # LOG
 
     # --- NEW: Get list of recent chats WITH IMAGES ---
     @sync_to_async
@@ -646,13 +668,28 @@ async def workspace_view(request):
         if len(all_catalog_images) >= 2:
             random_images = random.sample(all_catalog_images, 2)
         else:
-            random_images = all_catalog_images # Take all if less than 2
+            random_images = all_catalog_images  # Take all if less than 2
 
         # 4. Format for the template
         for img in random_images:
             random_preview_images.append({
-                'character_id': img.character.id, # An image object should have a character attribute
+                'character_id': img.character.id,  # An image object should have a character attribute
                 'image_url': img.image.url
+            })
+
+    # --- SHOWCASE ITEMS (NEW for Workspace) ---
+    showcase_items = []
+    if company_settings:
+        @sync_to_async
+        def get_showcase_items():
+            # Prefetching was done in get_company_settings, so this should be efficient
+            return list(company_settings.showcase_items.all())
+        
+        s_items = await get_showcase_items()
+        for item in s_items:
+            showcase_items.append({
+                'image_url': item.image.url,
+                'prompt': item.prompt
             })
 
     if character_id:
@@ -687,7 +724,7 @@ async def workspace_view(request):
                     wf_json = await get_workflow_json()
                     # analyze_workflow_outputs needs the node structure, so we use the base.
                     workflow_capabilities = analyze_workflow_outputs(wf_json)
-                    print(f"DEBUG WORKFLOW (RAW): {workflow_capabilities}") # LOG
+                    print(f"DEBUG WORKFLOW (RAW): {workflow_capabilities}")  # LOG
 
                     # --- NEW: FILTER CAPABILITIES BASED ON USER PERMISSIONS ---
                     # If user doesn't have permission, disable the capability even if the workflow supports it
@@ -698,7 +735,7 @@ async def workspace_view(request):
                     if not user_permissions['can_eyedetailer']:
                         workflow_capabilities['can_eyedetailer'] = False
                     # ----------------------------------------------------------
-                    print(f"DEBUG WORKFLOW (FILTERED): {workflow_capabilities}") # LOG
+                    print(f"DEBUG WORKFLOW (FILTERED): {workflow_capabilities}")  # LOG
 
                 except Exception as e:
                     print(f"Error analyzing workflow: {e}")
@@ -712,15 +749,15 @@ async def workspace_view(request):
                         character=selected_character
                     ).prefetch_related('generated_images', 'generated_videos').order_by('timestamp')
                 )
-                
+
                 # Format for the template
                 for msg in chat_qs:
                     item = {
-                        'id': msg.id, # Needed for deletion
+                        'id': msg.id,  # Needed for deletion
                         'is_user': msg.is_from_user,
                         'text': msg.message,
                         'images': [],
-                        'videos': [] # NUEVO
+                        'videos': []  # NUEVO
                     }
                     if not msg.is_from_user:
                         # Get associated images
@@ -734,14 +771,17 @@ async def workspace_view(request):
                         for img in imgs:
                             # --- CORRECCIÓN: Usar el campo de la BD en lugar de adivinar por nombre ---
                             img_type = "NORMAL"
-                            if img.generation_type == "Gen_UpScaler": img_type = "UPSCALER"
-                            elif img.generation_type == "Gen_FaceDetailer": img_type = "FACEDETAILER"
-                            elif img.generation_type == "Gen_EyeDetailer": img_type = "EYEDETAILER"
+                            if img.generation_type == "Gen_UpScaler":
+                                img_type = "UPSCALER"
+                            elif img.generation_type == "Gen_FaceDetailer":
+                                img_type = "FACEDETAILER"
+                            elif img.generation_type == "Gen_EyeDetailer":
+                                img_type = "EYEDETAILER"
 
                             item['images'].append({
                                 'url': img.image.url,
                                 'type': img_type,
-                                'width': img.width, # Pass dimensions
+                                'width': img.width,  # Pass dimensions
                                 'height': img.height,
                                 'is_deleted': False
                             })
@@ -778,20 +818,22 @@ async def workspace_view(request):
         'company': company_settings,
         'selected_character': selected_character,
         'all_characters': all_characters,
-        'all_categories': all_categories, # Pass categories to template
-        'all_subcategories': all_subcategories, # Pass subcategories to template
-        'default_width': default_width, # Pass to context
-        'default_height': default_height, # Pass to context
-        'default_seed': default_seed, # Pass seed to context
-        'chat_history_image': chat_history_image, # NUEVO: Historial separado
-        'chat_history_video': chat_history_video, # NUEVO: Historial separado
-        'recent_chats': recent_chats, # Pass recent chats list
-        'workflow_capabilities': workflow_capabilities, # Pass capabilities
-        'random_preview_images': random_preview_images, # Pass random images
-        'video_durations': video_durations, # NUEVO
-        'video_qualities': video_qualities, # NUEVO: video_qualities
+        'all_categories': all_categories,
+        'all_subcategories': all_subcategories,
+        'default_width': default_width,
+        'default_height': default_height,
+        'default_seed': default_seed,
+        'chat_history_image': chat_history_image,
+        'chat_history_video': chat_history_video,
+        'recent_chats': recent_chats,
+        'workflow_capabilities': workflow_capabilities,
+        'random_preview_images': random_preview_images,
+        'video_durations': video_durations,
+        'video_qualities': video_qualities,
+        'showcase_items': showcase_items,
     }
     return await sync_to_async(render)(request, 'myapp/workspace.html', context)
+
 
 # --- NEW: GET MODELS VIEW ---
 async def get_models_view(request):
@@ -811,6 +853,7 @@ async def get_models_view(request):
     except Exception as e:
         return JsonResponse({'status': 'error', 'message': str(e)}, status=500)
 
+
 # --- GENERATE IMAGE VIEW (RESTORED) ---
 async def generate_image_view(request):
     is_ajax = request.headers.get('X-Requested-With') == 'XMLHttpRequest'
@@ -819,7 +862,8 @@ async def generate_image_view(request):
     if is_ajax:
         if request.method == 'POST':
             if not user.is_authenticated:
-                return JsonResponse({'status': 'error', 'message': 'You must be logged in to generate images.'}, status=401)
+                return JsonResponse({'status': 'error', 'message': 'You must be logged in to generate images.'},
+                                    status=401)
 
             # --- TOKEN VALIDATION (NEW) ---
             # Only if not staff (admins have infinite tokens)
@@ -827,11 +871,13 @@ async def generate_image_view(request):
                 try:
                     profile = await sync_to_async(lambda: user.clientprofile)()
                     await profile.check_and_reset_tokens()
-                    
+
                     # CHANGE: Use async method
                     tokens_left = await profile.get_tokens_remaining_async()
                     if tokens_left <= 0:
-                        return JsonResponse({'status': 'error', 'message': 'You have run out of tokens. Please contact support or wait for your next reset.'}, status=403)
+                        return JsonResponse({'status': 'error',
+                                             'message': 'You have run out of tokens. Please contact support or wait for your next reset.'},
+                                            status=403)
                 except ClientProfile.DoesNotExist:
                     # If no profile, create a default one (fallback)
                     await sync_to_async(ClientProfile.objects.create)(user=user)
@@ -841,40 +887,43 @@ async def generate_image_view(request):
             # Use user ID as key, not session.
             # This prevents clearing cookies to bypass the limit.
             cache_key = f"gen_limit_image_{user.id}"
-            
+
             # Check if key exists in cache
             if cache.get(cache_key):
-                ttl = cache.ttl(cache_key) # Remaining time
-                return JsonResponse({'status': 'error', 'message': f'Please wait {ttl} seconds before generating another image.'}, status=429)
-            
+                ttl = cache.ttl(cache_key)  # Remaining time
+                return JsonResponse(
+                    {'status': 'error', 'message': f'Please wait {ttl} seconds before generating another image.'},
+                    status=429)
+
             # Set the lock for 10 seconds
             cache.set(cache_key, True, timeout=10)
             # ----------------------------------
 
             character_id = request.POST.get('character_id')
             user_prompt = request.POST.get('prompt')
-            
+
             if len(user_prompt) > 5000:
-                return JsonResponse({'status': 'error', 'message': 'Prompt is too long (max 5000 characters).'}, status=400)
-            
+                return JsonResponse({'status': 'error', 'message': 'Prompt is too long (max 5000 characters).'},
+                                    status=400)
+
             width = request.POST.get('width')
             height = request.POST.get('height')
             seed = request.POST.get('seed')
-            
+
             # Get selected model
-            checkpoint = request.POST.get('checkpoint') # NUEVO: Obtener checkpoint del POST
-            
+            checkpoint = request.POST.get('checkpoint')  # NUEVO: Obtener checkpoint del POST
+
             # Get LoRA Strength
-            lora_strength = request.POST.get('lora_strength') # NUEVO: Obtener fuerza del LoRA
+            lora_strength = request.POST.get('lora_strength')  # NUEVO: Obtener fuerza del LoRA
 
             # --- CUMULATIVE SELECTION LOGIC (CORRECTED) ---
             generation_type = request.POST.get('generation_type', 'Gen_Normal')
-            
+
             # Validate type
             valid_types = ["Gen_Normal", "Gen_UpScaler", "Gen_FaceDetailer", "Gen_EyeDetailer"]
             if generation_type not in valid_types:
                 generation_type = "Gen_Normal"
-            
+
             # Build the cumulative list of allowed types
             type_order = ["Gen_Normal", "Gen_UpScaler", "Gen_FaceDetailer", "Gen_EyeDetailer"]
             try:
@@ -888,11 +937,14 @@ async def generate_image_view(request):
             user_permissions = await get_user_permissions(user)
 
             if generation_type == "Gen_UpScaler" and not user_permissions['can_upscale']:
-                return JsonResponse({'status': 'error', 'message': 'Upscale is not available in your plan.'}, status=403)
+                return JsonResponse({'status': 'error', 'message': 'Upscale is not available in your plan.'},
+                                    status=403)
             if generation_type == "Gen_FaceDetailer" and not user_permissions['can_facedetail']:
-                return JsonResponse({'status': 'error', 'message': 'Face Detailer is not available in your plan.'}, status=403)
+                return JsonResponse({'status': 'error', 'message': 'Face Detailer is not available in your plan.'},
+                                    status=403)
             if generation_type == "Gen_EyeDetailer" and not user_permissions['can_eyedetailer']:
-                return JsonResponse({'status': 'error', 'message': 'Eye Detailer is not available in your plan.'}, status=403)
+                return JsonResponse({'status': 'error', 'message': 'Eye Detailer is not available in your plan.'},
+                                    status=403)
             # -------------------------------------------
 
             try:
@@ -903,21 +955,26 @@ async def generate_image_view(request):
                     try:
                         access = await sync_to_async(UserCharacterAccess.objects.get)(user=user, character=character)
                         # await access.check_and_reset_quota() # REMOVED: No quota for private chars anymore
-                        
+
                         # if access.remaining_generations <= 0:
                         #     return JsonResponse({'status': 'error', 'message': 'You have reached the generation limit for this private character.'}, status=403)
                     except UserCharacterAccess.DoesNotExist:
-                        return JsonResponse({'status': 'error', 'message': 'You do not have access to this private character.'}, status=403)
+                        return JsonResponse(
+                            {'status': 'error', 'message': 'You do not have access to this private character.'},
+                            status=403)
+
                 # ------------------------------------------
 
                 @sync_to_async
                 def save_user_message():
-                    return ChatMessage.objects.create(user=user, character=character, message=user_prompt, is_from_user=True, chat_type='IMAGE')
+                    return ChatMessage.objects.create(user=user, character=character, message=user_prompt,
+                                                      is_from_user=True, chat_type='IMAGE')
+
                 user_msg = await save_user_message()
-                
+
                 images_data_list, prompt_id, final_workflow_json = await generate_image_from_character(
                     character, user_prompt, width, height, seed=seed, allowed_types=allowed_types,
-                    checkpoint=checkpoint, lora_strength=lora_strength # PASAR NUEVOS PARÁMETROS
+                    checkpoint=checkpoint, lora_strength=lora_strength  # PASAR NUEVOS PARÁMETROS
                 )
 
                 if images_data_list:
@@ -928,8 +985,9 @@ async def generate_image_view(request):
                             p = u.clientprofile
                             p.tokens_used += 1
                             p.save()
+
                         await deduct_token(user)
-                        
+
                         # --- DEDUCT PRIVATE QUOTA (REMOVED) ---
                         # if character.is_private:
                         #     @sync_to_async
@@ -953,9 +1011,9 @@ async def generate_image_view(request):
                             character=character,
                             user=user,
                             description=user_prompt,
-                            generation_type=classification # Save type here
+                            generation_type=classification  # Save type here
                         )
-                        
+
                         # --- NUEVO: Lógica de ocultación ---
                         try:
                             if character.character_config:
@@ -966,11 +1024,12 @@ async def generate_image_view(request):
                         except Exception:
                             pass
                         # -----------------------------------
-                        
+
                         # Save workflow file
                         workflow_filename = f"workflow_{character.name}_{prompt_id}_{classification}_{index}.json"
-                        new_image.generation_workflow.save(workflow_filename, ContentFile(json.dumps(workflow_json, indent=2).encode('utf-8')), save=False)
-                        
+                        new_image.generation_workflow.save(workflow_filename, ContentFile(
+                            json.dumps(workflow_json, indent=2).encode('utf-8')), save=False)
+
                         filename = f"user_gen_{character.name}_{prompt_id}_{classification}_{index}.png"
                         new_image.image.save(filename, ContentFile(img_bytes), save=False)
                         try:
@@ -985,37 +1044,46 @@ async def generate_image_view(request):
                         img_obj = await save_generated_image(img_bytes, classification, i, final_workflow_json)
                         created_images.append(img_obj)
                         image_url = reverse('serve_private_media', kwargs={'path': img_obj.image.name})
-                        generated_results.append({'url': image_url, 'type': classification, 'width': img_obj.width, 'height': img_obj.height})
-                    
+                        generated_results.append({'url': image_url, 'type': classification, 'width': img_obj.width,
+                                                  'height': img_obj.height})
+
                     @sync_to_async
                     def save_ai_message(imgs):
-                        ai_msg = ChatMessage.objects.create(user=user, character=character, message="Here are your generated images.", is_from_user=False, image_count=len(imgs), chat_type='IMAGE')
+                        ai_msg = ChatMessage.objects.create(user=user, character=character,
+                                                            message="Here are your generated images.",
+                                                            is_from_user=False, image_count=len(imgs),
+                                                            chat_type='IMAGE')
                         ai_msg.generated_images.set(imgs)
                         return ai_msg
 
                     ai_msg = await save_ai_message(created_images)
 
-                    return JsonResponse({'status': 'success', 'results': generated_results, 'user_msg_id': user_msg.id, 'ai_msg_id': ai_msg.id})
+                    return JsonResponse({'status': 'success', 'results': generated_results, 'user_msg_id': user_msg.id,
+                                         'ai_msg_id': ai_msg.id})
 
-                return JsonResponse({'status': 'error', 'message': 'No valid images generated based on your filters.'}, status=500)
+                return JsonResponse({'status': 'error', 'message': 'No valid images generated based on your filters.'},
+                                    status=500)
 
             except Character.DoesNotExist:
                 return JsonResponse({'status': 'error', 'message': 'Character not found.'}, status=404)
             except (httpx.ConnectError, websockets.exceptions.WebSocketException):
                 # Capture specific connection errors
-                return JsonResponse({'status': 'error', 'message': 'Could not connect to the generation server. Please try again later.'}, status=503)
+                return JsonResponse({'status': 'error',
+                                     'message': 'Could not connect to the generation server. Please try again later.'},
+                                    status=503)
             except Exception as e:
                 # For any other error, log the real error on the server console
                 print(f"An unexpected error occurred: {e}")
                 # And show a generic message to the user
-                return JsonResponse({'status': 'error', 'message': 'An unexpected error occurred during generation.'}, status=500)
+                return JsonResponse({'status': 'error', 'message': 'An unexpected error occurred during generation.'},
+                                    status=500)
 
         elif request.method == 'GET':
             if not user.is_authenticated:
-                 return JsonResponse({'status': 'success', 'images': []})
+                return JsonResponse({'status': 'success', 'images': []})
 
             character_id = request.GET.get('character_id')
-            media_type = request.GET.get('media_type', 'image') # NUEVO
+            media_type = request.GET.get('media_type', 'image')  # NUEVO
 
             try:
                 if media_type == 'video':
@@ -1028,7 +1096,9 @@ async def generate_image_view(request):
                 else:
                     # Lógica existente para imágenes
                     images_qs = await sync_to_async(list)(
-                        CharacterImage.objects.filter(character_id=character_id, user=user).values_list('image', flat=True).order_by('-id')
+                        CharacterImage.objects.filter(character_id=character_id, user=user).values_list('image',
+                                                                                                        flat=True).order_by(
+                            '-id')
                     )
                     image_urls = [reverse('serve_private_media', kwargs={'path': name}) for name in images_qs]
                     return JsonResponse({'status': 'success', 'images': image_urls})
@@ -1052,19 +1122,71 @@ async def generate_image_view(request):
             for img in hero_images:
                 hero_items.append({
                     'image_url': img.image.url,
-                    'name': img.caption or "" # Use caption or empty
+                    'name': img.caption or ""  # Use caption or empty
                 })
+
+        # --- SHOWCASE ITEMS (NEW) ---
+        showcase_items = []
+        if company_settings:
+            s_items = await sync_to_async(list)(company_settings.showcase_items.all())
+            for item in s_items:
+                showcase_items.append({
+                    'image_url': item.image.url,
+                    'prompt': item.prompt
+                })
+
+        # --- NUEVO: OBTENER PLANES DE SUSCRIPCIÓN PARA EL GENERATE.HTML ---
+        subscription_plans = []
+        is_subscription_active = False
+        free_tokens = 100
+        free_capabilities = ""
+
+        if company_settings and company_settings.is_subscription_active:
+            is_subscription_active = True
+            subscription_plans = await sync_to_async(list)(
+                SubscriptionPlan.objects.filter(is_active=True).order_by('price'))
+
+            # Obtener datos del plan gratuito
+            token_settings = await sync_to_async(TokenSettings.load)()
+            free_tokens = token_settings.default_token_allowance
+
+            caps = []
+            if token_settings.allow_upscale_free: caps.append("Upscaler")
+            if token_settings.allow_face_detail_free: caps.append("Face Detailer")
+            if token_settings.allow_eye_detail_free: caps.append("Eye Detailer")
+            free_capabilities = " + ".join(caps)
+
+        # --- NUEVO: IMÁGENES ALEATORIAS PARA LOS PLANES ---
+        random_plan_images = []
+        all_catalog_imgs = []
+        for char in characters:
+            all_catalog_imgs.extend(list(char.catalog_images_set.all()))
+        if len(all_catalog_imgs) >= 3:
+            random_plan_images = [img.image.url for img in random.sample(all_catalog_imgs, 3)]
+        else:
+            random_plan_images = [img.image.url for img in all_catalog_imgs]
+        # Asegurar que hay al menos 3 elementos rellenando con None si es necesario
+        while len(random_plan_images) < 3:
+            random_plan_images.append(None)
 
         context = {
             'characters': characters,
             'company': company_settings,
             'hero_items': hero_items,
-            'all_categories': all_categories, # Pass categories to template
-            'all_subcategories': all_subcategories, # Pass subcategories to template
+            'showcase_items': showcase_items,  # Pass showcase to template
+            'all_categories': all_categories,  # Pass categories to template
+            'all_subcategories': all_subcategories,  # Pass subcategories to template
+            # NUEVOS CONTEXTOS PARA PLANES EN HOME
+            'is_subscription_active': is_subscription_active,
+            'subscription_plans': subscription_plans,
+            'free_tokens': free_tokens,
+            'free_capabilities': free_capabilities,
+            'random_plan_images': random_plan_images,  # Pasamos las imágenes
         }
         return await sync_to_async(render)(request, 'myapp/generate.html', context)
 
     return redirect('generate_image')
+
 
 async def redeem_coupon_view(request):
     user = await get_user_from_request(request)
@@ -1124,7 +1246,7 @@ async def redeem_coupon_view(request):
                     return {"success": True, "message": f"Successfully redeemed: {' + '.join(msg_parts)}!"}
 
                 except Coupon.DoesNotExist:
-                    pass # Continue to check Character Codes
+                    pass  # Continue to check Character Codes
 
                 # 2. Try to redeem as Character Access Code
                 try:
@@ -1146,13 +1268,13 @@ async def redeem_coupon_view(request):
                         # limit_amount=char_code.limit_amount, # REMOVED
                         # reset_interval=char_code.reset_interval # REMOVED
                     )
-                    
+
                     # Increment counter
                     char_code.times_redeemed += 1
                     char_code.save()
-                    
+
                     return {"success": True, "message": f"Successfully unlocked character: {char_code.character.name}!"}
-                    
+
                 except CharacterAccessCode.DoesNotExist:
                     return {"success": False, "message": "Invalid code."}
 
@@ -1168,24 +1290,26 @@ async def redeem_coupon_view(request):
 
     return JsonResponse({'status': 'error', 'message': 'Method not allowed'}, status=405)
 
+
 # --- PAYPAL VIEWS ---
 
 @login_required
 def token_packages(request):
-    company_settings = CompanySettings.objects.last() # CAMBIO: .last()
+    company_settings = CompanySettings.objects.last()  # CAMBIO: .last()
 
     # --- NEW: Check if token sales are active ---
     if company_settings and not company_settings.is_token_sale_active:
-        return redirect('profile') # Redirect to profile if disabled
+        return redirect('profile')  # Redirect to profile if disabled
 
     packages = TokenPackage.objects.filter(is_active=True)
     return render(request, 'myapp/token_packages.html', {'packages': packages, 'company': company_settings})
+
 
 # 🛡️ PROTECCIÓN CONTRA BOTS EN PAGOS (Máximo 10 intentos de pago por IP cada hora)
 @ratelimit(key='ip', rate='10/h', block=True)
 @login_required
 def payment_process(request, package_id):
-    company_settings = CompanySettings.objects.last() # CAMBIO: .last()
+    company_settings = CompanySettings.objects.last()  # CAMBIO: .last()
 
     # --- NEW: Check if token sales are active ---
     if company_settings and not company_settings.is_token_sale_active:
@@ -1208,7 +1332,8 @@ def payment_process(request, package_id):
         # Limitar explicitamente los céntimos a 6 decimales para que Decimal() en el monitor no falle al comparar
         random_cents = decimal.Decimal(random.randrange(1, 9999)) / decimal.Decimal('1000000.0')
         # Redondear y cuantificar para evitar problemas de flotantes (ej. 10.001234000001)
-        transaction.crypto_amount = (decimal.Decimal(package.price) + random_cents).quantize(decimal.Decimal('0.000001'))
+        transaction.crypto_amount = (decimal.Decimal(package.price) + random_cents).quantize(
+            decimal.Decimal('0.000001'))
         transaction.save()
 
     # --- CONFIGURACIÓN DINÁMICA DE PAYPAL DESDE BD ---
@@ -1223,7 +1348,7 @@ def payment_process(request, package_id):
         'notify_url': f'http://{host}{reverse("paypal-ipn")}',
         'return_url': f'http://{host}{reverse("payment_done")}',
         'cancel_return': f'http://{host}{reverse("payment_canceled")}',
-        'custom': str(transaction.id), # Pasamos el ID de la transacción para recuperarlo en la señal
+        'custom': str(transaction.id),  # Pasamos el ID de la transacción para recuperarlo en la señal
     }
 
     # --- DEBUG LOG ---
@@ -1241,17 +1366,18 @@ def payment_process(request, package_id):
         if company_settings and company_settings.stripe_publishable_key:
             stripe_key = company_settings.stripe_publishable_key
         else:
-            stripe_key = settings.STRIPE_PUBLISHABLE_KEY # Fallback
+            stripe_key = settings.STRIPE_PUBLISHABLE_KEY  # Fallback
 
     return render(request, 'myapp/payment_process.html', {
         'form': form,
         'package': package,
         'company': company_settings,
-        'paypal_endpoint': paypal_endpoint, # PASAR VARIABLE AL CONTEXTO
-        'active_methods': active_methods, # NUEVO
-        'stripe_key': stripe_key, # NUEVO
-        'transaction': transaction # PASAR TRANSACCIÓN PARA CRIPTO
+        'paypal_endpoint': paypal_endpoint,  # PASAR VARIABLE AL CONTEXTO
+        'active_methods': active_methods,  # NUEVO
+        'stripe_key': stripe_key,  # NUEVO
+        'transaction': transaction  # PASAR TRANSACCIÓN PARA CRIPTO
     })
+
 
 # --- NUEVAS VISTAS: PAGO CON CRIPTO ---
 @login_required
@@ -1275,8 +1401,9 @@ def crypto_payment_process(request, transaction_id):
         'company': company_settings,
         'address': company_settings.crypto_usdt_address if company_settings else '',
         'min_confirmations': company_settings.crypto_min_confirmations if company_settings else 10,
-        'guide_images': guide_images # PASAR IMÁGENES AL CONTEXTO
+        'guide_images': guide_images  # PASAR IMÁGENES AL CONTEXTO
     })
+
 
 @login_required
 def crypto_subscription_process(request, plan_id):
@@ -1324,13 +1451,15 @@ def crypto_subscription_process(request, plan_id):
         'company': company_settings,
         'address': company_settings.crypto_usdt_address if company_settings else '',
         'min_confirmations': company_settings.crypto_min_confirmations if company_settings else 10,
-        'guide_images': guide_images # PASAR IMÁGENES AL CONTEXTO
+        'guide_images': guide_images  # PASAR IMÁGENES AL CONTEXTO
     })
+
 
 @login_required
 def check_payment_status(request, transaction_id):
     transaction = get_object_or_404(PaymentTransaction, id=transaction_id, user=request.user)
     return JsonResponse({'status': transaction.status})
+
 
 # --- NUEVA VISTA: CREAR SESIÓN DE STRIPE ---
 # 🛡️ PROTECCIÓN CONTRA BOTS EN PAGOS (Máximo 10 intentos de pago por IP cada hora)
@@ -1348,7 +1477,7 @@ def create_checkout_session(request, package_id):
             stripe_secret_key = settings.STRIPE_SECRET_KEY
 
         if not stripe_secret_key:
-             return JsonResponse({'error': 'Stripe is not configured correctly.'}, status=500)
+            return JsonResponse({'error': 'Stripe is not configured correctly.'}, status=500)
 
         stripe.api_key = stripe_secret_key
 
@@ -1365,14 +1494,14 @@ def create_checkout_session(request, package_id):
                         'product_data': {
                             'name': package.name,
                         },
-                        'unit_amount': int(package.price * 100), # Centavos
+                        'unit_amount': int(package.price * 100),  # Centavos
                     },
                     'quantity': 1,
                 }],
                 mode='payment',
                 success_url=f'{protocol}://{host}{reverse("payment_done")}',
                 cancel_url=f'{protocol}://{host}{reverse("payment_canceled")}',
-                client_reference_id=str(request.request.user.id), # Para identificar al usuario en el webhook
+                client_reference_id=str(request.request.user.id),  # Para identificar al usuario en el webhook
                 metadata={
                     'package_id': package.id,
                     'user_id': request.user.id
@@ -1381,31 +1510,34 @@ def create_checkout_session(request, package_id):
             return JsonResponse({'id': checkout_session.id})
         except Exception as e:
             return JsonResponse({'error': str(e)}, status=400)
-            
+
     return JsonResponse({'error': 'Invalid request'}, status=400)
+
 
 @csrf_exempt
 def payment_done(request):
-    company_settings = CompanySettings.objects.last() # CAMBIO: .last()
+    company_settings = CompanySettings.objects.last()  # CAMBIO: .last()
     return render(request, 'myapp/payment_done.html', {'company': company_settings})
+
 
 @csrf_exempt
 def payment_canceled(request):
-    company_settings = CompanySettings.objects.last() # CAMBIO: .last()
+    company_settings = CompanySettings.objects.last()  # CAMBIO: .last()
     return render(request, 'myapp/payment_canceled.html', {'company': company_settings})
+
 
 # --- SUBSCRIPTION VIEWS ---
 
 @login_required
 def subscription_plans(request):
-    company_settings = CompanySettings.objects.last() # CAMBIO: .last()
-    
+    company_settings = CompanySettings.objects.last()  # CAMBIO: .last()
+
     # --- NEW: Check if subscriptions are active ---
     if company_settings and not company_settings.is_subscription_active:
         return redirect('profile')
 
     plans = SubscriptionPlan.objects.filter(is_active=True)
-    
+
     # Check current subscription
     current_sub = None
     try:
@@ -1419,19 +1551,20 @@ def subscription_plans(request):
         'current_sub': current_sub
     })
 
+
 # 🛡️ PROTECCIÓN CONTRA BOTS EN PAGOS (Máximo 10 intentos de suscripción por IP cada hora)
 @ratelimit(key='ip', rate='10/h', block=True)
 @login_required
 def subscription_process(request, plan_id):
-    company_settings = CompanySettings.objects.last() # CAMBIO: .last()
-    
+    company_settings = CompanySettings.objects.last()  # CAMBIO: .last()
+
     # --- NEW: Check if subscriptions are active ---
     if company_settings and not company_settings.is_subscription_active:
         return redirect('profile')
 
     plan = get_object_or_404(SubscriptionPlan, id=plan_id)
     host = request.get_host()
-    
+
     # Create or update pending subscription record
     # --- ARREGLO DEL BUG: NO SOBRESCRIBIR LA SUSCRIPCIÓN ACTIVA AL NAVEGAR ---
     try:
@@ -1447,48 +1580,49 @@ def subscription_process(request, plan_id):
     paypal_dict = {
         'cmd': '_xclick-subscriptions',
         'business': receiver_email,
-        'a3': str(plan.price), # Regular subscription price
-        'p3': plan.billing_period, # Subscription duration
-        't3': plan.billing_period_unit, # Subscription duration unit (D, W, M, Y)
-        'src': '1', # Recurring payments
-        'sra': '1', # Reattempt on failure
+        'a3': str(plan.price),  # Regular subscription price
+        'p3': plan.billing_period,  # Subscription duration
+        't3': plan.billing_period_unit,  # Subscription duration unit (D, W, M, Y)
+        'src': '1',  # Recurring payments
+        'sra': '1',  # Reattempt on failure
         'item_name': plan.name,
-        'invoice': str(uuid.uuid4()), # Unique invoice ID
+        'invoice': str(uuid.uuid4()),  # Unique invoice ID
         'currency_code': 'USD',
         'notify_url': f'http://{host}{reverse("paypal-ipn")}',
         'return_url': f'http://{host}{reverse("subscription_done")}',
         'cancel_return': f'http://{host}{reverse("subscription_canceled")}',
-        'custom': f"{request.user.id}_{plan.id}", # Pasamos User ID y Plan ID
+        'custom': f"{request.user.id}_{plan.id}",  # Pasamos User ID y Plan ID
     }
-    
+
     # --- DEBUG LOG ---
     print(f"DEBUG PAYPAL SUBSCRIPTION: Sandbox Mode in DB = {company_settings.paypal_is_sandbox}")
 
     # --- USAR CLASE PERSONALIZADA PARA FORZAR ENDPOINT ---
     form = DynamicPayPalForm(initial=paypal_dict, is_sandbox=company_settings.paypal_is_sandbox)
-    
+
     # --- CALCULAR ENDPOINT EXPLÍCITAMENTE PARA EL TEMPLATE ---
     paypal_endpoint = form.get_endpoint()
 
     # --- NUEVO: OBTENER MÉTODOS DE PAGO ACTIVOS ---
     active_methods = list(PaymentMethod.objects.filter(is_active=True).values_list('config_key', flat=True))
-    
+
     # Stripe Config (Dynamic from DB)
     stripe_key = None
     if 'stripe' in active_methods:
         if company_settings and company_settings.stripe_publishable_key:
             stripe_key = company_settings.stripe_publishable_key
         else:
-            stripe_key = settings.STRIPE_PUBLISHABLE_KEY # Fallback
+            stripe_key = settings.STRIPE_PUBLISHABLE_KEY  # Fallback
 
     return render(request, 'myapp/subscription_process.html', {
         'form': form,
         'plan': plan,
         'company': company_settings,
-        'paypal_endpoint': paypal_endpoint, # PASAR VARIABLE AL CONTEXTO
-        'active_methods': active_methods, # NUEVO
-        'stripe_key': stripe_key # NUEVO
+        'paypal_endpoint': paypal_endpoint,  # PASAR VARIABLE AL CONTEXTO
+        'active_methods': active_methods,  # NUEVO
+        'stripe_key': stripe_key  # NUEVO
     })
+
 
 # --- NUEVA VISTA: CREAR SESIÓN DE SUSCRIPCIÓN STRIPE ---
 # 🛡️ PROTECCIÓN CONTRA BOTS EN PAGOS (Máximo 10 intentos de pago por IP cada hora)
@@ -1506,7 +1640,7 @@ def create_subscription_checkout_session(request, plan_id):
             stripe_secret_key = settings.STRIPE_SECRET_KEY
 
         if not stripe_secret_key:
-             return JsonResponse({'error': 'Stripe is not configured correctly.'}, status=500)
+            return JsonResponse({'error': 'Stripe is not configured correctly.'}, status=500)
 
         stripe.api_key = stripe_secret_key
 
@@ -1532,7 +1666,7 @@ def create_subscription_checkout_session(request, plan_id):
                         'product_data': {
                             'name': plan.name,
                         },
-                        'unit_amount': int(plan.price * 100), # Centavos
+                        'unit_amount': int(plan.price * 100),  # Centavos
                         'recurring': {
                             'interval': stripe_interval,
                             'interval_count': plan.billing_period
@@ -1540,7 +1674,7 @@ def create_subscription_checkout_session(request, plan_id):
                     },
                     'quantity': 1,
                 }],
-                mode='subscription', # MODO SUSCRIPCIÓN
+                mode='subscription',  # MODO SUSCRIPCIÓN
                 success_url=f'{protocol}://{host}{reverse("subscription_done")}',
                 cancel_url=f'{protocol}://{host}{reverse("subscription_canceled")}',
                 client_reference_id=str(request.user.id),
@@ -1555,15 +1689,18 @@ def create_subscription_checkout_session(request, plan_id):
 
     return JsonResponse({'error': 'Invalid request'}, status=400)
 
+
 @csrf_exempt
 def subscription_done(request):
-    company_settings = CompanySettings.objects.last() # CAMBIO: .last()
+    company_settings = CompanySettings.objects.last()  # CAMBIO: .last()
     return render(request, 'myapp/subscription_done.html', {'company': company_settings})
+
 
 @csrf_exempt
 def subscription_canceled(request):
-    company_settings = CompanySettings.objects.last() # CAMBIO: .last()
+    company_settings = CompanySettings.objects.last()  # CAMBIO: .last()
     return render(request, 'myapp/subscription_canceled.html', {'company': company_settings})
+
 
 # --- VIDEO GENERATION VIEW (NEW) ---
 async def generate_video_view(request):
@@ -1577,9 +1714,11 @@ async def generate_video_view(request):
         # --- RATE LIMITING (VIDEO) ---
         cache_key = f"gen_limit_video_{user.id}"
         if cache.get(cache_key):
-             ttl = cache.ttl(cache_key)
-             return JsonResponse({'status': 'error', 'message': f'Please wait {ttl} seconds before generating another video.'}, status=429)
-        cache.set(cache_key, True, timeout=10) # 10s limit for videos too
+            ttl = cache.ttl(cache_key)
+            return JsonResponse(
+                {'status': 'error', 'message': f'Please wait {ttl} seconds before generating another video.'},
+                status=429)
+        cache.set(cache_key, True, timeout=10)  # 10s limit for videos too
         # -----------------------------
 
         # 1. Validar Tokens (Opcional: definir costo de video)
@@ -1588,19 +1727,21 @@ async def generate_video_view(request):
                 profile = await sync_to_async(lambda: user.clientprofile)()
                 await profile.check_and_reset_tokens()
                 tokens_left = await profile.get_tokens_remaining_async()
-                VIDEO_COST = 5 # Ejemplo: Video cuesta 5 tokens
+                VIDEO_COST = 5  # Ejemplo: Video cuesta 5 tokens
                 if tokens_left < VIDEO_COST:
-                    return JsonResponse({'status': 'error', 'message': f'Not enough tokens. Video costs {VIDEO_COST} tokens.'}, status=403)
+                    return JsonResponse(
+                        {'status': 'error', 'message': f'Not enough tokens. Video costs {VIDEO_COST} tokens.'},
+                        status=403)
             except ClientProfile.DoesNotExist:
                 pass
 
         # 2. Obtener Datos del Formulario
-        character_id = request.POST.get('character_id') # NUEVO: Obtener character_id
+        character_id = request.POST.get('character_id')  # NUEVO: Obtener character_id
         prompt = request.POST.get('prompt')
         negative_prompt = request.POST.get('negative_prompt', '')
         duration = request.POST.get('duration', 3)
         fps = request.POST.get('fps', 24)
-        quality = request.POST.get('quality', 25) # CAMBIO: resolution -> quality
+        quality = request.POST.get('quality', 25)  # CAMBIO: resolution -> quality
         seed = request.POST.get('seed', -1)
 
         # Imagen subida
@@ -1620,8 +1761,9 @@ async def generate_video_view(request):
                     character=character,
                     message=prompt,
                     is_from_user=True,
-                    chat_type='VIDEO' # Marcar como video
+                    chat_type='VIDEO'  # Marcar como video
                 )
+
             user_msg = await save_user_message()
 
             # 3. Llamar al Servicio de Video
@@ -1635,12 +1777,12 @@ async def generate_video_view(request):
             def save_video_result(v_bytes, v_filename, u_seed, wf_json):
                 vid = GeneratedVideo(
                     user=user,
-                    character=character, # Vincular al personaje
+                    character=character,  # Vincular al personaje
                     prompt=prompt,
                     negative_prompt=negative_prompt,
                     duration=duration,
                     fps=fps,
-                    width=0, # No tenemos width/height exactos aquí, podríamos poner 0 o un default
+                    width=0,  # No tenemos width/height exactos aquí, podríamos poner 0 o un default
                     height=0,
                     seed=u_seed
                 )
@@ -1650,7 +1792,8 @@ async def generate_video_view(request):
 
                 # Guardar archivo de workflow
                 wf_filename = f"workflow_{v_filename}.json"
-                vid.generation_workflow.save(wf_filename, ContentFile(json.dumps(wf_json, indent=2).encode('utf-8')), save=False)
+                vid.generation_workflow.save(wf_filename, ContentFile(json.dumps(wf_json, indent=2).encode('utf-8')),
+                                             save=False)
 
                 vid.save()
 
@@ -1658,9 +1801,10 @@ async def generate_video_view(request):
                 if not user.is_staff:
                     try:
                         p = user.clientprofile
-                        p.tokens_used += 5 # VIDEO_COST hardcoded por ahora
+                        p.tokens_used += 5  # VIDEO_COST hardcoded por ahora
                         p.save()
-                    except: pass
+                    except:
+                        pass
 
                 return vid
 
@@ -1687,13 +1831,15 @@ async def generate_video_view(request):
                 'status': 'success',
                 'video_url': video_url,
                 'seed': used_seed,
-                'user_msg_id': user_msg.id, # Devolver IDs para el frontend
+                'user_msg_id': user_msg.id,  # Devolver IDs para el frontend
                 'ai_msg_id': ai_msg.id
             })
 
         except Exception as e:
             # --- SECURITY FIX: Log error to console but show generic message to user ---
             print(f"Video Generation Error: {e}")
-            return JsonResponse({'status': 'error', 'message': 'An error occurred during video generation. Please try again later.'}, status=500)
+            return JsonResponse(
+                {'status': 'error', 'message': 'An error occurred during video generation. Please try again later.'},
+                status=500)
 
     return JsonResponse({'status': 'error', 'message': 'Invalid request'}, status=400)

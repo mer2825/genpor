@@ -826,13 +826,11 @@
     <!-- Overlay para cerrar paneles -->
     <div id="sidebar-overlay" class="sidebar-overlay" onclick="closeAllSidebars()"></div>
 
-    <!-- CAMBIO: Quitamos el sidebar-left del layout grid -->
-    <div class="layout-grid" style="grid-template-columns: 1fr var(--sidebar-width); grid-template-areas: 'header header' 'main sidebar-right';">
+    <div class="layout-grid" style="grid-template-columns: var(--sidebar-width) 1fr var(--sidebar-width); grid-template-areas: 'header header header' 'sidebar-left main sidebar-right';">
         <!-- Header -->
         <header class="workspace-header">
             <!-- Botón Izquierdo (Configuración / Personajes) -->
-            <!-- Ya no abre el sidebar left, sino el modal de personajes en móvil -->
-            <button class="mobile-toggle-btn" onclick="document.getElementById('modal-characters').style.display='block'">
+            <button class="mobile-toggle-btn" onclick="toggleSidebar('left')">
                 <i class="fas fa-users"></i>
             </button>
 
@@ -869,7 +867,39 @@
             </div>
         </header>
 
-        <!-- Sidebar Izquierda (Eliminada de aquí) -->
+        <!-- Sidebar Izquierda (Ahora contiene el historial) -->
+        <aside class="sidebar" id="sidebar-left">
+            <div class="sidebar-title">
+                <span>Characters</span>
+                <button class="close-sidebar-btn" onclick="closeAllSidebars()"><i class="fas fa-times"></i></button>
+            </div>
+            <button class="resource-btn" onclick="document.getElementById('modal-characters').style.display='block'" style="margin-bottom: 20px;">
+                <i class="fas fa-plus-circle" style="color:#a78bfa;"></i>
+                Select Character
+            </button>
+
+            <div class="sidebar-title" style="margin-top: 0;">
+                <span>History</span>
+            </div>
+            <!-- LISTA DE CHATS RECIENTES -->
+            {% for chat in recent_chats %}
+                <a href="?character_id={{ chat.id }}" class="history-item {% if selected_character.id == chat.id %}active{% endif %}">
+                    {% if chat.catalog_images_set.all %}
+                        <img src="{{ chat.catalog_images_set.all.0.image.url }}">
+                    {% else %}
+                        <div style="width:24px; height:24px; border-radius:50%; background:#334155;"></div>
+                    {% endif %}
+                    <span>
+                        {{ chat.name }}
+                        {% if chat.is_private %}
+                            <i class="fas fa-unlock" style="color: #fbbf24; font-size: 0.7rem; margin-left: 4px;"></i>
+                        {% endif %}
+                    </span>
+                </a>
+            {% empty %}
+                <p style="font-size:0.8rem; color:var(--text-muted); text-align:center;">No chats yet.</p>
+            {% endfor %}
+        </aside>
 
         <!-- Contenido Central -->
         <main class="main-content">
@@ -1104,7 +1134,7 @@
                     <h1 class="welcome-title">Welcome to Your Workspace</h1>
                     <p class="welcome-subtitle">Select a character to start creating amazing art.</p>
 
-                    <button onclick="document.getElementById('modal-characters').style.display='block'" class="start-btn-large">
+                    <button onclick="toggleSidebar('left')" class="start-btn-large">
                         <i class="fas fa-plus-circle"></i> Select Character
                     </button>
 
@@ -1144,25 +1174,26 @@
                 <p style="color:var(--text-muted); text-align:center; font-size:0.9rem; margin-top: 20px;">Select a character to see resources.</p>
             {% endif %}
 
-            <div class="sidebar-title" style="margin-top:30px;">History</div>
-            <!-- LISTA DE CHATS RECIENTES -->
-            {% for chat in recent_chats %}
-                <a href="?character_id={{ chat.id }}" class="history-item {% if selected_character.id == chat.id %}active{% endif %}">
-                    {% if chat.catalog_images_set.all %}
-                        <img src="{{ chat.catalog_images_set.all.0.image.url }}">
-                    {% else %}
-                        <div style="width:24px; height:24px; border-radius:50%; background:#334155;"></div>
-                    {% endif %}
-                    <span>
-                        {{ chat.name }}
-                        {% if chat.is_private %}
-                            <i class="fas fa-unlock" style="color: #fbbf24; font-size: 0.7rem; margin-left: 4px;"></i>
-                        {% endif %}
-                    </span>
-                </a>
-            {% empty %}
-                <p style="font-size:0.8rem; color:var(--text-muted); text-align:center;">No chats yet.</p>
-            {% endfor %}
+            <!-- NUEVA SECCIÓN DE EJEMPLOS -->
+            <div class="sidebar-title" style="margin-top: 30px;">
+                <span>Provocations & Fantasies</span>
+            </div>
+            <div id="showcase-examples-container" class="example-carousel">
+                <div class="carousel-track">
+                    {% for item in showcase_items %}
+                        <div class="carousel-slide" data-prompt="{{ item.prompt|escapejs }}">
+                            <img src="{{ item.image_url }}" alt="Example prompt">
+                            <div class="carousel-prompt-overlay">{{ item.prompt|truncatechars:50 }}</div>
+                        </div>
+                    {% empty %}
+                        <p style="font-size:0.8rem; color:var(--text-muted); text-align:center;">No examples available.</p>
+                    {% endfor %}
+                </div>
+                {% if showcase_items|length > 1 %}
+                <button class="carousel-btn prev"><i class="fas fa-chevron-left"></i></button>
+                <button class="carousel-btn next"><i class="fas fa-chevron-right"></i></button>
+                {% endif %}
+            </div>
         </aside>
     </div>
 

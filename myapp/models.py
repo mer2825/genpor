@@ -469,6 +469,22 @@ class HeroCarouselImage(models.Model):
             os.remove(self.image.path)
         super().delete(*args, **kwargs)
 
+class ShowcaseItem(models.Model):
+    company_settings = models.ForeignKey(CompanySettings, related_name='showcase_items', on_delete=models.CASCADE)
+    image = models.ImageField(upload_to='showcase/', verbose_name="Showcase Image")
+    prompt = models.TextField(verbose_name="Prompt", help_text="The text that will be typed out.")
+    order = models.PositiveIntegerField(default=0, help_text="Order in the showcase")
+    class Meta:
+        ordering = ['order']
+        verbose_name = "Showcase Item"
+        verbose_name_plural = "Showcase Items"
+    def __str__(self):
+        return f"Showcase {self.order}"
+    def delete(self, *args, **kwargs):
+        if self.image and os.path.isfile(self.image.path):
+            os.remove(self.image.path)
+        super().delete(*args, **kwargs)
+
 # --- NEW: CRYPTO GUIDE IMAGES ---
 class CryptoGuideImage(models.Model):
     company_settings = models.ForeignKey(CompanySettings, related_name='crypto_guide_images', on_delete=models.CASCADE)

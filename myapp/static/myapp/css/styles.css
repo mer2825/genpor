@@ -315,45 +315,68 @@ header h1 {
 
 /* --- HERO SECTION (CONTENEDOR OSCURO) --- */
 .hero-section {
+    position: relative; /* Para contener los elementos absolutos */
     display: flex;
-    padding: 60px 50px; /* Padding interno */
-    gap: 60px;
-    align-items: center;
-    min-height: 450px;
-    position: relative;
-
-    /* ESTILO DE SECCIÓN OSCURA */
-    background-color: #080808; /* Fondo muy oscuro */
-    margin: 30px 3%; /* Separación de los bordes (flotante) */
-    border-radius: 30px; /* Bordes redondeados */
-    border: 1px solid rgba(255, 255, 255, 0.1); /* Borde sutil */
-    box-shadow: 0 20px 50px rgba(0,0,0,0.5); /* Sombra para profundidad */
-
-    overflow: visible;
+    align-items: center; /* Centrar verticalmente el texto */
+    justify-content: flex-start; /* Alinear texto a la izquierda */
+    min-height: 85vh; /* Altura considerable para el banner */
+    padding: 0; /* CAMBIO: Eliminado el padding */
+    overflow: hidden; /* Recortar lo que sobresalga */
 }
 
-/* Glow de fondo Hero (Ajustado para estar detrás de la tarjeta) */
-.hero-section::before {
-    content: '';
+/* El contenedor del carrusel ahora es el FONDO */
+.hero-carousel-wrapper {
     position: absolute;
-    top: -20%;
-    left: -10%;
-    width: 60%;
-    height: 140%;
-    background: radial-gradient(circle, rgba(168, 85, 247, 0.2) 0%, transparent 70%); /* Glow Morado sutil */
-    z-index: -1;
-    pointer-events: none;
-    filter: blur(60px);
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    z-index: 0; /* Detrás de todo */
 }
 
+.hero-slide {
+    position: absolute; /* Añadido para superponer slides */
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    opacity: 0; /* Oculto por defecto */
+    transition: opacity 1s ease-in-out; /* Transición suave */
+    z-index: 1; /* Capa base */
+}
+
+.hero-slide.active {
+    opacity: 1; /* Visible */
+    z-index: 2; /* Por encima de los otros */
+}
+
+.hero-image-half {
+    width: 100%;
+    height: 100%;
+}
+
+.hero-image-half img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover; /* Cubrir todo el espacio sin deformarse */
+
+    /* MÁSCARA: Transparente a la izquierda (para leer texto) -> Sólido a la derecha */
+    -webkit-mask-image: linear-gradient(to right, transparent 0%, rgba(0,0,0,0.1) 10%, black 60%, black 100%);
+    mask-image: linear-gradient(to right, transparent 0%, rgba(0,0,0,0.1) 10%, black 60%, black 100%);
+}
+
+/* El texto ahora flota ENCIMA */
 .hero-text {
-    flex: 1;
-    display: flex;
-    flex-direction: column;
-    justify-content: center;
-    z-index: 1;
+    position: relative;
+    z-index: 10; /* Encima de la imagen */
+    width: 100%;
+    max-width: 650px; /* Limitar ancho para que no tape toda la imagen */
+    text-align: left;
+    padding: 0 5%; /* CAMBIO: Padding movido aquí */
+    box-sizing: border-box; /* CAMBIO: Añadido para un padding predecible */
+    /* Sombra de texto opcional para mejorar legibilidad extrema */
+    text-shadow: 0 2px 10px rgba(0,0,0,0.8);
     animation: fadeInUp 0.8s ease-out;
-    min-width: 0; /* IMPORTANTE: Permite que el texto se rompa en Flexbox */
 }
 
 /* ANIMACIÓN DE BORDE DE TEXTO (PULSO) */
@@ -438,54 +461,6 @@ header h1 {
     transition: transform 0.3s;
 }
 .cta-button:hover::after { transform: translateX(5px); }
-
-/* Carrusel Hero */
-.hero-carousel-wrapper {
-    flex: 1;
-    height: 450px;
-    position: relative;
-    border-radius: 30px;
-    overflow: hidden;
-
-    /* OSCURO Y SÓLIDO (Sin glow de colores) */
-    background-color: #050505; /* Casi negro */
-    border: 1px solid #222; /* Borde sutil oscuro */
-    box-shadow: 0 20px 50px -10px rgba(0,0,0,0.9); /* Sombra negra profunda */
-
-    z-index: 1;
-    animation: fadeInRight 1s ease-out;
-}
-
-.hero-slide {
-    position: absolute;
-    top: 0; left: 0; width: 100%; height: 100%;
-    display: flex;
-    opacity: 0;
-    transition: opacity 1s ease, transform 1.5s ease;
-    transform: scale(1.05);
-}
-.hero-slide.active { opacity: 1; transform: scale(1); }
-
-.hero-image-half {
-    flex: 1;
-    height: 100%;
-    position: relative;
-}
-.hero-image-half img { width: 100%; height: 100%; object-fit: cover; }
-
-.hero-caption {
-    position: absolute;
-    bottom: 0; left: 0; width: 100%;
-    padding: 30px 20px 20px;
-    background: linear-gradient(to top, rgba(0,0,0,0.95), transparent);
-    color: white;
-    font-weight: 600;
-    text-align: center;
-    letter-spacing: 1.5px;
-    text-transform: uppercase;
-    font-size: 0.85rem;
-    text-shadow: 0 2px 4px rgba(0,0,0,0.5);
-}
 
 /* --- SECCIÓN PERSONAJES --- */
 .personajes-section {
@@ -869,12 +844,16 @@ footer {
     .token-badge::after { content: attr(data-tokens); display: block; }
 
     .hero-section {
-        padding: 30px 20px;
+        padding: 0;
         flex-direction: column-reverse;
         text-align: center;
         gap: 30px;
         min-height: auto;
-        margin: 20px 15px; /* Margen reducido en móvil */
+        margin: 0; /* CAMBIO: Eliminado el margin */
+    }
+
+    .hero-text {
+        padding: 30px 20px;
     }
 
     /* Ajuste de fuentes para móvil */
@@ -916,3 +895,599 @@ footer {
     .bottom-nav { display: flex; }
     body:not(.no-pad-bottom) { padding-bottom: 70px; }
 }
+
+/* --- ESTILOS SECCIÓN SHOWCASE --- */
+.showcase-section {
+    padding: 80px 5%;
+    background-color: #080808;
+    border-top: 1px solid var(--card-border);
+    border-bottom: 1px solid var(--card-border);
+}
+
+.showcase-content {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 60px;
+    align-items: center;
+    max-width: 1200px;
+    margin: 0 auto;
+}
+
+.showcase-text h2 {
+    font-size: 2.5rem;
+    font-weight: 700;
+    margin-bottom: 15px;
+    line-height: 1.2;
+    background: linear-gradient(to right, #fff, var(--text-muted));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+}
+
+.showcase-text p {
+    font-size: 1.1rem;
+    color: var(--text-muted);
+    margin-bottom: 30px;
+}
+
+.prompt-box {
+    background: rgba(10, 10, 10, 0.8);
+    backdrop-filter: blur(10px);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    box-shadow: inset 0 0 20px rgba(0, 0, 0, 0.5), 0 10px 30px rgba(0, 0, 0, 0.5);
+    border-radius: 12px;
+    padding: 25px;
+    font-family: 'Courier New', Courier, monospace;
+    color: var(--primary-mid); /* Usa el color de la marca */
+    min-height: 120px;
+    font-size: 1.1rem;
+    line-height: 1.6;
+    font-weight: 600;
+}
+
+.cursor {
+    display: inline-block;
+    width: 8px;
+    height: 1.2em;
+    background-color: var(--primary-mid);
+    animation: blink 1s infinite;
+    vertical-align: middle;
+}
+
+@keyframes blink {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0; }
+}
+
+.showcase-image {
+    border-radius: 20px;
+    overflow: hidden;
+    box-shadow: 0 20px 50px rgba(255, 75, 75, 0.2); /* Glow llamativo */
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    /* Hacerlo más pequeño y centrado */
+    max-width: 70%;
+    margin: 0 auto;
+    aspect-ratio: 3 / 4; /* Mantener proporción de retrato */
+    /* Efecto 3D sutil */
+    transform: perspective(1000px) rotateY(-5deg) rotateX(2deg);
+    transition: transform 0.5s ease, box-shadow 0.5s ease;
+}
+
+.showcase-image:hover {
+    transform: perspective(1000px) rotateY(0deg) rotateX(0deg) scale(1.02);
+    box-shadow: 0 25px 60px rgba(255, 75, 75, 0.4);
+}
+
+.showcase-image img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+    transition: opacity 0.5s ease-in-out;
+}
+
+/* Responsive para la sección Showcase */
+@media (max-width: 900px) {
+    .showcase-content {
+        grid-template-columns: 1fr;
+        gap: 40px;
+    }
+    .showcase-text {
+        text-align: center;
+    }
+    .prompt-box {
+        text-align: left;
+    }
+    .showcase-image {
+        max-width: 90%; /* Un poco más grande en móvil, pero no al 100% */
+        transform: none; /* Quitar efecto 3D en móvil */
+    }
+    .showcase-image:hover {
+        transform: none;
+    }
+}
+
+/* --- AGE GATE STYLES (VERIFICACIÓN DE EDAD - DISEÑO PREMIUM) --- */
+#age-gate-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 99999; /* Por encima de TODO */
+    /* Fondo oscuro pero con un toque sutil de la marca */
+    background: radial-gradient(circle at center, #1a0b1a 0%, #000000 100%);
+    display: none; /* Se activa con JS */
+    justify-content: center;
+    align-items: center;
+    padding: 20px;
+    overflow-y: auto;
+    backdrop-filter: blur(5px);
+}
+
+.age-gate-content {
+    /* Estilo Glassmorphism Oscuro */
+    background: rgba(15, 15, 15, 0.9);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 24px;
+    max-width: 550px;
+    width: 100%;
+    text-align: center;
+    padding: 40px 30px;
+    color: #d1d5db;
+    box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.8), 0 0 30px rgba(0,0,0,0.5);
+    position: relative;
+    overflow: hidden;
+}
+
+/* Borde superior brillante sutil */
+.age-gate-content::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 1px;
+    background: linear-gradient(90deg, transparent, rgba(255,255,255,0.3), transparent);
+}
+
+.age-gate-logo {
+    max-height: 70px;
+    margin-bottom: 25px;
+    filter: drop-shadow(0 0 10px rgba(255,255,255,0.1));
+}
+
+.age-gate-title {
+    color: white;
+    font-size: 1.4rem;
+    font-weight: 800;
+    margin-bottom: 8px;
+    text-transform: uppercase;
+    letter-spacing: -0.5px;
+    text-shadow: 0 2px 4px rgba(0,0,0,0.5);
+}
+
+.age-gate-subtitle {
+    color: var(--primary-mid); /* Color de acento de la marca */
+    font-size: 0.9rem;
+    margin-bottom: 25px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 2px;
+}
+
+.age-gate-text {
+    font-size: 0.9rem;
+    line-height: 1.6;
+    margin-bottom: 30px;
+    color: #9ca3af;
+    background: rgba(0,0,0,0.3);
+    padding: 15px;
+    border-radius: 12px;
+    border: 1px solid rgba(255,255,255,0.05);
+}
+
+.age-gate-buttons {
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+    margin-bottom: 30px;
+}
+
+.btn-enter {
+    /* Gradiente de la marca */
+    background: var(--primary-gradient);
+    color: white;
+    font-weight: 800;
+    padding: 16px;
+    border-radius: 12px;
+    border: none;
+    cursor: pointer;
+    font-size: 1rem;
+    text-transform: uppercase;
+    transition: all 0.3s ease;
+    box-shadow: 0 4px 15px rgba(0,0,0,0.3);
+    letter-spacing: 0.5px;
+}
+.btn-enter:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 25px rgba(239, 68, 68, 0.4); /* Glow rojizo */
+    filter: brightness(1.1);
+}
+
+.btn-exit {
+    /* Estilo Ghost moderno */
+    background: rgba(255, 255, 255, 0.03);
+    color: #9ca3af;
+    font-weight: 600;
+    padding: 16px;
+    border-radius: 12px;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    cursor: pointer;
+    font-size: 0.95rem;
+    text-transform: uppercase;
+    transition: all 0.2s ease;
+}
+.btn-exit:hover {
+    background: rgba(255, 255, 255, 0.08);
+    color: white;
+    border-color: rgba(255, 255, 255, 0.3);
+}
+
+.age-gate-footer {
+    font-size: 0.75rem;
+    color: #555;
+    border-top: 1px solid rgba(255,255,255,0.05);
+    padding-top: 20px;
+}
+.age-gate-footer a { color: #777; text-decoration: none; transition: color 0.2s; }
+.age-gate-footer a:hover { color: #aaa; text-decoration: underline; }
+
+/* CAMBIO: Estilo para el logo RTA CSS */
+.rta-logo-container {
+    display: inline-flex;
+    align-items: center;
+    border: 1px solid #444;
+    background: #111;
+    padding: 6px 12px;
+    border-radius: 6px;
+    color: #888;
+    transition: all 0.3s;
+    margin-top: 15px;
+}
+.rta-logo-container:hover {
+    border-color: #666;
+    background: #1a1a1a;
+    color: #ccc;
+    transform: scale(1.02);
+}
+.rta-big-text {
+    font-size: 1.4rem;
+    font-weight: 900;
+    letter-spacing: 1px;
+    margin-right: 10px;
+    color: #ccc;
+}
+.rta-small-text {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    font-size: 0.5rem;
+    text-transform: uppercase;
+    line-height: 1.2;
+    border-left: 1px solid #555;
+    padding-left: 8px;
+    font-weight: 700;
+    text-align: left;
+}
+
+@media (min-width: 640px) {
+    .age-gate-buttons { flex-direction: row; }
+    .btn-enter, .btn-exit { flex: 1; }
+}
+
+/* --- ESTILOS FOOTER 3 COLUMNAS (HORIZONTAL) --- */
+footer {
+    padding: 15px 5% !important;
+    background: #050505;
+    border-top: 1px solid rgba(255,255,255,0.05);
+    position: relative; /* Necesario para z-index */
+    z-index: 2000; /* Asegurar que esté por encima si es necesario */
+}
+.footer-content {
+    display: flex !important;
+    flex-direction: row !important; /* Horizontal */
+    justify-content: space-between !important; /* Esparcir columnas */
+    align-items: center !important;
+    gap: 20px !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    flex-wrap: wrap; /* Permitir que baje en pantallas muy pequeñas */
+}
+.footer-section {
+    margin: 0 !important;
+    flex: 1; /* Distribuir espacio */
+    min-width: 200px; /* Ancho mínimo para no aplastarse */
+}
+
+/* Alineación específica por columna */
+.footer-section:nth-child(1) { text-align: left; }
+.footer-section:nth-child(2) { text-align: center; }
+.footer-section:nth-child(3) { text-align: right; display: flex; justify-content: flex-end; }
+
+/* Títulos ocultos para ahorrar espacio */
+.footer-section h3 {
+    display: none !important;
+}
+.footer-section p {
+    font-size: 0.8rem !important;
+    margin: 0 !important;
+    color: #888;
+    line-height: 1.4;
+}
+
+/* CAMBIO: Habilitar visibilidad del copyright */
+.copyright {
+    display: block !important; /* FORZAR VISIBILIDAD */
+    text-align: center;
+    margin-top: 20px;
+    padding-top: 15px;
+    border-top: 1px solid rgba(255,255,255,0.05);
+    font-size: 0.75rem;
+    color: #555;
+    width: 100%;
+}
+
+/* Iconos sociales */
+.social-links {
+    display: flex;
+    gap: 15px;
+}
+.social-links a {
+    font-size: 1.1rem !important;
+    color: #aaa !important;
+    transition: color 0.3s;
+}
+.social-links a:hover {
+    color: white !important;
+}
+
+/* Ajuste Móvil: Apilar si no cabe */
+@media (max-width: 768px) {
+    .footer-content {
+        flex-direction: column !important;
+        gap: 15px !important;
+        text-align: center !important;
+    }
+    .footer-section {
+        text-align: center !important;
+    }
+    .footer-section:nth-child(3) { justify-content: center; }
+}
+
+/* Estilo para el Botón Flotante (FAB) */
+.fab-create {
+    position: fixed;
+    bottom: 30px;
+    right: 30px;
+    background: var(--primary-gradient);
+    color: white;
+    padding: 12px 28px;
+    border-radius: 50px;
+    font-size: 1.1rem;
+    font-weight: 700;
+    text-decoration: none;
+    box-shadow: 0 10px 25px rgba(255, 75, 75, 0.4);
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    z-index: 1000;
+    transition: all 0.1s ease-out; /* Transición más rápida para el movimiento */
+    border: 2px solid rgba(255, 255, 255, 0.2);
+    letter-spacing: 0.5px;
+
+    /* Inicialmente oculto y pequeño para la animación de entrada */
+    opacity: 0;
+    transform: scale(0) translateY(20px);
+    pointer-events: none; /* No clicable mientras está oculto */
+}
+
+.fab-create.visible {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+    pointer-events: auto;
+}
+
+.fab-create:hover {
+    transform: translateY(-5px) scale(1.05);
+    box-shadow: 0 15px 35px rgba(255, 75, 75, 0.6);
+}
+
+/* Icono SVG Estrella 4 Puntas (Grupo) */
+.star-icon {
+    width: 24px;
+    height: 24px;
+    fill: white;
+    filter: drop-shadow(0 0 2px rgba(255,255,255,0.6));
+}
+
+/* Icono SVG Estrella Pequeño (Para menús) */
+.star-icon-sm {
+    width: 18px;
+    height: 18px;
+    fill: currentColor; /* Hereda el color del texto */
+}
+
+/* Partícula viajera (Estrella fugaz) */
+.traveling-star {
+    position: fixed;
+    width: 20px;
+    height: 20px;
+    background: white;
+    border-radius: 50%;
+    box-shadow: 0 0 15px 5px rgba(255, 255, 255, 0.8), 0 0 30px 10px var(--primary-color);
+    z-index: 9999;
+    pointer-events: none;
+    opacity: 0;
+    transform: translate(-50%, -50%);
+}
+
+.traveling-star::after {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 100px;
+    height: 2px;
+    background: linear-gradient(90deg, white, transparent);
+    transform: translateY(-50%) rotate(180deg); /* Cola hacia atrás */
+    transform-origin: left center;
+    opacity: 0.6;
+}
+
+/* Estilo para ocultar el botón original suavemente */
+.cta-button.hidden-hero {
+    opacity: 0;
+    pointer-events: none;
+    transform: scale(0.8);
+}
+
+/* Ajuste para móvil: subirlo un poco para no tapar el bottom nav */
+@media (max-width: 768px) {
+    .fab-create {
+        bottom: 90px; /* Aumentado para asegurar que no tape el nav */
+        right: 20px;
+        padding: 12px 24px;
+        font-size: 1rem;
+        /* Asegurar que esté por encima del bottom nav */
+        z-index: 10001;
+    }
+}
+
+/* --- ESTILOS BOTÓN PRIVATE (GOLD) --- */
+.filter-btn.private-btn {
+    background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+    color: white;
+    border: 1px solid rgba(251, 191, 36, 0.5);
+    box-shadow: 0 4px 15px rgba(245, 158, 11, 0.3);
+    font-weight: 700;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+.filter-btn.private-btn:hover, .filter-btn.private-btn.active {
+    background: linear-gradient(135deg, #fbbf24 0%, #b45309 100%);
+    box-shadow: 0 6px 20px rgba(245, 158, 11, 0.5);
+    transform: translateY(-2px);
+}
+
+/* --- ESTILOS BOTÓN UNLOCK --- */
+.unlock-container {
+    width: 100%;
+    display: flex;
+    justify-content: center;
+    margin-top: 40px;
+    display: none; /* Oculto por defecto */
+}
+.unlock-btn {
+    background: transparent;
+    border: 2px dashed #fbbf24;
+    color: #fbbf24;
+    padding: 15px 30px;
+    border-radius: 12px;
+    font-size: 1rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.3s;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+.unlock-btn:hover {
+    background: rgba(251, 191, 36, 0.1);
+    transform: scale(1.02);
+}
+
+/* --- ANIMACIÓN DE ESTRELLAS MEJORADA (CONFETTI EXPLOSION) --- */
+.unlock-particle {
+    position: fixed; /* CAMBIO: Fixed para que sea relativo a la pantalla */
+    pointer-events: none;
+    z-index: 10000; /* Muy alto para estar encima del modal */
+    text-shadow: 0 0 5px rgba(255, 255, 255, 0.8); /* Brillo */
+}
+
+@keyframes confetti-explosion {
+    0% {
+        /* Empezar pequeño pero visible */
+        transform: translate(-50%, -50%) scale(0.5) rotate(0deg);
+        opacity: 1;
+    }
+    20% {
+        /* Explotar a tamaño completo rápidamente */
+        transform: translate(calc(-50% + (var(--tx) * 0.2)), calc(-50% + (var(--ty) * 0.2))) scale(1.2) rotate(45deg);
+        opacity: 1;
+    }
+    100% {
+        /* Desvanecerse y moverse al destino final */
+        transform: translate(calc(-50% + var(--tx)), calc(-50% + var(--ty))) scale(0) rotate(var(--rot));
+        opacity: 0;
+    }
+}
+
+/* --- AJUSTES PARA AVATAR EN MÓVIL --- */
+@media (max-width: 768px) {
+    /* Ocultar avatar del header en móvil */
+    header .user-avatar {
+        display: none !important;
+    }
+}
+
+/* Estilo para el avatar en la barra inferior */
+.bottom-nav-avatar {
+    width: 22px;
+    height: 22px;
+    border-radius: 50%;
+    background: var(--primary-gradient);
+    color: white;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 700;
+    font-size: 0.7rem;
+    margin-bottom: 4px;
+    border: 1px solid rgba(255,255,255,0.2);
+}
+
+/* --- ESTILOS PARA MODALES LEGALES --- */
+.legal-modal-overlay {
+    position: fixed; inset: 0;
+    z-index: 100000; /* CAMBIO: Mayor que el Age Gate (99999) */
+    background-color: rgba(0, 0, 0, 0.8);
+    backdrop-filter: blur(5px);
+    display: flex; align-items: center; justify-content: center;
+    opacity: 0; pointer-events: none; transition: opacity 0.3s ease;
+}
+.legal-modal-overlay.active { opacity: 1; pointer-events: auto; }
+
+.legal-modal-content {
+    background: #1a1a1a; border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 16px; width: 90%; max-width: 600px; max-height: 80vh;
+    display: flex; flex-direction: column;
+    box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.5), 0 10px 10px -5px rgba(0, 0, 0, 0.4);
+    transform: scale(0.95); transition: transform 0.3s ease;
+}
+.legal-modal-overlay.active .legal-modal-content { transform: scale(1); }
+
+.legal-modal-header {
+    padding: 16px 24px; border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    display: flex; justify-content: space-between; align-items: center;
+}
+.legal-modal-title { font-size: 1.25rem; font-weight: bold; color: white; margin: 0; }
+.legal-modal-close {
+    background: none; border: none; color: rgba(255, 255, 255, 0.6);
+    cursor: pointer; font-size: 1.5rem; transition: color 0.2s;
+}
+.legal-modal-close:hover { color: white; }
+
+.legal-modal-body {
+    padding: 24px; overflow-y: auto; color: #d1d5db; font-size: 0.95rem; line-height: 1.6; text-align: left;
+}
+/* Estilos básicos para el contenido HTML dentro del modal */
+.legal-modal-body h1, .legal-modal-body h2, .legal-modal-body h3 { color: white; margin-top: 1em; margin-bottom: 0.5em; font-weight: bold; }
+.legal-modal-body p { margin-bottom: 1em; }
+.legal-modal-body ul { list-style-type: disc; padding-left: 1.5em; margin-bottom: 1em; }
+.legal-modal-body a { color: var(--primary-mid); text-decoration: underline; }
