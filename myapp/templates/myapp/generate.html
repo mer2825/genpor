@@ -179,6 +179,22 @@
             box-shadow: 0 0 30px color-mix(in srgb, var(--primary-start), transparent 80%);
             overflow: hidden; /* CAMBIO: Asegurar que el contenido respete el borde redondeado */
         }
+
+        /* --- ESTILOS PARA PANTALLAS GRANDES (HERO) --- */
+        @media (min-width: 1600px) {
+            .hero-text h1 {
+                font-size: 5rem; /* Aumentar tamaño del título principal */
+            }
+            .hero-text h2 {
+                font-size: 2.5rem; /* Aumentar tamaño del subtítulo */
+            }
+            .hero-text p {
+                font-size: 1.4rem; /* Aumentar tamaño de la descripción */
+            }
+            .hero-section {
+                padding: 8rem 4rem; /* Más padding para que no se vea vacío */
+            }
+        }
     </style>
     {% endif %}
 
@@ -762,7 +778,7 @@
     <div class="hero-frame">
         <section class="hero-section">
             <div class="hero-text">
-                <h1>{% if company.app_hero_title %}{{ company.app_hero_title }}{% else %}Adult AI Generator{% endif %}</h1>
+                <h1>{% if company.app_hero_title %}{{ company.app_hero_title }}{% else %}Generador NOPOR{% endif %}</h1>
 
                 <!-- SUBTÍTULO (MEJORADO) -->
                 {% if company.app_hero_subtitle %}
@@ -771,11 +787,11 @@
                     </h2>
                 {% else %}
                     <h2 style="font-size: 2rem; font-weight: 800; margin: 15px 0; color: #e2e8f0; text-shadow: 0 2px 10px rgba(0,0,0,0.5); letter-spacing: 0.5px;">
-                        Create your fantasies
+                        SUBTITULOOOOOOOOOOOOOOO
                     </h2>
                 {% endif %}
 
-                <p>{% if company.app_hero_description %}{{ company.app_hero_description }}{% else %}Transform your ideas into stunning images in seconds.{% endif %}</p>
+                <p>{% if company.app_hero_description %}{{ company.app_hero_description }}{% else %}Transforma tus ideas en IMAGENES MI KING{% endif %}</p>
 
                 <!-- BOTÓN HERO (ID agregado para JS) -->
                 <!-- CAMBIO: Ahora baja a la lista de personajes -->
