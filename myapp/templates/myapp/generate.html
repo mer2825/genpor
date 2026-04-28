@@ -179,22 +179,6 @@
             box-shadow: 0 0 30px color-mix(in srgb, var(--primary-start), transparent 80%);
             overflow: hidden; /* CAMBIO: Asegurar que el contenido respete el borde redondeado */
         }
-
-        /* --- ESTILOS PARA PANTALLAS GRANDES (HERO) --- */
-        @media (min-width: 1600px) {
-            .hero-text h1 {
-                font-size: 5rem; /* Aumentar tamaño del título principal */
-            }
-            .hero-text h2 {
-                font-size: 2.5rem; /* Aumentar tamaño del subtítulo */
-            }
-            .hero-text p {
-                font-size: 1.4rem; /* Aumentar tamaño de la descripción */
-            }
-            .hero-section {
-                padding: 8rem 4rem; /* Más padding para que no se vea vacío */
-            }
-        }
     </style>
     {% endif %}
 
@@ -679,6 +663,33 @@
             }
         }
     </style>
+
+    <!-- ESTILOS PARA TEXTO HERO RESPONSIVO -->
+    <style>
+        .hero-text {
+            max-width: 800px; /* Aumentado para pantallas grandes */
+        }
+        .hero-text h1 {
+            font-size: clamp(3rem, 7vw, 5.5rem); /* Rango de tamaño más grande */
+            line-height: 1.1;
+            font-weight: 900;
+        }
+        .hero-text h2 {
+            font-size: clamp(1.5rem, 4vw, 2.5rem); /* Rango de tamaño más grande */
+            font-weight: 800;
+            margin: 15px 0;
+            color: #e2e8f0;
+            text-shadow: 0 2px 10px rgba(0,0,0,0.5);
+            letter-spacing: 0.5px;
+        }
+        .hero-text p {
+            font-size: clamp(1.1rem, 2.5vw, 1.35rem); /* Rango de tamaño más grande */
+            line-height: 1.6;
+            max-width: 600px;
+            margin-left: auto;
+            margin-right: auto;
+        }
+    </style>
 </head>
 <body>
 
@@ -782,11 +793,11 @@
 
                 <!-- SUBTÍTULO (MEJORADO) -->
                 {% if company.app_hero_subtitle %}
-                    <h2 style="font-size: 2rem; font-weight: 800; margin: 15px 0; color: #e2e8f0; text-shadow: 0 2px 10px rgba(0,0,0,0.5); letter-spacing: 0.5px;">
+                    <h2>
                         {{ company.app_hero_subtitle }}
                     </h2>
                 {% else %}
-                    <h2 style="font-size: 2rem; font-weight: 800; margin: 15px 0; color: #e2e8f0; text-shadow: 0 2px 10px rgba(0,0,0,0.5); letter-spacing: 0.5px;">
+                    <h2>
                         SUBTITULOOOOOOOOOOOOOOO
                     </h2>
                 {% endif %}
