@@ -11,7 +11,8 @@ from .models import ConnectionConfig
 
 def get_protocols(address):
     """Determina si usar HTTP/WS o HTTPS/WSS basado en la dirección."""
-    if "runpod.net" in address or "cloudflare" in address or "ngrok" in address:
+    # Añadimos 'nayelina.com' a la lista de dominios que deben usar HTTPS
+    if "runpod.net" in address or "cloudflare" in address or "ngrok" in address or "nayelina.com" in address:
         return "https", "wss"
     return "http", "ws"
 
@@ -171,7 +172,7 @@ def analyze_workflow_outputs(workflow_json):
         
         # Normalizar acceso a campos
         class_type = node.get("class_type", node.get("type", "")).lower()
-        title = node.get("_meta", {}).get("title", node.get("title", "")).lower()
+        title = node.get("_meta", {}).get("title", "").lower()
         
         # Construir un string con todo el contenido de texto relevante del nodo
         node_text_content = f"{title} {class_type}"
@@ -272,8 +273,8 @@ def analyze_workflow(prompt_workflow):
             elif widgets_values and len(widgets_values) >= 3:
                 # Asumimos orden: width, height, upscale (basado en el JSON visto)
                 analysis["width"] = widgets_values[0]
-                analysis["height"] = widgets_values[1]
-                analysis["upscale_by"] = widgets_values[2]
+                analysis["height"] = widgets[1]
+                analysis["upscale_by"] = widgets[2]
 
         elif class_type == "DW_seed": 
             if is_api_format: analysis["seed"] = inputs.get("seed")
@@ -288,7 +289,7 @@ def analyze_workflow(prompt_workflow):
                 if analysis["height"] is None: analysis["height"] = widgets_values[1]
         
         # --- NODOS DE TEXTO ---
-        elif title == "BLACK_LIST_TAGS":
+        elif title == "BLACK_LIST_TAGS" or class_type == "DW_WD14_Filter": # Añadido class_type para DW_WD14_Filter
             analysis["black_list_tags"] = get_text_value()
         elif title == "WHITE_LIST_TAGS":
             analysis["white_list_tags"] = get_text_value()
@@ -323,11 +324,15 @@ def update_workflow(prompt_workflow, new_values, lora_names=None, lora_strengths
     is_api_format = not ("nodes" in prompt_workflow and isinstance(prompt_workflow["nodes"], list))
     
     if is_api_format:
-        prompt_workflow[dummy_whitelist_id] = {
-            "inputs": {"text": ""},
-            "class_type": "DW_Text",
-            "_meta": {"title": "AUTO_GENERATED_WHITELIST"}
-        }
+        # Solo inyectar si no existe ya un nodo que pueda manejar whitelist o si el filtro de blacklist lo requiere
+        # En el caso de DW_WD14_Filter, no usa un input "WHITELIST" directo, así que este dummy puede no ser necesario
+        # o podría necesitar un manejo diferente. Por ahora, lo mantenemos si el workflow lo espera.
+        if not any(node.get("class_type") == "DW_Ultimate_Blacklist_Filter" for node in prompt_workflow.values()):
+             prompt_workflow[dummy_whitelist_id] = {
+                "inputs": {"text": ""},
+                "class_type": "DW_Text",
+                "_meta": {"title": "AUTO_GENERATED_WHITELIST"}
+            }
     # ---------------------------------------------
 
     # Iterador agnóstico
@@ -370,26 +375,30 @@ def update_workflow(prompt_workflow, new_values, lora_names=None, lora_strengths
         widgets_values = details.get("widgets_values", [])
 
         # --- AUTO-FIX: CONNECT WHITELIST IF MISSING (Solo API) ---
+        # Esto es específico para DW_Ultimate_Blacklist_Filter, no para DW_WD14_Filter
         if is_api_format and class_type == "DW_Ultimate_Blacklist_Filter":
             if "WHITELIST" not in inputs:
                 inputs["WHITELIST"] = [dummy_whitelist_id, 0]
         # ----------------------------------------------
 
         # Helper para actualizar texto (API o Editor)
-        def update_text(val):
+        def update_text(val, target_inputs=None, target_widgets=None):
+            if target_inputs is None: target_inputs = inputs
+            if target_widgets is None: target_widgets = widgets_values
+
             if is_api_format:
                 # API: Actualizar inputs
                 candidates = ["text", "text_g", "text_l", "prompt", "value"]
                 for k in candidates:
-                    if k in inputs and not isinstance(inputs[k], list):
-                        inputs[k] = val
+                    if k in target_inputs and not isinstance(target_inputs[k], list):
+                        target_inputs[k] = val
                         return # Actualizado
                 # Si no encontró, quizás es un nodo custom que usa widgets_values incluso en API
-                if widgets_values: widgets_values[0] = val
+                if target_widgets: target_widgets[0] = val
             else:
                 # Editor: Actualizar widgets_values
-                if widgets_values:
-                    widgets_values[0] = val
+                if target_widgets:
+                    target_widgets[0] = val
 
         candidates = ["text", "text_g", "text_l", "prompt", "value"]
         
@@ -405,9 +414,18 @@ def update_workflow(prompt_workflow, new_values, lora_names=None, lora_strengths
                 update_text("")
             elif "black_list_tags" in new_values:
                 update_text(new_values["black_list_tags"])
+        elif class_type == "DW_WD14_Filter": # Manejo específico para DW_WD14_Filter
+            if "enable_blacklist" in new_values and not new_values["enable_blacklist"]:
+                inputs["absolute_block_tags"] = ""
+                inputs["conditional_block_tags"] = ""
+            elif "black_list_tags" in new_values:
+                # Asumimos que black_list_tags se mapea a absolute_block_tags
+                inputs["absolute_block_tags"] = new_values["black_list_tags"]
+                # Podríamos también mapear a conditional_block_tags si fuera necesario
+                # inputs["conditional_block_tags"] = new_values["black_list_tags"]
         
         if title == "WHITE_LIST_TAGS": # NUEVO: Lógica de Whitelist
-            if "enable_whitelist" in new_values and not new_values["enable_whitelist"]:
+            if "enable_whitelist" in new_values and not new_values["enable_whitelist"]: # Corregido: usar enable_whitelist
                 update_text("") # Si está desactivada, enviar vacío
             elif "white_list_tags" in new_values:
                 update_text(new_values["white_list_tags"])
@@ -442,8 +460,14 @@ def update_workflow(prompt_workflow, new_values, lora_names=None, lora_strengths
             elif widgets_values: widgets_values[0] = new_values["checkpoint"]
             
         elif class_type == "VAELoader" and "vae" in new_values and new_values["vae"] != "None": 
-            if is_api_format: inputs["vae_name"] = new_values["vae"]
-            elif widgets_values: widgets_values[0] = new_values["vae"]
+            # FIX: Si el VAE es "pixel_space", que parece ser un alias o un valor problemático,
+            # lo cambiamos a "ae.safetensors" que es el VAE original del nuevaza.json
+            vae_to_use = new_values["vae"]
+            if vae_to_use == "pixel_space":
+                vae_to_use = "ae.safetensors" # O el nombre de archivo real de tu VAE preferido
+
+            if is_api_format: inputs["vae_name"] = vae_to_use
+            elif widgets_values: widgets_values[0] = vae_to_use
 
         # Actualización de Resolución y Seed (API y Editor básico)
         elif class_type == "DW_resolution":
@@ -535,6 +559,8 @@ def map_workflow_stages(workflow):
 
     # Mapear etapas
     for sampler_id, sampler_node in sampler_nodes.items():
+        if sampler_id in stage_map.values(): continue # Ya mapeado por una etapa más específica
+        
         inputs = sampler_node.get("inputs", {})
         
         # Detectar Face/Eye Detailer por máscara
@@ -552,7 +578,8 @@ def map_workflow_stages(workflow):
 
             if mask_node:
                 class_type = mask_node.get("class_type", "")
-                if "SAM" in class_type:
+                # DW_SAM31Segmentation es el nodo de segmentación en nuevaza.json
+                if "SAM" in class_type or "DW_SAM31Segmentation" in class_type:
                     # Intentar obtener prompt del nodo SAM
                     mask_prompt = ""
                     if "prompt" in mask_node.get("inputs", {}):
@@ -581,7 +608,7 @@ def map_workflow_stages(workflow):
                 
                 if source_node:
                     class_type = source_node.get("class_type", "")
-                    if "Resize" in class_type or "Upscale" in class_type:
+                    if "Resize" in class_type or "Upscale" in class_type or "RTXVideoSuperResolution" in class_type: # Añadido RTXVideoSuperResolution
                         stage_map["Gen_UpScaler"] = sampler_id
                         is_upscaler = True
                         break
@@ -790,6 +817,7 @@ async def generate_image_from_character(character, user_prompt, width=None, heig
 
     updated_workflow = update_workflow(prompt_workflow_base, final_config, lora_names, lora_strengths)
 
+    # --- INICIO DE LA SECCIÓN DE PODA (TEMPORALMENTE DESACTIVADA PARA DEPURACIÓN) ---
     if allowed_types:
         target_classification = allowed_types[-1]
         stage_map = map_workflow_stages(updated_workflow)
@@ -814,12 +842,13 @@ async def generate_image_from_character(character, user_prompt, width=None, heig
 
             if not isinstance(node, dict): continue
             
+            class_type = node.get("class_type", "") if is_api_format else node.get("type", "")
             title = node.get("_meta", {}).get("title", "").upper() if is_api_format else node.get("title", "").upper()
             
-            if title == "FINAL_IMAGE":
+            if title == "FINAL_IMAGE" or class_type == "DW_JPGPreview": # Añadido class_type
                 final_output_node_id = node_id
                 if "images" in node.get("inputs", {}):
-                    candidate_id = node["inputs"]["images"][0]
+                    candidate_id = str(node["inputs"]["images"][0]) # Asegurar que sea string
                     
                     # Buscar nodo candidato
                     candidate_node = None
@@ -827,18 +856,30 @@ async def generate_image_from_character(character, user_prompt, width=None, heig
                         candidate_node = updated_workflow.get(candidate_id, {})
                     else:
                         # En formato editor es difícil buscar por ID sin mapa
-                        pass 
+                        pass
 
-                    if candidate_node and "Blacklist_Filter" in candidate_node.get("class_type", ""):
+                    # Modificado para buscar por class_type "DW_WD14_Filter"
+                    if candidate_node and (candidate_node.get("class_type", "") == "DW_Ultimate_Blacklist_Filter" or candidate_node.get("class_type", "") == "DW_WD14_Filter"):
                         filter_node_id = candidate_id
-                        if "INPUT_STRING" in candidate_node.get("inputs", {}):
-                            tagger_node_id = candidate_node["inputs"]["INPUT_STRING"][0]
+                        if "INPUT_STRING" in candidate_node.get("inputs", {}): # Esto es para DW_Ultimate_Blacklist_Filter
+                            tagger_node_id = str(candidate_node["inputs"]["INPUT_STRING"][0]) # Asegurar que sea string
+                        elif "tags_string" in candidate_node.get("inputs", {}): # Esto es para DW_WD14_Filter
+                            tagger_node_id = str(candidate_node["inputs"]["tags_string"][0]) # Asegurar que sea string
                 break
+            # También buscar el tagger directamente si no está conectado al filtro de blacklist
+            if class_type == "DW_WD14_Tagger_V3":
+                tagger_node_id = node_id
+
 
         if target_sampler_id and final_output_node_id and filter_node_id and is_api_format:
             print(f"OPTIMIZATION: Target is '{target_classification}'. Rewiring filter and tagger to sampler '{target_sampler_id}'.")
+            
+            # Conectar el filtro de blacklist al sampler objetivo
             updated_workflow[filter_node_id]["inputs"]["image"] = [target_sampler_id, 5]
+            
+            # Si hay un tagger, conectarlo también al sampler objetivo
             if tagger_node_id and tagger_node_id in updated_workflow:
+                # El input para la imagen en DW_WD14_Tagger_V3 es 'image'
                 updated_workflow[tagger_node_id]["inputs"]["image"] = [target_sampler_id, 5]
 
             required_nodes = find_dependencies(updated_workflow, final_output_node_id)
@@ -850,12 +891,20 @@ async def generate_image_from_character(character, user_prompt, width=None, heig
                 # Convert title to UPPER to match case-insensitive
                 if node.get("_meta", {}).get("title", "").upper() in titles_to_keep:
                     required_nodes.add(nid)
+                # También mantener los nodos de filtro y tagger si se están usando
+                if nid == filter_node_id or nid == tagger_node_id:
+                    required_nodes.add(nid)
             # ------------------------------------
 
             updated_workflow = {nid: updated_workflow[nid] for nid in required_nodes}
             print(f"OPTIMIZATION: Pruned workflow to {len(updated_workflow)} nodes.")
         else:
             print(f"WARNING: Could not prune for '{target_classification}'. (Sampler: {target_sampler_id}, Output: {final_output_node_id}, Filter: {filter_node_id})")
+    # --- FIN DE LA SECCIÓN DE PODA ---
+
+    print("\n--- WORKFLOW JSON SENT TO COMFYUI (FOR DEBUGGING) ---")
+    print(json.dumps(updated_workflow, indent=2))
+    print("--- END WORKFLOW JSON ---")
 
     client_id = str(uuid.uuid4())
     _, ws_protocol = get_protocols(address)
