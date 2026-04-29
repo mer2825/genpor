@@ -273,8 +273,8 @@ def analyze_workflow(prompt_workflow):
             elif widgets_values and len(widgets_values) >= 3:
                 # Asumimos orden: width, height, upscale (basado en el JSON visto)
                 analysis["width"] = widgets_values[0]
-                analysis["height"] = widgets[1]
-                analysis["upscale_by"] = widgets[2]
+                analysis["height"] = widgets_values[1]
+                analysis["upscale_by"] = widgets_values[2]
 
         elif class_type == "DW_seed": 
             if is_api_format: analysis["seed"] = inputs.get("seed")
@@ -756,21 +756,18 @@ def convert_editor_to_api_format(editor_workflow):
         
     return api_workflow
 
-async def generate_image_from_character(character, user_prompt, width=None, height=None, seed=None, allowed_types=None, checkpoint=None, lora_strength=None):
+
+async def generate_image_from_character(character, user_prompt, width=None, height=None, seed=None, allowed_types=None,
+                                        checkpoint=None, lora_strength=None):
     if not character.character_config:
-        # Si no tiene config propia, intentamos usar la del workflow base
         if character.base_workflow.active_config:
             character_config = json.loads(character.base_workflow.active_config)
         else:
             raise ValueError("El personaje no tiene configuración y el workflow base tampoco.")
     else:
-        # Si tiene config propia, la cargamos
         character_config = json.loads(character.character_config)
-
-        # Y mezclamos con la del workflow base para rellenar huecos (Herencia)
         if character.base_workflow.active_config:
             base_config = json.loads(character.base_workflow.active_config)
-            # La config del personaje tiene prioridad, así que actualizamos la base con ella
             final_mixed_config = base_config.copy()
             final_mixed_config.update(character_config)
             character_config = final_mixed_config
@@ -781,17 +778,11 @@ async def generate_image_from_character(character, user_prompt, width=None, heig
             return json.load(f)
 
     prompt_workflow_base = await read_workflow_file()
-    
-    # --- CONVERSIÓN AUTOMÁTICA A FORMATO API SI ES NECESARIO ---
+
     if "nodes" in prompt_workflow_base and isinstance(prompt_workflow_base["nodes"], list):
-        print("DETECTED EDITOR FORMAT. ATTEMPTING CONVERSION TO API FORMAT...")
         prompt_workflow_base = convert_editor_to_api_format(prompt_workflow_base)
 
-    # Ya no usamos prompt_prefix/suffix del modelo Character porque los borramos.
-    # El prompt del usuario va directo a PROMP_USUARIO (manejado en update_workflow)
-
     final_config = {**character_config, 'prompt': user_prompt}
-
     if width: final_config['width'] = width
     if height: final_config['height'] = height
     if checkpoint: final_config['checkpoint'] = checkpoint
@@ -804,137 +795,98 @@ async def generate_image_from_character(character, user_prompt, width=None, heig
     address = await get_active_comfyui_address()
     available_models = await get_comfyui_object_info(address)
     available_checkpoints = available_models.get("checkpoints", [])
-    selected_checkpoint = final_config.get('checkpoint')
-    if selected_checkpoint and selected_checkpoint not in available_checkpoints:
-        print(f"WARNING: Checkpoint '{selected_checkpoint}' not found on server {address}. Falling back to workflow default.")
+
+    if final_config.get('checkpoint') and final_config.get('checkpoint') not in available_checkpoints:
         del final_config['checkpoint']
 
     lora_names = final_config.pop('lora_names', [])
     lora_strengths = final_config.pop('lora_strengths', [])
     if lora_strength is not None and lora_strengths:
-        try: lora_strengths[0] = float(lora_strength)
-        except (ValueError, IndexError): pass
+        try:
+            lora_strengths[0] = float(lora_strength)
+        except:
+            pass
 
     updated_workflow = update_workflow(prompt_workflow_base, final_config, lora_names, lora_strengths)
 
-    # --- INICIO DE LA SECCIÓN DE PODA (TEMPORALMENTE DESACTIVADA PARA DEPURACIÓN) ---
+    # --- SECCIÓN DE PODA DEFINITIVA PARA IMAGEN NÍTIDA ---
     if allowed_types:
         target_classification = allowed_types[-1]
         stage_map = map_workflow_stages(updated_workflow)
         target_sampler_id = stage_map.get(target_classification)
 
-        final_output_node_id, filter_node_id, tagger_node_id = None, None, None
-        
-        # --- DETECCIÓN DE FORMATO (API vs EDITOR) ---
-        is_api_format = True
-        if "nodes" in updated_workflow and isinstance(updated_workflow["nodes"], list):
-            is_api_format = False
-            iterator = updated_workflow["nodes"] # Lista de dicts
-        else:
-            iterator = updated_workflow.items() # Dict items (id, details)
+        # IDs fijos según tus archivos JSON
+        final_output_node_id = "18"  # FINAL_IMAGE
+        filter_node_id = "14"  # DW_WD14_Filter
+        rtx_node_id = "21"  # RTX Video Super Resolution
 
-        for item in iterator:
-            if is_api_format:
-                node_id, node = item
-            else:
-                node = item
-                node_id = str(node.get("id", "unknown"))
+        if target_sampler_id and rtx_node_id in updated_workflow:
+            print(f"DEBUG: Forzando cadena NÍTIDA para {target_classification}")
 
-            if not isinstance(node, dict): continue
-            
-            class_type = node.get("class_type", "") if is_api_format else node.get("type", "")
-            title = node.get("_meta", {}).get("title", "").upper() if is_api_format else node.get("title", "").upper()
-            
-            if title == "FINAL_IMAGE" or class_type == "DW_JPGPreview": # Añadido class_type
-                final_output_node_id = node_id
-                if "images" in node.get("inputs", {}):
-                    candidate_id = str(node["inputs"]["images"][0]) # Asegurar que sea string
-                    
-                    # Buscar nodo candidato
-                    candidate_node = None
-                    if is_api_format:
-                        candidate_node = updated_workflow.get(candidate_id, {})
-                    else:
-                        # En formato editor es difícil buscar por ID sin mapa
-                        pass
+            # 1. El Sampler (P1, P2, P3 o P4) entra al RTX
+            # Usamos 'images' (plural) que es lo que requiere el nodo 21
+            updated_workflow[rtx_node_id]["inputs"]["images"] = [target_sampler_id, 5]
 
-                    # Modificado para buscar por class_type "DW_WD14_Filter"
-                    if candidate_node and (candidate_node.get("class_type", "") == "DW_Ultimate_Blacklist_Filter" or candidate_node.get("class_type", "") == "DW_WD14_Filter"):
-                        filter_node_id = candidate_id
-                        if "INPUT_STRING" in candidate_node.get("inputs", {}): # Esto es para DW_Ultimate_Blacklist_Filter
-                            tagger_node_id = str(candidate_node["inputs"]["INPUT_STRING"][0]) # Asegurar que sea string
-                        elif "tags_string" in candidate_node.get("inputs", {}): # Esto es para DW_WD14_Filter
-                            tagger_node_id = str(candidate_node["inputs"]["tags_string"][0]) # Asegurar que sea string
-                break
-            # También buscar el tagger directamente si no está conectado al filtro de blacklist
-            if class_type == "DW_WD14_Tagger_V3":
-                tagger_node_id = node_id
+            # 2. La salida del RTX entra al Filtro
+            # Usamos 'image' (singular) que es lo que requiere el nodo 14
+            if filter_node_id in updated_workflow:
+                updated_workflow[filter_node_id]["inputs"]["image"] = [rtx_node_id, 0]
 
+                # 3. La salida del Filtro entra al Preview Final
+                if final_output_node_id in updated_workflow:
+                    updated_workflow[final_output_node_id]["inputs"]["images"] = [filter_node_id, 0]
 
-        if target_sampler_id and final_output_node_id and filter_node_id and is_api_format:
-            print(f"OPTIMIZATION: Target is '{target_classification}'. Rewiring filter and tagger to sampler '{target_sampler_id}'.")
-            
-            # Conectar el filtro de blacklist al sampler objetivo
-            updated_workflow[filter_node_id]["inputs"]["image"] = [target_sampler_id, 5]
-            
-            # Si hay un tagger, conectarlo también al sampler objetivo
-            if tagger_node_id and tagger_node_id in updated_workflow:
-                # El input para la imagen en DW_WD14_Tagger_V3 es 'image'
-                updated_workflow[tagger_node_id]["inputs"]["image"] = [target_sampler_id, 5]
-
+            # Limpiamos el resto de nodos pero mantenemos la cadena anterior
             required_nodes = find_dependencies(updated_workflow, final_output_node_id)
 
-            # --- FIX: FORCE KEEP PROMPT NODES ---
-            # Even if dependency tracing fails, we MUST keep these nodes for the record
-            titles_to_keep = ["PROMP_CHARACTER", "PROMP_USUARIO", "PROMP_DETAILERS", "NEGATIVE PROMP", "BLACK_LIST_TAGS", "WHITE_LIST_TAGS"]
+            # Mantenemos los nodos de texto y prompts para evitar errores
+            titles_to_keep = ["PROMP_CHARACTER", "PROMP_USUARIO", "PROMP_DETAILERS", "NEGATIVE PROMP",
+                              "BLACK_LIST_TAGS", "WHITE_LIST_TAGS"]
             for nid, node in updated_workflow.items():
-                # Convert title to UPPER to match case-insensitive
                 if node.get("_meta", {}).get("title", "").upper() in titles_to_keep:
                     required_nodes.add(nid)
-                # También mantener los nodos de filtro y tagger si se están usando
-                if nid == filter_node_id or nid == tagger_node_id:
-                    required_nodes.add(nid)
-            # ------------------------------------
 
             updated_workflow = {nid: updated_workflow[nid] for nid in required_nodes}
-            print(f"OPTIMIZATION: Pruned workflow to {len(updated_workflow)} nodes.")
-        else:
-            print(f"WARNING: Could not prune for '{target_classification}'. (Sampler: {target_sampler_id}, Output: {final_output_node_id}, Filter: {filter_node_id})")
-    # --- FIN DE LA SECCIÓN DE PODA ---
+            # Limpieza de nodos: solo dejamos lo que está en la ruta del nodo 18
+            required_nodes = find_dependencies(updated_workflow, final_output_node_id)
 
-    print("\n--- WORKFLOW JSON SENT TO COMFYUI (FOR DEBUGGING) ---")
-    print(json.dumps(updated_workflow, indent=2))
-    print("--- END WORKFLOW JSON ---")
+            # Mantenemos los nodos de texto que pide Jhon para que el historial no se rompa
+            titles_to_keep = ["PROMP_CHARACTER", "PROMP_USUARIO", "PROMP_DETAILERS", "NEGATIVE PROMP",
+                              "BLACK_LIST_TAGS", "WHITE_LIST_TAGS"]
+            for nid, node in updated_workflow.items():
+                if node.get("_meta", {}).get("title", "").upper() in titles_to_keep:
+                    required_nodes.add(nid)
 
+            updated_workflow = {nid: updated_workflow[nid] for nid in required_nodes}
+
+    # --- ENVÍO A COMFYUI ---
     client_id = str(uuid.uuid4())
     _, ws_protocol = get_protocols(address)
     uri = f"{ws_protocol}://{address}/ws?clientId={client_id}"
     images_data = []
-    headers = {"ngrok-skip-browser-warning": "true", "User-Agent": "MyApp/1.0"}
-    target_classification = allowed_types[-1] if allowed_types else "Gen_Normal"
+    headers = {"ngrok-skip-browser-warning": "true", "User-Agent": "NayelinaApp/1.0"}
 
     async with websockets.connect(uri) as websocket:
         async with httpx.AsyncClient(timeout=600.0, headers=headers) as client:
             queued_prompt = await queue_prompt(client, updated_workflow, client_id, address)
             prompt_id = queued_prompt['prompt_id']
+
             while True:
-                try:
-                    out = await websocket.recv()
-                    if isinstance(out, str):
-                        message = json.loads(out)
-                        if message['type'] == 'execution_error':
-                            print(f"ERROR DE NODO COMFYUI: {message['data']}")
-                        if message['type'] == 'executing' and message['data']['node'] is None:
-                            break
-                except websockets.exceptions.ConnectionClosed:
-                    break
+                out = await websocket.recv()
+                if isinstance(out, str):
+                    message = json.loads(out)
+                    if message['type'] == 'executing' and message['data']['node'] is None:
+                        break
+
             history = await get_history(client, prompt_id, address)
             history = history[prompt_id]
             for node_id, node_output in history['outputs'].items():
-                if node_output.get('images'):
+                if 'images' in node_output:
                     image = node_output['images'][0]
                     image_bytes = await get_image(client, image['filename'], image['subfolder'], image['type'], address)
                     if image_bytes:
-                        images_data.append((image_bytes, target_classification))
+                        final_tag = allowed_types[-1] if allowed_types else "Gen_Normal"
+                        images_data.append((image_bytes, final_tag))
                         break
+
     return images_data, prompt_id, updated_workflow
