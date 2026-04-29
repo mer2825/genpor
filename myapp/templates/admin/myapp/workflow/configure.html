@@ -12,11 +12,74 @@
     </h1>
     <p>Adjust the default parameters used to generate images with this {% if character %}character{% else %}workflow{% endif %}. Changes will be saved to the database.</p>
 
+    <style>
+        /* Contenedor del buscador: necesita position relative para anclar el dropdown */
+        .lora-search-wrap {
+            position: relative;
+            display: inline-block;
+            margin-right: 5px;
+        }
+
+        .lora-search-wrap input[type="text"] {
+            width: 200px;
+        }
+
+        /* Dropdown de sugerencias */
+        .lora-suggestions {
+            display: none;
+            position: absolute;
+            top: calc(100% + 2px);
+            left: 0;
+            min-width: 260px;
+            max-height: 220px;
+            overflow-y: auto;
+            background: #fff;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.12);
+            z-index: 9999;
+            padding: 2px 0;
+        }
+
+        .lora-suggestions.open {
+            display: block;
+        }
+
+        .lora-suggestion-item {
+            padding: 6px 10px;
+            font-size: 13px;
+            cursor: pointer;
+            color: #333;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .lora-suggestion-item:hover,
+        .lora-suggestion-item.active {
+            background: #e8f0fe;
+            color: #1a56db;
+        }
+
+        /* Resaltar la parte que coincide con lo escrito */
+        .lora-suggestion-item mark {
+            background: none;
+            color: #1a56db;
+            font-weight: 600;
+        }
+
+        .lora-suggestions-empty {
+            padding: 8px 10px;
+            font-size: 12px;
+            color: #999;
+        }
+    </style>
+
     <form method="post">
         {% csrf_token %}
         <fieldset class="module aligned">
             <h2>Generation Parameters</h2>
-            
+
             <!-- Checkpoint -->
             <div class="form-row">
                 <label for="checkpoint">Checkpoint:</label>
@@ -107,6 +170,13 @@
                 {% for lora in workflow_params.loras %}
                 <div class="lora-item form-row">
                     <label>LoRA:</label>
+                    <!-- Buscador con sugerencias: escribe aquí y aparecen coincidencias abajo -->
+                    <!-- Al hacer clic en una sugerencia, se selecciona en el <select> de abajo -->
+                    <div class="lora-search-wrap">
+                        <input type="text" class="lora-search-input" placeholder="Buscar LoRA...">
+                        <div class="lora-suggestions"></div>
+                    </div>
+                    <!-- Select original sin tocar -->
                     <select name="lora_name">
                         <option value="None">None</option>
                         {% for lora_opt in comfyui_info.loras %}
@@ -192,13 +262,156 @@
     </form>
 
     <script>
-    document.addEventListener('DOMContentLoaded', function() {
-        document.getElementById('add-lora-btn').addEventListener('click', function() {
-            const container = document.getElementById('lora-container');
+    document.addEventListener('DOMContentLoaded', function () {
+
+        // ── Fuzzy scoring ──────────────────────────────────────────────────────
+        function fuzzyScore(query, text) {
+            const q = query.toLowerCase();
+            const t = text.toLowerCase();
+            if (t === q)          return 1000;
+            if (t.startsWith(q)) return 900 - t.length;
+            if (t.includes(q))   return 800 - t.indexOf(q);
+            // Subsecuencia: todos los chars de q aparecen en t en orden
+            let qi = 0, score = 0, consec = 0;
+            for (let ti = 0; ti < t.length && qi < q.length; ti++) {
+                if (q[qi] === t[ti]) { consec++; score += consec * 10; qi++; }
+                else { consec = 0; }
+            }
+            return qi < q.length ? -1 : score;
+        }
+
+        // ── Resaltar la parte que coincide ─────────────────────────────────────
+        function highlight(query, text) {
+            const q = query.toLowerCase();
+            const t = text.toLowerCase();
+            if (t.includes(q)) {
+                const i = t.indexOf(q);
+                return escHtml(text.slice(0, i))
+                    + '<mark>' + escHtml(text.slice(i, i + q.length)) + '</mark>'
+                    + escHtml(text.slice(i + q.length));
+            }
+            // Subsecuencia: resaltar carácter a carácter
+            let out = '', qi = 0;
+            for (let i = 0; i < text.length; i++) {
+                if (qi < q.length && text[i].toLowerCase() === q[qi]) {
+                    out += '<mark>' + escHtml(text[i]) + '</mark>';
+                    qi++;
+                } else {
+                    out += escHtml(text[i]);
+                }
+            }
+            return out;
+        }
+
+        function escHtml(s) {
+            return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+        }
+
+        // ── Inicializar el buscador de una fila .lora-item ─────────────────────
+        function initLoraRow(row) {
+            const searchInput = row.querySelector('.lora-search-input');
+            const suggestions = row.querySelector('.lora-suggestions');
+            const select      = row.querySelector('select[name="lora_name"]');
+            if (!searchInput || !suggestions || !select) return;
+
+            let activeIdx = -1;
+
+            function renderSuggestions(query) {
+                suggestions.innerHTML = '';
+                activeIdx = -1;
+
+                if (!query.trim()) {
+                    suggestions.classList.remove('open');
+                    return;
+                }
+
+                // Leer las opciones actuales del <select> y puntuar
+                const names   = Array.from(select.options)
+                                     .map(o => o.value)
+                                     .filter(v => v !== 'None');
+                const results = names
+                    .map(name => ({ name, score: fuzzyScore(query, name) }))
+                    .filter(r => r.score > 0)
+                    .sort((a, b) => b.score - a.score)
+                    .slice(0, 15);
+
+                if (results.length === 0) {
+                    suggestions.innerHTML = '<div class="lora-suggestions-empty">Sin resultados</div>';
+                    suggestions.classList.add('open');
+                    return;
+                }
+
+                results.forEach(({ name }) => {
+                    const item = document.createElement('div');
+                    item.className = 'lora-suggestion-item';
+                    item.innerHTML = highlight(query, name);
+                    // Clic en sugerencia → seleccionar en el <select> original
+                    item.addEventListener('mousedown', function (e) {
+                        e.preventDefault(); // evitar que el blur cierre antes del clic
+                        select.value = name;
+                        searchInput.value = '';
+                        suggestions.classList.remove('open');
+                        activeIdx = -1;
+                    });
+                    suggestions.appendChild(item);
+                });
+
+                suggestions.classList.add('open');
+            }
+
+            function setActive(idx) {
+                const items = suggestions.querySelectorAll('.lora-suggestion-item');
+                if (!items.length) return;
+                activeIdx = Math.max(0, Math.min(items.length - 1, idx));
+                items.forEach((item, i) => item.classList.toggle('active', i === activeIdx));
+                items[activeIdx].scrollIntoView({ block: 'nearest' });
+            }
+
+            searchInput.addEventListener('input', function () {
+                renderSuggestions(this.value);
+            });
+
+            searchInput.addEventListener('keydown', function (e) {
+                const items = suggestions.querySelectorAll('.lora-suggestion-item');
+                if (e.key === 'ArrowDown') {
+                    e.preventDefault();
+                    setActive(activeIdx + 1);
+                } else if (e.key === 'ArrowUp') {
+                    e.preventDefault();
+                    setActive(activeIdx - 1);
+                } else if (e.key === 'Enter') {
+                    e.preventDefault();
+                    if (activeIdx >= 0 && items[activeIdx]) {
+                        items[activeIdx].dispatchEvent(new MouseEvent('mousedown'));
+                    }
+                } else if (e.key === 'Escape') {
+                    suggestions.classList.remove('open');
+                    searchInput.value = '';
+                }
+            });
+
+            // Cerrar al hacer clic fuera
+            searchInput.addEventListener('blur', function () {
+                setTimeout(function () {
+                    suggestions.classList.remove('open');
+                }, 150);
+            });
+        }
+
+        // ── Inicializar filas ya renderizadas por Django ───────────────────────
+        const loraContainer = document.getElementById('lora-container');
+        loraContainer.querySelectorAll('.lora-item').forEach(initLoraRow);
+
+        // ── Botón "Add LoRA" ───────────────────────────────────────────────────
+        document.getElementById('add-lora-btn').addEventListener('click', function () {
             const newItem = document.createElement('div');
             newItem.classList.add('lora-item', 'form-row');
             newItem.innerHTML = `
                 <label>LoRA:</label>
+                <div class="lora-search-wrap">
+                    <input type="text" class="lora-search-input" placeholder="Buscar LoRA...">
+                    <div class="lora-suggestions"></div>
+                </div>
                 <select name="lora_name">
                     <option value="None" selected>None</option>
                     {% for lora_opt in comfyui_info.loras %}
@@ -208,10 +421,12 @@
                 <input type="number" name="lora_strength" step="0.01" value="1.0" placeholder="Strength">
                 <button type="button" class="button remove-lora-btn">Remove</button>
             `;
-            container.appendChild(newItem);
+            loraContainer.appendChild(newItem);
+            initLoraRow(newItem);
         });
 
-        document.getElementById('lora-container').addEventListener('click', function(e) {
+        // ── Botón "Remove" (delegación de eventos) ────────────────────────────
+        loraContainer.addEventListener('click', function (e) {
             if (e.target && e.target.classList.contains('remove-lora-btn')) {
                 e.target.closest('.lora-item').remove();
             }
