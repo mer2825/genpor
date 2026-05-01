@@ -574,6 +574,36 @@ function sendPrompt() {
     activeChat.appendChild(loaderMsg);
     scrollToBottom();
 
+    const formData = new FormData();
+    formData.append('character_id', characterId);
+    formData.append('prompt', prompt);
+    formData.append('seed', '-1'); // Seed se maneja en backend
+
+    let targetUrl = generateUrl;
+
+    if (currentMode === 'image') {
+        const widthInput = document.getElementById('width-input');
+        const heightInput = document.getElementById('height-input');
+        const qualityInput = document.getElementById('quality-input'); // LEER VALOR DE CALIDAD
+        formData.append('width', widthInput ? widthInput.value : '1024');
+        formData.append('height', heightInput ? heightInput.value : '1024');
+        formData.append('quality', qualityInput ? qualityInput.value : 'STANDARD'); // AÑADIR CALIDAD AL FORMDATA
+
+        let bestQuality = 'Gen_Normal';
+        if (canEyeDetail) bestQuality = 'Gen_EyeDetailer';
+        else if (canFaceDetail) bestQuality = 'Gen_FaceDetailer';
+        else if (canUpscale) bestQuality = 'Gen_UpScaler';
+
+        formData.append('generation_type', bestQuality);
+    } else {
+        targetUrl = generateVideoUrl;
+        formData.append('image', selectedImageBlob, "source_image.png");
+        const videoDuration = document.getElementById('video-duration');
+        const videoQuality = document.getElementById('video-quality');
+        if(videoDuration) formData.append('duration', videoDuration.value);
+        if(videoQuality) formData.append('quality', videoQuality.value);
+    }
+
     const mediaType = currentMode === 'image' ? 'image' : 'video';
     fetch(`${generateUrl}?character_id=${characterId}&media_type=${mediaType}`, {
         headers: { 'X-Requested-With': 'XMLHttpRequest' }
@@ -608,34 +638,6 @@ function sendPrompt() {
         localStorage.setItem('pendingGeneration', JSON.stringify(generationState));
         doGenerationRequest(prompt, formData, activeChat, userMsg, loaderMsg);
     });
-
-    const formData = new FormData();
-    formData.append('character_id', characterId);
-    formData.append('prompt', prompt);
-    formData.append('seed', '-1'); // Seed se maneja en backend
-
-    let targetUrl = generateUrl;
-
-    if (currentMode === 'image') {
-        const widthInput = document.getElementById('width-input');
-        const heightInput = document.getElementById('height-input');
-        formData.append('width', widthInput ? widthInput.value : '1024');
-        formData.append('height', heightInput ? heightInput.value : '1024');
-
-        let bestQuality = 'Gen_Normal';
-        if (canEyeDetail) bestQuality = 'Gen_EyeDetailer';
-        else if (canFaceDetail) bestQuality = 'Gen_FaceDetailer';
-        else if (canUpscale) bestQuality = 'Gen_UpScaler';
-
-        formData.append('generation_type', bestQuality);
-    } else {
-        targetUrl = generateVideoUrl;
-        formData.append('image', selectedImageBlob, "source_image.png");
-        const videoDuration = document.getElementById('video-duration');
-        const videoQuality = document.getElementById('video-quality');
-        if(videoDuration) formData.append('duration', videoDuration.value);
-        if(videoQuality) formData.append('quality', videoQuality.value);
-    }
 
     function doGenerationRequest(prompt, formData, activeChat, userMsg, loaderMsg) {
         fetch(targetUrl, {
@@ -1328,4 +1330,24 @@ function createAnimatedShapes() {
 
         animationContainer.appendChild(shape);
     }
+}
+
+// --- NUEVA FUNCIÓN PARA SELECCIONAR OPCIONES ---
+function selectSingleOption(btn, inputId, value) {
+    const input = document.getElementById(inputId);
+    if (input) {
+        input.value = value;
+    }
+
+    const container = btn.closest('.output-options-grid');
+    if (container) {
+        container.querySelectorAll('.output-option-btn').forEach(b => b.classList.remove('active'));
+    }
+    btn.classList.add('active');
+
+    // Cerrar el menú
+    const menu = btn.closest('.settings-dropdown-menu');
+    const dropdownBtn = document.querySelector(`[onclick*="${menu.id}"]`);
+    if (menu) menu.classList.remove('show');
+    if (dropdownBtn) dropdownBtn.classList.remove('active');
 }

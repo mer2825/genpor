@@ -1093,6 +1093,21 @@
                                     </div>
                                 </div>
                             </div>
+
+                            <!-- Dropdown de Calidad -->
+                            <div class="dropdown-wrapper" id="quality-dropdown-wrapper">
+                                <button class="settings-dropdown-btn" id="btn-toggle-quality" onclick="toggleDropdownMenu('menu-quality', this)" style="padding: 6px 10px; border-radius: 15px; border: none; background: rgba(255,255,255,0.1);">
+                                    <i class="fas fa-star"></i> <i class="fas fa-chevron-down" style="font-size: 0.6em;"></i>
+                                </button>
+                                <div id="menu-quality" class="settings-dropdown-menu">
+                                    <input type="hidden" id="quality-input" value="STANDARD">
+                                    <div class="output-options-grid" style="padding: 4px;">
+                                        <button class="output-option-btn" onclick="selectSingleOption(this, 'quality-input', 'PROFESSIONAL')">Professional</button>
+                                        <button class="output-option-btn active" onclick="selectSingleOption(this, 'quality-input', 'STANDARD')">Standard</button>
+                                        <button class="output-option-btn" onclick="selectSingleOption(this, 'quality-input', 'AMATEUR')">Amateur</button>
+                                    </div>
+                                </div>
+                            </div>
                             {% endif %}
 
                             {% if company.is_video_generation_enabled %}

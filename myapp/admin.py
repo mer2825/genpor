@@ -27,7 +27,7 @@ from .models import CharacterImage as PrivateCharacterImage # Truco: Usamos la c
 # Re-importando explícitamente para evitar errores:
 from .models import PrivateCharacterImage as RealPrivateCharacterImage # Si existe en models.py
 
-from .services import generate_image_from_character, get_active_comfyui_address, get_comfyui_object_info, analyze_workflow
+from .services import generate_image_from_character, get_active_comfyui_address, get_comfyui_object_info, analyze_workflow, analyze_workflow_outputs
 from .video_services import get_active_video_comfyui_address, analyze_video_workflow
 import json
 from asgiref.sync import async_to_sync, sync_to_async
@@ -301,7 +301,6 @@ class WorkflowAdmin(admin.ModelAdmin):
     def configure_view(self, request, workflow_id):
         workflow = get_object_or_404(Workflow, pk=workflow_id)
 
-        # SEGURIDAD: Verificar permiso de edición
         if not self.has_change_permission(request, workflow):
             raise PermissionDenied("You do not have permission to configure this workflow.")
 
@@ -323,37 +322,21 @@ class WorkflowAdmin(admin.ModelAdmin):
         if workflow.active_config:
             try:
                 saved_config = json.loads(workflow.active_config)
-                if 'checkpoint' in saved_config: workflow_params['checkpoint'] = saved_config['checkpoint']
-                if 'vae' in saved_config: workflow_params['vae'] = saved_config['vae']
-                if 'width' in saved_config: workflow_params['width'] = saved_config['width']
-                if 'height' in saved_config: workflow_params['height'] = saved_config['height']
-                if 'seed' in saved_config: workflow_params['seed'] = saved_config['seed']
-                if 'upscale_by' in saved_config: workflow_params['upscale_by'] = saved_config['upscale_by']
+                # Pre-fill workflow_params with saved data
+                for key in ['checkpoint', 'vae', 'width', 'height', 'seed', 'upscale_by', 'black_list_tags', 'white_list_tags', 'promp_detailers', 'negative_prompt', 'promp_character']:
+                    if saved_config.get(key):
+                        workflow_params[key] = saved_config[key]
                 
-                # --- FIX: Only overwrite if saved_config has a value ---
-                if saved_config.get('black_list_tags'): 
-                    workflow_params['black_list_tags'] = saved_config['black_list_tags']
-                
-                if saved_config.get('white_list_tags'): 
-                    workflow_params['white_list_tags'] = saved_config['white_list_tags']
-
-                if saved_config.get('promp_detailers'): 
-                    workflow_params['promp_detailers'] = saved_config['promp_detailers']
-                
-                if saved_config.get('negative_prompt'): 
-                    workflow_params['negative_prompt'] = saved_config['negative_prompt']
-                
-                if saved_config.get('promp_character'): 
-                    workflow_params['promp_character'] = saved_config['promp_character']
+                # --- LÓGICA DE CALIDAD ---
+                if 'quality_prompts' in saved_config:
+                    workflow_params['quality_prompts'] = saved_config['quality_prompts']
+                # --- FIN LÓGICA DE CALIDAD ---
 
                 if 'enable_blacklist' in saved_config: workflow_params['enable_blacklist'] = saved_config['enable_blacklist']
                 if 'enable_whitelist' in saved_config: workflow_params['enable_whitelist'] = saved_config['enable_whitelist']
 
                 if 'lora_names' in saved_config and 'lora_strengths' in saved_config:
-                    workflow_params['loras'] = []
-                    for name, strength in zip(saved_config['lora_names'], saved_config['lora_strengths']):
-                        if name and name != "None":
-                            workflow_params['loras'].append({'name': name, 'strength': strength})
+                    workflow_params['loras'] = [{'name': n, 'strength': s} for n, s in zip(saved_config['lora_names'], saved_config['lora_strengths']) if n and n != "None"]
             except json.JSONDecodeError: pass
 
         if request.method == 'POST':
@@ -373,9 +356,13 @@ class WorkflowAdmin(admin.ModelAdmin):
                 'promp_detailers': request.POST.get('promp_detailers'),
                 'negative_prompt': request.POST.get('negative_prompt'),
                 'promp_character': request.POST.get('promp_character'),
-                # --- CAMBIO: FORZAR TRUE EN WORKFLOW (ya que los checkboxes están ocultos) ---
-                'enable_blacklist': True,
-                'enable_whitelist': True,
+                'quality_prompts': {
+                    'PROFESSIONAL': request.POST.get('quality_prompt_professional'),
+                    'STANDARD': request.POST.get('quality_prompt_standard'),
+                    'AMATEUR': request.POST.get('quality_prompt_amateur'),
+                },
+                'enable_blacklist': True, # Hidden, so always true for workflow
+                'enable_whitelist': True, # Hidden, so always true for workflow
             }
             new_config = {k: v for k, v in new_config.items() if v is not None}
             workflow.active_config = json.dumps(new_config)
@@ -401,7 +388,6 @@ class CharacterImageAdmin(admin.ModelAdmin):
 
     def get_queryset(self, request):
         qs = super().get_queryset(request)
-        # --- NUEVO: Ocultar imágenes privadas del admin ---
         return qs.filter(is_hidden_from_admin=False)
 
     def image_preview(self, obj):
@@ -421,7 +407,8 @@ class CharacterImageAdmin(admin.ModelAdmin):
         colors = {
             'Gen_Normal': '#3b82f6',
             'Gen_UpScaler': '#10b981',
-            'Gen_FaceDetailer': '#f43f5e'
+            'Gen_FaceDetailer': '#f43f5e',
+            'Gen_EyeDetailer': '#8b5cf6'
         }
         color = colors.get(obj.generation_type, '#6b7280')
         label = obj.get_generation_type_display()
@@ -444,18 +431,13 @@ class CharacterImageAdmin(admin.ModelAdmin):
     def has_delete_permission(self, request, obj=None):
         return super().has_delete_permission(request, obj)
 
-# --- NUEVO: ADMIN PARA IMÁGENES PRIVADAS ---
 @admin.register(RealPrivateCharacterImage)
 class PrivateCharacterImageAdmin(CharacterImageAdmin):
     def get_queryset(self, request):
-        # Acceder al queryset original sin filtrar (super().super() es complicado, mejor llamar al manager)
-        # Pero como CharacterImageAdmin filtra, necesitamos sobreescribirlo completamente.
-        # Usamos el manager por defecto del modelo.
         return self.model.objects.filter(is_hidden_from_admin=True)
 
     def has_add_permission(self, request): return False
     
-    # Opcional: Cambiar el título en el admin
     def changelist_view(self, request, extra_context=None):
         extra_context = extra_context or {}
         extra_context['title'] = 'Private Images (Hidden from Public)'
@@ -493,7 +475,6 @@ class CharacterSubCategoryAdmin(admin.ModelAdmin):
     list_display = ('name',)
     search_fields = ('name',)
 
-# --- CUSTOM ACTIONS FOR CHARACTERS ---
 @admin.action(description='Activate selected characters')
 def activate_characters(modeladmin, request, queryset):
     updated = queryset.update(is_active=True)

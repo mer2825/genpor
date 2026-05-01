@@ -11,7 +11,6 @@ from .models import ConnectionConfig
 
 def get_protocols(address):
     """Determina si usar HTTP/WS o HTTPS/WSS basado en la dirección."""
-    # Añadimos 'nayelina.com' a la lista de dominios que deben usar HTTPS
     if "runpod.net" in address or "cloudflare" in address or "ngrok" in address or "nayelina.com" in address:
         return "https", "wss"
     return "http", "ws"
@@ -28,63 +27,45 @@ async def check_gpu_load(client, config):
     """
     address = config.base_url.rstrip('/')
     protocol, _ = get_protocols(address)
-
-    # Headers para evitar bloqueo de ngrok
     headers = {"ngrok-skip-browser-warning": "true", "User-Agent": "MyApp/1.0"}
 
     try:
-        # Timeout corto (2s) para no ralentizar al usuario si una GPU está caída
         response = await client.get(f"{protocol}://{address}/queue", headers=headers, timeout=2.0)
         if response.status_code == 200:
             data = response.json()
-            # Sumamos los que se están ejecutando + los pendientes
             running = len(data.get('queue_running', []))
             pending = len(data.get('queue_pending', []))
             total_load = running + pending
             return (address, total_load)
     except Exception:
         pass
-
-    return (address, 9999) # Penalización máxima si falla
+    return (address, 9999)
 
 async def get_active_comfyui_address():
     """
     Obtiene la dirección de ComfyUI más libre (Smart Load Balancing).
-    Consulta en tiempo real la cola de todas las instancias activas.
     """
     configs = await sync_to_async(get_active_configs_sync)()
-
     if not configs:
         return "127.0.0.1:8188"
-
-    # Si solo hay uno, no perdemos tiempo chequeando
     if len(configs) == 1:
         return configs[0].base_url.rstrip('/')
 
-    # Chequeo en paralelo de todas las GPUs
     async with httpx.AsyncClient() as client:
         tasks = [check_gpu_load(client, config) for config in configs]
         results = await asyncio.gather(*tasks)
 
-    # Ordenamos por carga (menor a mayor)
-    # results es una lista de tuplas: [('url1', 0), ('url2', 5), ('url3', 9999)]
     results.sort(key=lambda x: x[1])
-
     best_address, load = results[0]
-
-    # Si incluso el mejor tiene error (9999), devolvemos el primero de la DB por defecto
     if load == 9999:
         return configs[0].base_url.rstrip('/')
-
     return best_address
 
 # --- FUNCIONES DE API COMFYUI ---
 
 async def get_comfyui_object_info(address):
     protocol, _ = get_protocols(address)
-    # Headers para evitar bloqueo de ngrok
     headers = {"ngrok-skip-browser-warning": "true", "User-Agent": "MyApp/1.0"}
-
     try:
         async with httpx.AsyncClient() as client:
             response = await client.get(f"{protocol}://{address}/object_info", headers=headers)
@@ -209,6 +190,11 @@ def analyze_workflow(prompt_workflow):
         "seed": None, "steps": None, "cfg": None, "sampler_name": None, "scheduler": None, 
         "upscale_by": None, "promp_character": None, 
         "enable_blacklist": True, # Reintroducido para el toggle
+        "quality_prompts": { # Añadido para la configuración
+            "PROFESSIONAL": "",
+            "STANDARD": "",
+            "AMATEUR": ""
+        }
     }
     if not isinstance(prompt_workflow, dict): return analysis
     
@@ -240,10 +226,8 @@ def analyze_workflow(prompt_workflow):
         # ---------------------------------
 
         if class_type == "CheckpointLoaderSimple": 
-            # Después de la conversión, el nombre del checkpoint debería estar en inputs["ckpt_name"]
             if "ckpt_name" in inputs and isinstance(inputs["ckpt_name"], str):
                 analysis["checkpoint"] = inputs["ckpt_name"]
-            # Fallback adicional si por alguna razón no está en inputs pero sí en widgets_values (menos probable)
             elif widgets_values and isinstance(widgets_values[0], str):
                 analysis["checkpoint"] = widgets_values[0]
 
@@ -252,13 +236,13 @@ def analyze_workflow(prompt_workflow):
             elif widgets_values: analysis["vae"] = widgets_values[0]
 
         elif class_type == "DW_LoRAStackApplySimple":
-            if "lora_1_name" in inputs: # Asumimos que si tiene lora_1_name, es API format
+            if "lora_1_name" in inputs:
                 for i in range(1, 7):
                     if (lora_name := inputs.get(f"lora_{i}_name")) and lora_name.lower() != "none":
                         analysis["loras"].append({"name": lora_name, "strength": inputs.get(f"lora_{i}_strength")})
         
         elif class_type == "DW_resolution":
-            if "WIDTH" in inputs: # Asumimos que si tiene WIDTH, es API format
+            if "WIDTH" in inputs:
                 analysis["width"], analysis["height"] = inputs.get("WIDTH"), inputs.get("HEIGHT")
                 analysis["upscale_by"] = inputs.get("UPSCALER")
             elif widgets_values and len(widgets_values) >= 3:
@@ -267,24 +251,22 @@ def analyze_workflow(prompt_workflow):
                 analysis["upscale_by"] = widgets_values[2]
 
         elif class_type == "DW_seed": 
-            if "seed" in inputs: # Asumimos que si tiene seed, es API format
+            if "seed" in inputs:
                 analysis["seed"] = inputs.get("seed")
             elif widgets_values: analysis["seed"] = widgets_values[0]
 
         elif class_type == "EmptyLatentImage":
-            if "width" in inputs: # Asumimos que si tiene width, es API format
+            if "width" in inputs:
                 if analysis["width"] is None: analysis["width"] = inputs.get("width")
                 if analysis["height"] is None: analysis["height"] = inputs.get("height")
             elif widgets_values and len(widgets_values) >= 2:
                 if analysis["width"] is None: analysis["width"] = widgets_values[0]
                 if analysis["height"] is None: analysis["height"] = widgets_values[1]
         
-        # --- NODOS DE TEXTO ---
         elif title == "PROMP_CHARACTER":
             analysis["promp_character"] = get_text_value()
             
-    # Segunda pasada para samplers (solo API format es fiable para esto por ahora)
-    # Esta sección ya opera sobre el prompt_workflow que ya está en formato API
+    # Segunda pasada para samplers
     for node_id, details in prompt_workflow.items():
         if not isinstance(details, dict): continue
         inputs = details.get("inputs", {})
@@ -301,31 +283,22 @@ def update_workflow(prompt_workflow, new_values, lora_names=None, lora_strengths
     lora_strengths = lora_strengths or []
     positive_nodes = set()
     
-    # --- AUTO-FIX: INJECT DUMMY WHITELIST NODE ---
-    # Se elimina toda la lógica de whitelist/blacklist
-    # ---------------------------------------------
-
-    # Iterador agnóstico
     is_api_format = not ("nodes" in prompt_workflow and isinstance(prompt_workflow["nodes"], list))
     if is_api_format:
         iterator = prompt_workflow.items()
     else:
-        # Si es editor format, no podemos editar fácilmente sin romperlo o convertirlo.
-        # Por ahora, intentamos editar in-place si encontramos los nodos por título.
-        iterator = enumerate(prompt_workflow["nodes"]) # index, dict
+        iterator = enumerate(prompt_workflow["nodes"])
 
-    # Detección de nodos positivos
     for item in iterator:
         if is_api_format:
             node_id, details = item
             title = details.get("_meta", {}).get("title", "").lower()
         else:
-            node_id, details = item # node_id es index aquí
+            node_id, details = item
             title = details.get("title", "").lower()
             
         if "positive" in title: positive_nodes.add(node_id)
 
-    # Reiniciar iterador
     if is_api_format:
         iterator = prompt_workflow.items()
     else:
@@ -335,7 +308,7 @@ def update_workflow(prompt_workflow, new_values, lora_names=None, lora_strengths
         if is_api_format:
             node_id, details = item
         else:
-            node_id, details = item # node_id es index
+            node_id, details = item
 
         if not isinstance(details, dict): continue
         
@@ -344,44 +317,36 @@ def update_workflow(prompt_workflow, new_values, lora_names=None, lora_strengths
         title = details.get("_meta", {}).get("title", "").upper() if is_api_format else details.get("title", "").upper()
         widgets_values = details.get("widgets_values", [])
 
-        # --- AUTO-FIX: CONNECT WHITELIST IF MISSING (Solo API) ---
-        # Se elimina toda la lógica de whitelist/blacklist
-        # ----------------------------------------------
-
-        # Helper para actualizar texto (API o Editor)
         def update_text(val, target_inputs=None, target_widgets=None):
             if target_inputs is None: target_inputs = inputs
             if target_widgets is None: target_widgets = widgets_values
 
             if is_api_format:
-                # API: Actualizar inputs
                 candidates = ["text", "text_g", "text_l", "prompt", "value"]
                 for k in candidates:
                     if k in target_inputs and not isinstance(target_inputs[k], list):
                         target_inputs[k] = val
-                        return # Actualizado
-                # Si no encontró, quizás es un nodo custom que usa widgets_values incluso en API
+                        return
                 if target_widgets: target_widgets[0] = val
             else:
-                # Editor: Actualizar widgets_values
                 if target_widgets:
                     target_widgets[0] = val
 
-        candidates = ["text", "text_g", "text_l", "prompt", "value"]
-        
-        # Actualización de Prompts Positivos genéricos
         if node_id in positive_nodes and "prompt" in new_values:
             update_text(new_values["prompt"])
 
-        # Actualización por Título Específico
-        
         if title == "PROMP_CHARACTER" and "promp_character" in new_values:
             update_text(new_values["promp_character"])
         
         if title == "PROMP_USUARIO" and "prompt" in new_values:
             update_text(new_values["prompt"])
+        
+        if title == "PROMP_CALIDAD" and "quality" in new_values and "quality_prompts" in new_values:
+            quality_level = new_values["quality"].upper()
+            quality_prompts = new_values["quality_prompts"]
+            if quality_level in quality_prompts:
+                update_text(quality_prompts[quality_level])
 
-        # Actualización de LoRAs (Solo API soportado robustamente)
         if is_api_format and class_type == "DW_LoRAStackApplySimple":
             for i in range(1, 7):
                 inputs[f"lora_{i}_name"], inputs[f"lora_{i}_strength"] = "None", 1.0
@@ -393,34 +358,26 @@ def update_workflow(prompt_workflow, new_values, lora_names=None, lora_strengths
                     except (ValueError, TypeError):
                         inputs[f"lora_{i+1}_strength"] = 1.0
         
-        # Actualización de Checkpoint (API y Editor básico)
         if class_type == "CheckpointLoaderSimple" and "checkpoint" in new_values:
             if is_api_format: inputs["ckpt_name"] = new_values["checkpoint"]
             elif widgets_values: widgets_values[0] = new_values["checkpoint"]
             
         elif class_type == "VAELoader" and "vae" in new_values and new_values["vae"] != "None": 
-            # FIX: Si el VAE es "pixel_space", que parece ser un alias o un valor problemático,
-            # lo cambiamos a "ae.safetensors" que es el VAE original del nuevaza.json
             vae_to_use = new_values["vae"]
             if vae_to_use == "pixel_space":
-                vae_to_use = "ae.safetensors" # O el nombre de archivo real de tu VAE preferido
+                vae_to_use = "ae.safetensors"
 
             if is_api_format: inputs["vae_name"] = vae_to_use
             elif widgets_values: widgets_values[0] = vae_to_use
         
-        # --- FIX para UNETLoader (Nodo 5) ---
         elif class_type == "UNETLoader" and node_id == "5":
-            # Forzar el unet_name al modelo disponible si es diferente
             if "unet_name" in inputs and inputs["unet_name"] != "nayelina_z_real.safetensors":
                 inputs["unet_name"] = "nayelina_z_real.safetensors"
                 print(f"DEBUG: Forzando UNETLoader (Nodo 5) a usar 'nayelina_z_real.safetensors'")
             elif not is_api_format and widgets_values and widgets_values[0] != "nayelina_z_real.safetensors":
-                # Esto es un fallback si el UNETLoader está en formato editor y usa widgets_values
                 widgets_values[0] = "nayelina_z_real.safetensors"
                 print(f"DEBUG: Forzando UNETLoader (Nodo 5, editor format) a usar 'nayelina_z_real.safetensors'")
-        # --- FIN FIX para UNETLoader ---
 
-        # Actualización de Resolución y Seed (API y Editor básico)
         elif class_type == "DW_resolution":
             w, h, up = None, None, None
             if "width" in new_values: 
@@ -475,9 +432,8 @@ def find_dependencies(workflow, start_node_id):
         node = workflow.get(current_id)
         if node and 'inputs' in node:
             for value in node['inputs'].values():
-                # --- MEJORA: Robustez para IDs enteros o strings ---
                 if isinstance(value, list) and len(value) == 2 and isinstance(value[0], (str, int)):
-                    dependency_id = str(value[0]) # Convertir siempre a string para consistencia
+                    dependency_id = str(value[0])
                     if dependency_id not in nodes_to_keep:
                         queue.append(dependency_id)
     return nodes_to_keep
@@ -485,22 +441,19 @@ def find_dependencies(workflow, start_node_id):
 def map_workflow_stages(workflow):
     stage_map = {}
     
-    # --- DETECCIÓN DE FORMATO (API vs EDITOR) ---
-    is_api_format = True
-    if "nodes" in workflow and isinstance(workflow["nodes"], list):
-        is_api_format = False
-        iterator = workflow["nodes"] # Lista de dicts
+    is_api_format = not ("nodes" in workflow and isinstance(workflow["nodes"], list))
+    if is_api_format:
+        iterator = workflow.items()
     else:
-        iterator = workflow.items() # Dict items (id, details)
+        iterator = workflow["nodes"]
 
-    # Recolectar nodos sampler
     sampler_nodes = {}
     for item in iterator:
         if is_api_format:
             node_id, details = item
         else:
-            details = item # item es el dict directamente en lista
-            node_id = str(details.get("id", "unknown")) # Usar ID interno si existe
+            details = item
+            node_id = str(details.get("id", "unknown"))
 
         if not isinstance(details, dict): continue
         
@@ -508,41 +461,30 @@ def map_workflow_stages(workflow):
         if class_type and "sampler" in class_type.lower():
             sampler_nodes[node_id] = details
 
-    # Mapear etapas
     for sampler_id, sampler_node in sampler_nodes.items():
-        if sampler_id in stage_map.values(): continue # Ya mapeado por una etapa más específica
+        if sampler_id in stage_map.values(): continue
         
         inputs = sampler_node.get("inputs", {})
         
-        # Detectar Face/Eye Detailer por máscara
         if "mask" in inputs and isinstance(inputs["mask"], list):
             mask_source_id = str(inputs["mask"][0])
             
-            # Buscar nodo de máscara
             mask_node = None
             if is_api_format:
                 mask_node = workflow.get(mask_source_id)
-            else:
-                # En formato editor es difícil buscar por ID de enlace sin un mapa previo
-                # Por simplicidad, asumimos API format para lógica compleja de enlaces
-                pass 
 
             if mask_node:
                 class_type = mask_node.get("class_type", "")
-                # DW_SAM31Segmentation es el nodo de segmentación en nuevaza.json
                 if "SAM" in class_type or "DW_SAM31Segmentation" in class_type:
-                    # Intentar obtener prompt del nodo SAM
                     mask_prompt = ""
                     if "prompt" in mask_node.get("inputs", {}):
                         mask_prompt = mask_node["inputs"]["prompt"]
                     elif "widgets_values" in mask_node:
-                         # Asumir primer widget es el prompt
                          mask_prompt = str(mask_node["widgets_values"][0])
                     
                     if "eye" in mask_prompt.lower(): stage_map["Gen_EyeDetailer"] = sampler_id
                     elif "face" in mask_prompt.lower(): stage_map["Gen_FaceDetailer"] = sampler_id
 
-    # Segunda pasada para Upscaler y Normal
     for sampler_id, sampler_node in sampler_nodes.items():
         if sampler_id in stage_map.values(): continue
         
@@ -559,7 +501,7 @@ def map_workflow_stages(workflow):
                 
                 if source_node:
                     class_type = source_node.get("class_type", "")
-                    if "Resize" in class_type or "Upscale" in class_type or "RTXVideoSuperResolution" in class_type: # Añadido RTXVideoSuperResolution
+                    if "Resize" in class_type or "Upscale" in class_type or "RTXVideoSuperResolution" in class_type:
                         stage_map["Gen_UpScaler"] = sampler_id
                         is_upscaler = True
                         break
@@ -570,22 +512,16 @@ def map_workflow_stages(workflow):
     return stage_map
 
 def convert_editor_to_api_format(editor_workflow):
-    """
-    Convierte un workflow en formato Editor (lista de nodos) a formato API (diccionario de IDs).
-    Esta es una conversión simplificada y puede necesitar ajustes según la complejidad.
-    """
     api_workflow = {}
     
     if not isinstance(editor_workflow, dict) or "nodes" not in editor_workflow:
-        return editor_workflow # Ya es API o desconocido
+        return editor_workflow
         
     nodes = editor_workflow["nodes"]
     links = editor_workflow.get("links", [])
     
-    # Mapa de Link ID -> (Node ID, Slot Index)
     link_map = {}
     for link in links:
-        # link format: [id, origin_id, origin_slot, target_id, target_slot, type]
         if len(link) >= 4:
             link_id = link[0]
             origin_node_id = str(link[1])
@@ -596,35 +532,26 @@ def convert_editor_to_api_format(editor_workflow):
         node_id = str(node["id"])
         class_type = node["type"]
         
-        # Construir inputs
         inputs = {}
-        
-        # 1. Inputs desde widgets_values (si aplica)
         widgets = node.get("widgets_values", [])
         
-        # Mapeo específico por tipo de nodo (basado en errores comunes y estructura estándar)
         if class_type == "DW_KsamplerAdvanced":
-            # Orden inferido: steps, cfg, sampler_name, scheduler, denoise, seed_mode, seed, ...
-            # Error pide: sampler_name, last_step, cfg, force_full_denoise, scheduler, group_mask_islands, noise_mask_feather, batch_size, crop_factor, disable_noise, force_inpaint, steps, denoise, noise_mask, start_step
-            # Esto es complejo. Asumimos un mapeo básico si es posible, o usamos valores por defecto.
             if len(widgets) >= 4:
                 inputs["steps"] = widgets[0]
                 inputs["cfg"] = widgets[1]
                 inputs["sampler_name"] = widgets[2]
                 inputs["scheduler"] = widgets[3]
-                # ... faltan muchos ...
-                # Rellenar con defaults para evitar error 400 si faltan
                 inputs.setdefault("denoise", 1.0)
                 inputs.setdefault("start_step", 0)
-                inputs.setdefault("last_step", 200) # FIX: Max 200
+                inputs.setdefault("last_step", 200)
                 inputs.setdefault("force_full_denoise", True)
                 inputs.setdefault("group_mask_islands", True)
                 inputs.setdefault("noise_mask_feather", 0)
                 inputs.setdefault("batch_size", 1)
-                inputs.setdefault("crop_factor", 1.0) # FIX: Min 1.0
+                inputs.setdefault("crop_factor", 1.0)
                 inputs.setdefault("disable_noise", False)
                 inputs.setdefault("force_inpaint", True)
-                inputs.setdefault("noise_mask", None) # FIX: Explicit None for missing mask
+                inputs.setdefault("noise_mask", None)
                 
         elif class_type == "DW_SAM3Segmentation":
             if len(widgets) >= 1: inputs["prompt"] = widgets[0]
@@ -656,19 +583,18 @@ def convert_editor_to_api_format(editor_workflow):
                 inputs["WIDTH"] = widgets[0]
                 inputs["HEIGHT"] = widgets[1]
                 inputs["UPSCALER"] = widgets[2]
-            inputs.setdefault("SUM", 0) # Error específico visto
+            inputs.setdefault("SUM", 0)
             
         elif class_type == "DW_TextConcatenate":
              if len(widgets) >= 3:
-                 inputs["text_1"] = widgets[0] # A veces es text_1, text_2...
-                 # ...
+                 inputs["text_1"] = widgets[0]
              inputs.setdefault("connector", " ")
              inputs.setdefault("text_4", "")
              inputs.setdefault("normalize_commas", True)
              
         elif class_type == "DW_ResizeLongestSide":
             inputs.setdefault("divisible_by", 8)
-            inputs.setdefault("method", "LANCZOS") # FIX: Uppercase
+            inputs.setdefault("method", "LANCZOS")
              
         elif class_type == "CLIPSetLastLayer":
             if len(widgets) >= 1: inputs["stop_at_clip_layer"] = widgets[0]
@@ -676,7 +602,6 @@ def convert_editor_to_api_format(editor_workflow):
         elif class_type == "DW_JPGPreview":
             inputs.setdefault("quality", 95)
 
-        # Mapeos genéricos anteriores
         elif class_type == "CheckpointLoaderSimple":
             if len(widgets) > 0: inputs["ckpt_name"] = widgets[0]
         elif class_type == "VAELoader":
@@ -688,7 +613,6 @@ def convert_editor_to_api_format(editor_workflow):
         elif class_type == "CLIPTextEncode" or class_type == "DW_Text":
              if len(widgets) > 0: inputs["text"] = widgets[0]
 
-        # 2. Inputs desde conexiones (links)
         if "inputs" in node:
             for input_def in node["inputs"]:
                 name = input_def["name"]
@@ -701,7 +625,7 @@ def convert_editor_to_api_format(editor_workflow):
             "class_type": class_type,
             "inputs": inputs,
             "_meta": {
-                "title": node.get("title", class_type) # FIX: Use class_type as fallback if title missing
+                "title": node.get("title", class_type)
             }
         }
         
@@ -709,7 +633,7 @@ def convert_editor_to_api_format(editor_workflow):
 
 
 async def generate_image_from_character(character, user_prompt, width=None, height=None, seed=None, allowed_types=None,
-                                        checkpoint=None, lora_strength=None):
+                                        checkpoint=None, lora_strength=None, quality=None):
     if not character.character_config:
         if character.base_workflow.active_config:
             character_config = json.loads(character.base_workflow.active_config)
@@ -737,6 +661,7 @@ async def generate_image_from_character(character, user_prompt, width=None, heig
     if width: final_config['width'] = width
     if height: final_config['height'] = height
     if checkpoint: final_config['checkpoint'] = checkpoint
+    if quality: final_config['quality'] = quality
 
     if seed is None or str(seed).strip() in ["", "-1"]:
         final_config['seed'] = random.randint(0, 2147483647)
@@ -760,21 +685,15 @@ async def generate_image_from_character(character, user_prompt, width=None, heig
 
     updated_workflow = update_workflow(prompt_workflow_base, final_config, lora_names, lora_strengths)
 
-    # --- Blacklist Bypass Logic ---
-    # Origen de Imagen: Nodo 28 (RTX Video Super Resolution).
-    # Módulo Blacklist: Nodo 24 (DW_WD14_Tagger_V3) y Nodo 25 (DW_WD14_Filter).
-    # Salida Final: Nodo 27 (FINAL_IMAGE).
-    rtx_node_id = "28"
-    wd14_tagger_node_id = "24"
-    wd14_filter_node_id = "25"
-    final_output_node_id = "27"
+    rtx_node_id = "11"
+    wd14_tagger_node_id = "7"
+    wd14_filter_node_id = "10"
+    final_output_node_id = "8"
 
-    # Extraer enable_blacklist de final_config, por defecto True si no está presente
     blacklist_enabled = final_config.pop('enable_blacklist', True)
 
     if not blacklist_enabled:
-        print("DEBUG: Blacklist Bypass - Desactivando nodos 24 y 25.")
-        # Acción 1: Eliminar por completo los nodos 24 y 25
+        print("DEBUG: Blacklist Bypass - Desactivando nodos 7 y 10.")
         if wd14_tagger_node_id in updated_workflow:
             del updated_workflow[wd14_tagger_node_id]
             print(f"DEBUG: Nodo {wd14_tagger_node_id} (DW_WD14_Tagger_V3) eliminado.")
@@ -782,76 +701,29 @@ async def generate_image_from_character(character, user_prompt, width=None, heig
             del updated_workflow[wd14_filter_node_id]
             print(f"DEBUG: Nodo {wd14_filter_node_id} (DW_WD14_Filter) eliminado.")
 
-        # Acción 2: Modificar los inputs del Nodo 27 para que apunten directamente al origen de la imagen nítida
         if final_output_node_id in updated_workflow and rtx_node_id in updated_workflow:
-            updated_workflow[final_output_node_id]["inputs"]["images"] = [rtx_node_id, 5]
-            print(f"DEBUG: Recableado el nodo {final_output_node_id} para recibir entrada directamente del nodo {rtx_node_id} (slot 5).")
+            updated_workflow[final_output_node_id]["inputs"]["images"] = [rtx_node_id, 0]
+            print(f"DEBUG: Recableado el nodo {final_output_node_id} para recibir entrada directamente del nodo {rtx_node_id} (slot 0).")
         else:
             print(f"WARNING: No se pudo recablear el nodo {final_output_node_id}. Asegúrate de que los nodos {final_output_node_id} y {rtx_node_id} existan en el workflow.")
-    # --- End Blacklist Bypass Logic ---
 
-    # --- SECCIÓN DE PODA DEFINITIVA PARA IMAGEN NÍTIDA (existente) ---
     if allowed_types:
         target_classification = allowed_types[-1]
         stage_map = map_workflow_stages(updated_workflow)
         target_sampler_id = stage_map.get(target_classification)
 
-        # IDs fijos según tus archivos JSON
-        # final_output_node_id = "18"  # FINAL_IMAGE (ya definido arriba como 27)
-        # filter_node_id = "14"  # DW_WD14_Filter (ya definido arriba como 25)
-        # rtx_node_id = "21"  # RTX Video Super Resolution (ya definido arriba como 28)
+        if target_sampler_id and final_output_node_id in updated_workflow:
+            print(f"DEBUG: Forzando cadena de salida para {target_classification} hacia el nodo {final_output_node_id}")
 
-        # Nota: Los IDs originales en tu código eran 18, 14, 21. Los he actualizado a 27, 25, 28
-        # según tu descripción de "Nodos involucrados" en la instrucción.
-        # Si los IDs en el JSON real son diferentes, por favor, avísame.
-
-        # Esta sección de poda se ejecutará DESPUÉS del bypass de blacklist.
-        # Si la blacklist fue desactivada, los nodos 24 y 25 ya no estarán,
-        # y la poda se ajustará a la nueva cadena de dependencias.
-
-        # La lógica de recableado para la cadena NÍTIDA (28 -> 24 -> 25 -> 27)
-        # ya no es necesaria aquí si el bypass está activo, pero la mantengo
-        # para el caso de que allowed_types se use para otras clasificaciones
-        # y la blacklist esté activa.
-        if target_sampler_id and rtx_node_id in updated_workflow:
-            print(f"DEBUG: Forzando cadena NÍTIDA para {target_classification}")
-
-            # 1. El Sampler (P1, P2, P3 o P4) entra al RTX
-            # Usamos 'images' (plural) que es lo que requiere el nodo 21
-            # updated_workflow[rtx_node_id]["inputs"]["images"] = [target_sampler_id, 5] # Esto parece ser un error, el RTX recibe de un sampler, no de otro RTX.
-
-            # La conexión correcta del sampler al RTX debería estar en el workflow base.
-            # Aquí solo nos aseguramos de que el RTX esté en la cadena si es necesario.
-
-            # Si la blacklist está activa, la cadena es 28 -> 24 -> 25 -> 27
-            # Si la blacklist está inactiva, la cadena es 28 -> 27 (ya manejado arriba)
-
-            # Para el MODO ON (blacklist activa), la cadena es:
-            # Sampler -> ... -> RTX (28) -> Tagger (24) -> Filter (25) -> FINAL_IMAGE (27)
-            # La poda se encargará de mantener esto si está en el workflow base.
-
-            # Limpiamos el resto de nodos pero mantenemos la cadena anterior
             required_nodes = find_dependencies(updated_workflow, final_output_node_id)
 
-            # Mantenemos los nodos de texto y prompts para evitar errores
-            titles_to_keep = ["PROMP_CHARACTER", "PROMP_USUARIO"]
-            for nid, node in updated_workflow.items():
-                if node.get("_meta", {}).get("title", "").upper() in titles_to_keep:
-                    required_nodes.add(nid)
-
-            updated_workflow = {nid: updated_workflow[nid] for nid in required_nodes}
-            # Limpieza de nodos: solo dejamos lo que está en la ruta del nodo 18
-            required_nodes = find_dependencies(updated_workflow, final_output_node_id)
-
-            # Mantenemos los nodos de texto que pide Jhon para que el historial no se rompa
-            titles_to_keep = ["PROMP_CHARACTER", "PROMP_USUARIO"]
+            titles_to_keep = ["PROMP_CHARACTER", "PROMP_USUARIO", "PROMP_CALIDAD"]
             for nid, node in updated_workflow.items():
                 if node.get("_meta", {}).get("title", "").upper() in titles_to_keep:
                     required_nodes.add(nid)
 
             updated_workflow = {nid: updated_workflow[nid] for nid in required_nodes}
 
-    # --- ENVÍO A COMFYUI ---
     client_id = str(uuid.uuid4())
     _, ws_protocol = get_protocols(address)
     uri = f"{ws_protocol}://{address}/ws?clientId={client_id}"

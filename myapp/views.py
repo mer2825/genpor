@@ -909,6 +909,7 @@ async def generate_image_view(request):
             width = request.POST.get('width')
             height = request.POST.get('height')
             seed = request.POST.get('seed')
+            quality = request.POST.get('quality') # OBTENER EL VALOR DE CALIDAD
 
             # Get selected model
             checkpoint = request.POST.get('checkpoint')  # NUEVO: Obtener checkpoint del POST
@@ -974,7 +975,7 @@ async def generate_image_view(request):
 
                 images_data_list, prompt_id, final_workflow_json = await generate_image_from_character(
                     character, user_prompt, width, height, seed=seed, allowed_types=allowed_types,
-                    checkpoint=checkpoint, lora_strength=lora_strength  # PASAR NUEVOS PARÁMETROS
+                    checkpoint=checkpoint, lora_strength=lora_strength, quality=quality  # PASAR CALIDAD AL SERVICIO
                 )
 
                 if images_data_list:

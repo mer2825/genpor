@@ -201,6 +201,20 @@
                 <p class="help">Tags defining the character's appearance (e.g., 1girl, blue eyes, black hair).</p>
             </div>
 
+            <!-- Quality Prompts -->
+            <div class="form-row">
+                <label for="quality_prompt_professional">Professional Quality:</label>
+                <textarea name="quality_prompt_professional" rows="4" style="width: 60%;">{{ workflow_params.quality_prompts.PROFESSIONAL|default_if_none:'' }}</textarea>
+            </div>
+            <div class="form-row">
+                <label for="quality_prompt_standard">Standard Quality:</label>
+                <textarea name="quality_prompt_standard" rows="4" style="width: 60%;">{{ workflow_params.quality_prompts.STANDARD|default_if_none:'' }}</textarea>
+            </div>
+            <div class="form-row">
+                <label for="quality_prompt_amateur">Amateur Quality:</label>
+                <textarea name="quality_prompt_amateur" rows="4" style="width: 60%;">{{ workflow_params.quality_prompts.AMATEUR|default_if_none:'' }}</textarea>
+            </div>
+
             <!-- BLACKLIST BYPASS TOGGLE -->
             <div class="form-row">
                 <label for="enable_blacklist">Enable Blacklist Filter:</label>
