@@ -118,7 +118,7 @@ function setMode(mode) {
     // Update placeholder
     if (textarea) {
         if (mode === 'image' && isImageEnabled) {
-            textarea.placeholder = "Describe your image here...";
+            textarea.placeholder = "She is ...";
         } else if (mode === 'video' && isVideoEnabled) {
             textarea.placeholder = "Describe the motion for your video...";
         } else {
