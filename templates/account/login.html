@@ -2,7 +2,7 @@
 {% load i18n %}
 {% load account socialaccount %}
 
-{% block title %}{% trans "Iniciar Sesión" %}{% endblock %}
+{% block title %}{% trans "Log In" %}{% endblock %}
 
 {% block navbar %}{% endblock %}
 {% block footer %}{% endblock %}
@@ -76,7 +76,7 @@
 
 <div class="fixed inset-0 z-50 flex justify-center items-center p-4 overflow-y-auto">
     <a href="/" class="absolute top-6 right-6 text-white/80 hover:text-white transition-colors flex items-center gap-2 text-sm font-medium z-50 bg-black/30 px-3 py-1 rounded-full backdrop-blur-md border border-white/10 text-outline">
-        <span>Volver</span>
+        <span>Back</span>
         <i class="fas fa-times"></i>
     </a>
 
@@ -110,15 +110,15 @@
                     <img src="{{ company_settings.logo.url }}" alt="Logo" class="h-16 mx-auto mb-3 object-contain drop-shadow-lg">
                 {% endif %}
                 <h1 class="text-3xl font-black tracking-tight text-white drop-shadow-md text-outline">
-                    {{ company_settings.name|default:"Mi App" }}
+                    {{ company_settings.name|default:"My App" }}
                 </h1>
             </div>
 
             <div class="text-center mb-6">
-                <h2 class="text-xl font-bold mb-1 text-outline">Bienvenido</h2>
+                <h2 class="text-xl font-bold mb-1 text-outline">Welcome</h2>
                 <p class="text-xs text-gray-200 text-outline">
-                    Ingresa tus credenciales para continuar o
-                    <a href="{{ signup_url }}" class="font-bold hover:underline" style="color: var(--primary-start);">crea una cuenta</a>.
+                    Enter your credentials to continue or
+                    <a href="{{ signup_url }}" class="font-bold hover:underline" style="color: var(--primary-start);">create an account</a>.
                 </p>
             </div>
 
@@ -151,7 +151,7 @@
                             {% csrf_token %}
                             <button type="submit" class="w-full flex items-center justify-center gap-3 px-4 py-3 border border-white/30 rounded-xl shadow-sm text-sm font-semibold text-white bg-white/10 hover:bg-white/20 focus:outline-none transition-all duration-200 text-outline">
                                 <img src="https://www.svgrepo.com/show/475656/google-color.svg" class="h-5 w-5" alt="Google">
-                                <span>Continuar con Google</span>
+                                <span>Continue with Google</span>
                             </button>
                         </form>
                         {% endif %}
@@ -162,7 +162,7 @@
                             <div class="w-full border-t border-white/30"></div>
                         </div>
                         <div class="relative flex justify-center text-xs">
-                            <span class="px-2 text-gray-200 font-medium text-outline" style="text-shadow: 0 0 4px rgba(0,0,0,0.8);">o usa tu correo</span>
+                            <span class="px-2 text-gray-200 font-medium text-outline" style="text-shadow: 0 0 4px rgba(0,0,0,0.8);">or use email</span>
                         </div>
                     </div>
                 {% endif %}
@@ -173,21 +173,21 @@
 
                 {% if form.errors %}
                     <div class="rounded-lg bg-red-500/40 p-3 border border-red-500/60 mb-4 backdrop-blur-sm">
-                        <p class="text-xs text-white text-center font-medium text-outline">Usuario o contraseña incorrectos.</p>
+                        <p class="text-xs text-white text-center font-medium text-outline">Incorrect email or password.</p>
                     </div>
                 {% endif %}
 
                 <div>
-                    <label for="{{ form.login.id_for_label }}" class="block text-xs font-bold text-gray-100 mb-1 ml-1 text-outline">CORREO ELECTRÓNICO</label>
+                    <label for="{{ form.login.id_for_label }}" class="block text-xs font-bold text-gray-100 mb-1 ml-1 text-outline">EMAIL ADDRESS</label>
                     <input id="{{ form.login.id_for_label }}" name="{{ form.login.name }}" type="email" autocomplete="email" required
                         class="block w-full px-4 py-3 border border-white/30 rounded-xl bg-black/50 text-white placeholder-gray-300 focus:outline-none focus:border-white/80 focus:ring-1 focus:ring-white/80 sm:text-sm transition-colors backdrop-blur-sm text-outline"
-                        placeholder="nombre@ejemplo.com">
+                        placeholder="name@example.com">
                 </div>
 
                 <div>
                     <div class="flex items-center justify-between mb-1 ml-1">
-                        <label for="{{ form.password.id_for_label }}" class="block text-xs font-bold text-gray-100 text-outline">CONTRASEÑA</label>
-                        <a href="{% url 'account_reset_password' %}" class="text-xs font-medium hover:text-white transition-colors text-outline" style="color: var(--primary-start);">¿Olvidaste tu contraseña?</a>
+                        <label for="{{ form.password.id_for_label }}" class="block text-xs font-bold text-gray-100 text-outline">PASSWORD</label>
+                        <a href="{% url 'account_reset_password' %}" class="text-xs font-medium hover:text-white transition-colors text-outline" style="color: var(--primary-start);">Forgot your password?</a>
                     </div>
                     <input id="{{ form.password.id_for_label }}" name="{{ form.password.name }}" type="password" autocomplete="current-password" required
                         class="block w-full px-4 py-3 border border-white/30 rounded-xl bg-black/50 text-white placeholder-gray-300 focus:outline-none focus:border-white/80 focus:ring-1 focus:ring-white/80 sm:text-sm transition-colors backdrop-blur-sm text-outline"
@@ -197,14 +197,14 @@
                 <div class="flex items-center mt-2">
                     <input id="remember" name="remember" type="checkbox" class="h-4 w-4 border-gray-400 rounded bg-black/50 cursor-pointer" style="accent-color: var(--primary-start);">
                     <label for="remember" class="ml-2 block text-xs text-gray-200 cursor-pointer text-outline">
-                        Recordar mi sesión
+                        Remember me
                     </label>
                 </div>
 
                 <!-- BOTÓN CON GRADIENTE -->
                 <button type="submit" class="w-full flex justify-center py-3.5 px-4 border border-transparent rounded-xl shadow-lg text-sm font-bold text-white transition-all duration-200 transform hover:scale-[1.02] mt-6 text-outline"
                         style="background: var(--primary-gradient); box-shadow: 0 4px 20px -5px rgba(0,0,0,0.5);">
-                    Iniciar Sesión
+                    Log In
                 </button>
             </form>
 

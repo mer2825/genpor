@@ -1,10 +1,10 @@
 {% load static %}
 <!DOCTYPE html>
-<html lang="es">
+<html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{% block title %}Mi App{% endblock %}</title>
+    <title>{% block title %}My App{% endblock %}</title>
 
     <!-- Favicon -->
     {% if company_settings.favicon %}
@@ -124,19 +124,19 @@
             <div class="flex justify-between h-16">
                 <div class="flex">
                     <div class="flex-shrink-0 flex items-center">
-                        <a href="/" class="text-xl font-bold text-indigo-600">Mi App</a>
+                        <a href="/" class="text-xl font-bold text-indigo-600">My App</a>
                     </div>
                 </div>
                 <div class="flex items-center">
                     {% if user.is_authenticated %}
-                        <span class="text-gray-700 mr-4">Hola, {{ user.email }}</span>
+                        <span class="text-gray-700 mr-4">Hello, {{ user.email }}</span>
                         <form method="post" action="{% url 'account_logout' %}">
                             {% csrf_token %}
-                            <button type="submit" class="text-gray-500 hover:text-gray-700">Cerrar Sesión</button>
+                            <button type="submit" class="text-gray-500 hover:text-gray-700">Log Out</button>
                         </form>
                     {% else %}
-                        <a href="{% url 'account_login' %}" class="text-gray-500 hover:text-gray-700 mr-4">Iniciar Sesión</a>
-                        <a href="{% url 'account_signup' %}" class="bg-indigo-600 text-white px-4 py-2 rounded-md hover:bg-indigo-700">Registrarse</a>
+                        <a href="{% url 'account_login' %}" class="text-gray-500 hover:text-gray-700 mr-4">Log In</a>
+                        <a href="{% url 'account_signup' %}" class="bg-indigo-600 text-white px-4 py-2 rounded-md hover:bg-indigo-700">Sign Up</a>
                     {% endif %}
                 </div>
             </div>
@@ -165,7 +165,7 @@
     {% block footer %}
     <footer class="bg-white border-t border-gray-200 mt-auto">
         <div class="max-w-7xl mx-auto py-6 px-4 sm:px-6 lg:px-8">
-            <p class="text-center text-gray-500 text-sm">&copy; {% now "Y" %} Mi App. Todos los derechos reservados.</p>
+            <p class="text-center text-gray-500 text-sm">&copy; {% now "Y" %} My App. All rights reserved.</p>
         </div>
     </footer>
     {% endblock %}

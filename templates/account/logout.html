@@ -1,11 +1,11 @@
 {% load static %}
 {% load i18n %}
 <!DOCTYPE html>
-<html lang="es">
+<html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{% trans "Cerrar Sesión" %}</title>
+    <title>{% trans "Log Out" %}</title>
 
     <!-- Favicon -->
     {% if company_settings.favicon %}
@@ -36,11 +36,11 @@
             </div>
 
             <h2 class="text-3xl font-extrabold text-gray-900 dark:text-white tracking-tight">
-                {% trans "Cerrar Sesión" %}
+                {% trans "Log Out" %}
             </h2>
 
             <p class="mt-4 text-lg text-gray-600 dark:text-gray-300">
-                {% trans "¿Estás seguro de que quieres salir?" %}
+                {% trans "Are you sure you want to sign out?" %}
             </p>
         </div>
 
@@ -53,10 +53,10 @@
             <div class="mt-8 pt-6 border-t border-gray-200 dark:border-gray-700">
                 <div class="flex flex-col-reverse sm:flex-row sm:gap-4">
                     <a href="javascript:history.back()" class="mt-4 sm:mt-0 w-full flex justify-center py-2 px-4 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm text-sm font-medium text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition-colors">
-                        {% trans "Cancelar" %}
+                        {% trans "Cancel" %}
                     </a>
                     <button type="submit" class="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-red-600 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 transition-colors">
-                        {% trans "Sí, Cerrar Sesión" %}
+                        {% trans "Yes, Log Out" %}
                     </button>
                 </div>
             </div>

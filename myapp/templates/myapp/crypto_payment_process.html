@@ -82,7 +82,7 @@
             <h2 class="text-2xl font-bold">Pay with USDT</h2>
             <p class="text-gray-400 text-sm mt-1">Network: TRON (TRC20)</p>
 
-            <!-- Botón de Guía -->
+            <!-- Guide Button -->
             {% if guide_images %}
             <button onclick="openGuideModal()" class="mt-4 inline-flex items-center gap-2 px-4 py-2 rounded-full bg-white/10 hover:bg-white/20 text-white text-sm font-medium transition-colors border border-white/10">
                 <i class="fas fa-book-open"></i> Binance Guide
@@ -101,7 +101,7 @@
 
         <div class="bg-black/30 rounded-xl p-6 mb-6 border border-white/5 space-y-5 relative">
 
-            <!-- NUEVO: Mostrar Código QR si existe -->
+            <!-- Show QR Code if it exists -->
             {% if company.crypto_usdt_qr %}
             <div class="flex justify-center mb-4 pb-4 border-b border-white/10">
                 <div class="bg-white p-2 rounded-xl">
@@ -161,12 +161,12 @@
 
     </div>
 
-    <!-- MODAL DE GUÍA -->
+    <!-- GUIDE MODAL -->
     {% if guide_images %}
     <div id="guideModal" class="fixed inset-0 flex items-center justify-center p-4">
-        <div class="glass-panel rounded-2xl w-full max-w-md overflow-hidden relative"> <!-- max-w-md para que el modal no sea tan ancho -->
+        <div class="glass-panel rounded-2xl w-full max-w-md overflow-hidden relative"> <!-- max-w-md for a narrower modal -->
 
-            <!-- Botón Cerrar -->
+            <!-- Close Button -->
             <button onclick="closeGuideModal()" class="absolute top-4 right-4 text-gray-400 hover:text-white z-10 p-2">
                 <i class="fas fa-times text-xl"></i>
             </button>
@@ -176,8 +176,8 @@
             </div>
 
             <div class="p-6 relative">
-                <!-- Carrusel de Imágenes (Ajustado para formato celular) -->
-                <!-- Se agregó max-w-[280px] y una altura fija para simular la pantalla de un celular -->
+                <!-- Image Carousel (Adjusted for mobile format) -->
+                <!-- Added max-w-[280px] and a fixed height to simulate a mobile screen -->
                 <div class="w-full max-w-[280px] h-[550px] mx-auto relative bg-black/50 rounded-xl overflow-hidden flex items-center justify-center border border-white/10">
                     {% for item in guide_images %}
                         <img src="{{ item.image.url }}" class="carousel-img {% if forloop.first %}active{% endif %}" data-index="{{ forloop.counter0 }}" alt="{{ item.caption }}">
@@ -189,7 +189,7 @@
                     {% endfor %}
                 </div>
 
-                <!-- Controles -->
+                <!-- Controls -->
                 {% if guide_images|length > 1 %}
                 <div class="flex justify-between items-center mt-6 px-4">
                     <button onclick="prevSlide()" class="px-4 py-2 bg-white/10 hover:bg-white/20 rounded-lg transition-colors text-sm font-medium">
@@ -246,7 +246,7 @@
                         window.location.href = "{% url 'payment_done' %}";
                     }
                 });
-        }, 10000); // Check every 5 seconds
+        }, 10000); // Check every 10 seconds
 
         // Modal & Slider Logic
         let currentSlide = 0;

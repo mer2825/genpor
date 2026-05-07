@@ -1,11 +1,11 @@
 {% load static %}
 {% load i18n %}
 <!DOCTYPE html>
-<html lang="es">
+<html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{% block title %}Seguridad{% endblock %}</title>
+    <title>{% block title %}Security{% endblock %}</title>
 
     <!-- Favicon -->
     {% if company_settings.favicon %}
@@ -32,10 +32,10 @@
                     <i class="fas fa-shield-alt text-indigo-400 text-2xl"></i>
                 </div>
                 <h2 class="text-3xl font-extrabold text-white tracking-tight">
-                    {% block title_content %}{% trans "Seguridad de la Cuenta" %}{% endblock %}
+                    {% block title_content %}{% trans "Account Security" %}{% endblock %}
                 </h2>
                 <p class="mt-2 text-sm text-gray-400">
-                    {% block subtitle %}{% trans "Configuración de Autenticación de Dos Factores" %}{% endblock %}
+                    {% block subtitle %}{% trans "Two-Factor Authentication Setup" %}{% endblock %}
                 </p>
             </div>
 
