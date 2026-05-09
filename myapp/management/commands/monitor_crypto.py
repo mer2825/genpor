@@ -107,7 +107,7 @@ class Command(BaseCommand):
             for p_tx in all_pending:
                 if p_tx.crypto_amount % 1 == decimal_part_received:
                     difference = p_tx.crypto_amount - amount_decimal
-                    if 0 <= difference <= Decimal('3.00'): # Max fee de 3 USDT
+                    if 0 <= difference <= Decimal('2.00'): # Max fee de 2 USDT
                         pending_tx = p_tx
                         self.stdout.write(self.style.WARNING(f"    -> Match with tolerance for order {p_tx.crypto_amount} (Fee: {difference} USDT)."))
                         break
