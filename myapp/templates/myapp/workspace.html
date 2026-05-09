@@ -58,10 +58,11 @@
             display: flex;
             flex-direction: column;
             align-items: center;
-            justify-content: center;
+            justify-content: flex-start; /* Alineado arriba para dejar espacio al buscador */
             height: 100%;
             padding: 20px;
             text-align: center;
+            overflow-y: auto; /* Permitir scroll si hay muchos personajes */
         }
 
         .welcome-title {
@@ -79,77 +80,143 @@
             font-size: 1rem;
         }
 
-        .suggestion-grid {
-            display: flex;
-            gap: 20px;
-            justify-content: center;
-            flex-wrap: wrap;
-            margin-top: 20px;
+        /* NUEVOS ESTILOS PARA EL BUSCADOR DE PERSONAJES EN LA PANTALLA DE BIENVENIDA */
+        .welcome-search-input {
+            width: 90%;
+            max-width: 500px;
+            padding: 12px 20px;
+            background: rgba(255, 255, 255, 0.08);
+            border: 1px solid var(--border-subtle);
+            color: white;
+            border-radius: 30px;
+            margin-bottom: 30px;
+            font-size: 1rem;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.3);
+            transition: all 0.3s ease;
+        }
+        .welcome-search-input::placeholder {
+            color: var(--text-muted);
+        }
+        .welcome-search-input:focus {
+            outline: none;
+            border-color: var(--primary-color);
+            box-shadow: 0 4px 20px var(--primary-glow);
         }
 
-        .suggestion-card {
-            width: 240px; /* Aumentado */
-            height: 330px; /* Aumentado */
+        /* NUEVOS ESTILOS: DISEÑO PREMIUM ESTILO POSTER (FULL IMAGEN) */
+        .character-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr); /* 3 columnas por defecto */
+            gap: 20px;
+            width: 100%;
+            max-width: 1000px;
+            padding-bottom: 100px; /* Espacio para el nav inferior */
+        }
+
+        .character-grid-card {
+            position: relative;
+            background: rgba(0, 0, 0, 0.2);
+            border: 1px solid var(--card-border);
             border-radius: 16px;
             overflow: hidden;
-            position: relative;
-            cursor: pointer;
-            border: 1px solid var(--card-border);
+            text-decoration: none;
+            color: white;
+            display: block;
+            aspect-ratio: 2 / 3; /* Proporción estilo poster / tarjeta */
             transition: all 0.3s ease;
-            box-shadow: 0 10px 30px -10px rgba(0,0,0,0.5);
+            box-shadow: 0 5px 15px rgba(0,0,0,0.3);
         }
 
-        .suggestion-card:hover {
+        .character-grid-card:hover {
             transform: translateY(-5px);
             border-color: var(--primary-color);
-            box-shadow: 0 15px 40px -10px var(--primary-glow);
+            box-shadow: 0 8px 25px var(--primary-glow);
         }
 
-        .suggestion-card img {
+        .character-grid-card img {
             width: 100%;
             height: 100%;
-            object-fit: cover;
+            object-fit: cover; /* Cubre toda la tarjeta sin deformarse */
+            display: block;
             transition: transform 0.5s ease;
         }
 
-        .suggestion-card:hover img {
-            transform: scale(1.1);
+        .character-grid-card:hover img {
+            transform: scale(1.05); /* Efecto zoom premium al hacer hover */
         }
 
-        .suggestion-overlay {
+        /* Degradado oscuro en la parte inferior para que resalte el texto */
+        .character-card-overlay {
             position: absolute;
             bottom: 0;
             left: 0;
             width: 100%;
-            padding: 15px 10px;
-            background: linear-gradient(to top, rgba(0,0,0,0.9), transparent);
-            color: white;
-            font-weight: 600;
-            font-size: 0.9rem;
-            text-align: center;
+            padding: 40px 15px 15px;
+            background: linear-gradient(to top, rgba(0,0,0,0.95) 0%, rgba(0,0,0,0.6) 60%, transparent 100%);
             box-sizing: border-box;
+            display: flex;
+            flex-direction: column;
+            align-items: flex-start;
+            z-index: 2;
         }
 
-        .start-btn-large {
-            background: var(--primary-gradient);
-            color: white;
-            border: none;
-            padding: 15px 40px;
-            border-radius: 50px;
-            font-size: 1.1rem;
+        .character-grid-card .char-name {
             font-weight: 700;
-            cursor: pointer;
-            box-shadow: 0 10px 30px -5px var(--primary-glow);
-            transition: all 0.3s ease;
+            font-size: 1.2rem;
+            margin-bottom: 4px;
+            text-shadow: 0 2px 4px rgba(0,0,0,0.8);
             display: flex;
             align-items: center;
-            gap: 10px;
-            margin-bottom: 40px;
+            gap: 6px;
+            text-align: left;
         }
 
-        .start-btn-large:hover {
-            transform: translateY(-3px);
-            box-shadow: 0 15px 40px -5px var(--primary-glow);
+        .character-grid-card .char-description {
+            font-size: 0.85rem;
+            color: rgba(255, 255, 255, 0.8);
+            text-align: left;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            display: -webkit-box;
+            -webkit-line-clamp: 2; /* Limitar a 2 líneas */
+            -webkit-box-orient: vertical;
+            text-shadow: 0 1px 2px rgba(0,0,0,0.8);
+        }
+
+        /* Responsive adjustments for Welcome Screen */
+        @media (max-width: 768px) {
+            .welcome-container {
+                padding-top: 20px;
+                padding-bottom: 100px;
+            }
+            .welcome-title {
+                font-size: 1.5rem;
+            }
+            .welcome-subtitle {
+                font-size: 0.9rem;
+                padding: 0 20px;
+            }
+            .character-grid {
+                grid-template-columns: repeat(2, 1fr); /* 2 columnas en móvil */
+                gap: 15px;
+                padding-left: 15px;
+                padding-right: 15px;
+            }
+            .character-grid-card .char-name {
+                font-size: 1.05rem;
+            }
+            .character-grid-card .char-description {
+                font-size: 0.8rem;
+                -webkit-line-clamp: 2;
+            }
+            .character-card-overlay {
+                padding: 30px 12px 12px;
+            }
+            .welcome-search-input {
+                width: 90%;
+                padding: 10px 15px;
+                font-size: 0.9rem;
+            }
         }
 
         /* --- ESTILOS BOTÓN PRIVATE (GOLD) --- */
@@ -226,36 +293,6 @@
             content: '\f00c'; /* FontAwesome Check */
             font-family: 'Font Awesome 6 Free';
             font-weight: 900;
-        }
-
-        /* Responsive adjustments for Welcome Screen */
-        @media (max-width: 768px) {
-            .welcome-container {
-                justify-content: flex-start; /* Alinea el contenido arriba */
-                padding-top: 20px; /* Espacio desde el header */
-                padding-bottom: 100px; /* Mantiene el espacio para que el último elemento no quede pegado al nav inferior */
-                box-sizing: border-box;
-            }
-            .welcome-title {
-                font-size: 1.5rem;
-            }
-            .welcome-subtitle {
-                font-size: 0.9rem;
-                padding: 0 20px;
-            }
-            .suggestion-grid {
-                gap: 10px;
-            }
-            .suggestion-card {
-                width: 45%;
-                max-width: 180px;
-                height: 250px;
-            }
-            .start-btn-large {
-                width: 90%;
-                justify-content: center;
-                padding: 12px 20px;
-            }
         }
 
         /* --- AJUSTES PARA AVATAR EN MÓVIL --- */
@@ -446,7 +483,7 @@
             background: #0f172a; /* Fondo más oscuro (Slate 900) */
             border: 1px solid rgba(255, 255, 255, 0.08); /* Borde sutil */
             color: #e2e8f0;
-            border-bottom-left-radius: 4px; /* Esquina "pico" */
+            border-bottom-left-radius: 44px; /* Esquina "pico" */
             margin-right: auto; /* Asegurar alineación izquierda */
         }
 
@@ -1149,15 +1186,35 @@
                     <h1 class="welcome-title">Welcome to Your Workspace</h1>
                     <p class="welcome-subtitle">Select a character to start creating amazing art.</p>
 
-                    <button onclick="toggleSidebar('left')" class="start-btn-large">
-                        <i class="fas fa-plus-circle"></i> Select Character
-                    </button>
+                    <!-- Buscador de Personajes -->
+                    <input type="text" id="welcome-char-search" class="welcome-search-input" placeholder="Search characters..." onkeyup="filterWelcomeCharacters()">
 
-                    <div class="suggestion-grid">
-                        {% for item in random_preview_images %}
-                        <div class="suggestion-card">
-                            <img src="{{ item.image_url }}" alt="Random character preview">
-                        </div>
+                    <!-- Cuadrícula de Personajes -->
+                    <div id="welcome-char-grid" class="character-grid">
+                        {% for char in all_characters %}
+                        <a href="?character_id={{ char.id }}" class="character-grid-card"
+                           data-char-name="{{ char.name|lower }}"
+                           data-category-id="{{ char.category.id|default:'NONE' }}"
+                           data-subcategory-id="{{ char.subcategory.id|default:'NONE' }}"
+                           data-is-private="{{ char.is_private|yesno:'true,false' }}">
+                            {% if char.catalog_images_set.all %}
+                                <img src="{{ char.catalog_images_set.all.0.image.url }}" alt="{{ char.name }}">
+                            {% else %}
+                                <img src="https://via.placeholder.com/400x600" alt="{{ char.name }}">
+                            {% endif %}
+
+                            <div class="character-card-overlay">
+                                <span class="char-name">
+                                    {{ char.name }}
+                                    {% if char.is_private %}
+                                        <i class="fas fa-lock" style="color: #fbbf24; font-size: 0.8rem; margin-left: 4px;" title="Private"></i>
+                                    {% endif %}
+                                </span>
+                                {% if char.description %}
+                                    <span class="char-description">{{ char.description }}</span>
+                                {% endif %}
+                            </div>
+                        </a>
                         {% endfor %}
                     </div>
                 </div>
@@ -1393,6 +1450,27 @@
             isImageEnabled: {% if company %}{{ company.is_image_generation_enabled|yesno:"true,false"|default:"true" }}{% else %}true{% endif %},
             isVideoEnabled: {% if company %}{{ company.is_video_generation_enabled|yesno:"true,false"|default:"true" }}{% else %}true{% endif %}
         };
+
+        function filterWelcomeCharacters() {
+            const searchInput = document.getElementById('welcome-char-search');
+            const filter = searchInput.value.toLowerCase();
+            const characterGrid = document.getElementById('welcome-char-grid');
+            const characters = characterGrid.getElementsByClassName('character-grid-card');
+
+            for (let i = 0; i < characters.length; i++) {
+                const char = characters[i];
+                const name = char.getAttribute('data-char-name');
+                // Obtener la descripción, si existe
+                const descriptionElement = char.querySelector('.char-description');
+                const description = descriptionElement ? descriptionElement.textContent.toLowerCase() : '';
+
+                if (name.includes(filter) || description.includes(filter)) {
+                    char.style.display = '';
+                } else {
+                    char.style.display = 'none';
+                }
+            }
+        }
     </script>
     <script src="{% static 'myapp/js/workspace.js' %}"></script>
     <script src="{% static 'myapp/js/scripts.js' %}"></script>

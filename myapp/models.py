@@ -77,6 +77,7 @@ class Character(models.Model):
     # --- NEW FIELDS ---
     is_active = models.BooleanField(default=True, verbose_name="Active", help_text="If unchecked, this character will be hidden from the workspace.")
     is_private = models.BooleanField(default=False, verbose_name="Private Character", help_text="If checked, this character will NOT appear in the public list. Users need a code to access it.")
+    enable_blacklist = models.BooleanField(default=False, verbose_name="Enable Blacklist", help_text="Enable a global negative prompt (blacklist) for this character.")
 
     def __str__(self):
         return self.name
