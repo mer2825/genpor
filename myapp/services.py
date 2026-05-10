@@ -633,7 +633,7 @@ def convert_editor_to_api_format(editor_workflow):
 
 
 async def generate_image_from_character(character, user_prompt, width=None, height=None, seed=None, allowed_types=None,
-                                        checkpoint=None, lora_strength=None, quality=None):
+                                        checkpoint=None, lora_strength=None):
     if not character.character_config:
         if character.base_workflow.active_config:
             character_config = json.loads(character.base_workflow.active_config)
@@ -661,7 +661,6 @@ async def generate_image_from_character(character, user_prompt, width=None, heig
     if width: final_config['width'] = width
     if height: final_config['height'] = height
     if checkpoint: final_config['checkpoint'] = checkpoint
-    if quality: final_config['quality'] = quality
 
     if seed is None or str(seed).strip() in ["", "-1"]:
         final_config['seed'] = random.randint(0, 2147483647)

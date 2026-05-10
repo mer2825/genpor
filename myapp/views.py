@@ -909,7 +909,6 @@ async def generate_image_view(request):
             width = request.POST.get('width')
             height = request.POST.get('height')
             seed = request.POST.get('seed')
-            quality = request.POST.get('quality') # OBTENER EL VALOR DE CALIDAD
 
             # Get selected model
             checkpoint = request.POST.get('checkpoint')  # NUEVO: Obtener checkpoint del POST
@@ -975,7 +974,7 @@ async def generate_image_view(request):
 
                 images_data_list, prompt_id, final_workflow_json = await generate_image_from_character(
                     character, user_prompt, width, height, seed=seed, allowed_types=allowed_types,
-                    checkpoint=checkpoint, lora_strength=lora_strength, quality=quality  # PASAR CALIDAD AL SERVICIO
+                    checkpoint=checkpoint, lora_strength=lora_strength
                 )
 
                 if images_data_list:
@@ -1296,14 +1295,32 @@ async def redeem_coupon_view(request):
 
 @login_required
 def token_packages(request):
-    company_settings = CompanySettings.objects.last()  # CAMBIO: .last()
-
-    # --- NEW: Check if token sales are active ---
+    company_settings = CompanySettings.objects.last()
     if company_settings and not company_settings.is_token_sale_active:
-        return redirect('profile')  # Redirect to profile if disabled
+        return redirect('profile')
 
     packages = TokenPackage.objects.filter(is_active=True)
-    return render(request, 'myapp/token_packages.html', {'packages': packages, 'company': company_settings})
+    characters = Character.objects.filter(is_active=True).prefetch_related('catalog_images_set')
+
+    random_package_images = []
+    all_catalog_imgs = []
+    for char in characters:
+        all_catalog_imgs.extend(list(char.catalog_images_set.all()))
+
+    num_packages = len(packages)
+    if len(all_catalog_imgs) >= num_packages:
+        random_package_images = [img.image.url for img in random.sample(all_catalog_imgs, num_packages)]
+    else:
+        random_package_images = [img.image.url for img in all_catalog_imgs]
+
+    while len(random_package_images) < num_packages:
+        random_package_images.append(None)
+
+    return render(request, 'myapp/token_packages.html', {
+        'packages': packages,
+        'company': company_settings,
+        'random_package_images': random_package_images,
+    })
 
 
 # 🛡️ PROTECCIÓN CONTRA BOTS EN PAGOS (Máximo 10 intentos de pago por IP cada hora)
@@ -1531,25 +1548,39 @@ def payment_canceled(request):
 
 @login_required
 def subscription_plans(request):
-    company_settings = CompanySettings.objects.last()  # CAMBIO: .last()
+    company_settings = CompanySettings.objects.last()
 
-    # --- NEW: Check if subscriptions are active ---
     if company_settings and not company_settings.is_subscription_active:
         return redirect('profile')
 
     plans = SubscriptionPlan.objects.filter(is_active=True)
+    characters = Character.objects.filter(is_active=True).prefetch_related('catalog_images_set')
 
-    # Check current subscription
     current_sub = None
     try:
         current_sub = request.user.subscription
     except UserSubscription.DoesNotExist:
         pass
 
+    random_plan_images = []
+    all_catalog_imgs = []
+    for char in characters:
+        all_catalog_imgs.extend(list(char.catalog_images_set.all()))
+
+    num_plans = len(plans)
+    if len(all_catalog_imgs) >= num_plans:
+        random_plan_images = [img.image.url for img in random.sample(all_catalog_imgs, num_plans)]
+    else:
+        random_plan_images = [img.image.url for img in all_catalog_imgs]
+
+    while len(random_plan_images) < num_plans:
+        random_plan_images.append(None)
+
     return render(request, 'myapp/subscription_plans.html', {
         'plans': plans,
         'company': company_settings,
-        'current_sub': current_sub
+        'current_sub': current_sub,
+        'random_plan_images': random_plan_images,
     })
 
 

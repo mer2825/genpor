@@ -584,10 +584,8 @@ function sendPrompt() {
     if (currentMode === 'image') {
         const widthInput = document.getElementById('width-input');
         const heightInput = document.getElementById('height-input');
-        const qualityInput = document.getElementById('quality-input'); // LEER VALOR DE CALIDAD
         formData.append('width', widthInput ? widthInput.value : '1024');
         formData.append('height', heightInput ? heightInput.value : '1024');
-        formData.append('quality', qualityInput ? qualityInput.value : 'STANDARD'); // AÑADIR CALIDAD AL FORMDATA
 
         let bestQuality = 'Gen_Normal';
         if (canEyeDetail) bestQuality = 'Gen_EyeDetailer';
@@ -1330,24 +1328,4 @@ function createAnimatedShapes() {
 
         animationContainer.appendChild(shape);
     }
-}
-
-// --- NUEVA FUNCIÓN PARA SELECCIONAR OPCIONES ---
-function selectSingleOption(btn, inputId, value) {
-    const input = document.getElementById(inputId);
-    if (input) {
-        input.value = value;
-    }
-
-    const container = btn.closest('.output-options-grid');
-    if (container) {
-        container.querySelectorAll('.output-option-btn').forEach(b => b.classList.remove('active'));
-    }
-    btn.classList.add('active');
-
-    // Cerrar el menú
-    const menu = btn.closest('.settings-dropdown-menu');
-    const dropdownBtn = document.querySelector(`[onclick*="${menu.id}"]`);
-    if (menu) menu.classList.remove('show');
-    if (dropdownBtn) dropdownBtn.classList.remove('active');
 }

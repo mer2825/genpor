@@ -21,3 +21,10 @@ def trim(value):
     if isinstance(value, str):
         return value.strip()
     return value
+
+@register.filter
+def get_at_index(list, index):
+    try:
+        return list[index]
+    except:
+        return None

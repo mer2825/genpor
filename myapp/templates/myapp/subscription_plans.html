@@ -54,49 +54,50 @@
 
         /* --- NUEVO DISEÑO DE TARJETAS (PREMIUM CARD) --- */
         .premium-card {
-            background: linear-gradient(180deg, rgba(255, 255, 255, 0.03) 0%, rgba(255, 255, 255, 0.00) 100%);
-            backdrop-filter: blur(20px);
-            -webkit-backdrop-filter: blur(20px);
+            background-color: #111;
+            border: 1px solid rgba(255, 255, 255, 0.2);
             border-radius: 24px;
-
-            /* BORDE PLATA LUMINOSO */
-            border: 1px solid rgba(255, 255, 255, 0.3); /* Borde base más visible */
-            box-shadow:
-                0 0 15px -2px rgba(255, 255, 255, 0.15), /* Glow plateado exterior */
-                inset 0 0 20px -5px rgba(255, 255, 255, 0.05), /* Glow interior */
-                0 20px 40px -10px rgba(0,0,0,0.5); /* Sombra de profundidad */
-
-            transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
-            position: relative;
-            overflow: hidden;
-
-            /* Para que todas las tarjetas tengan al menos el mismo ancho en diseño centrado */
             width: 100%;
             max-width: 400px;
+            text-align: left;
+            transition: all 0.4s ease;
+            position: relative;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+            box-shadow: 0 10px 30px -10px rgba(0,0,0,0.8);
+        }
+
+        .plan-card-bg {
+            position: absolute;
+            inset: 0;
+            background-size: cover;
+            background-position: center;
+            background-repeat: no-repeat;
+            transition: transform 0.6s ease;
+            z-index: 0;
+        }
+
+        .premium-card:hover .plan-card-bg {
+            transform: scale(1.1);
+        }
+
+        .plan-card-overlay {
+            position: absolute;
+            inset: 0;
+            background: linear-gradient(to top, rgba(5,5,5,1) 0%, rgba(5,5,5,0.75) 45%, rgba(5,5,5,0.3) 100%);
+            z-index: 1;
+            transition: background 0.4s ease;
+        }
+
+        .premium-card:hover .plan-card-overlay {
+            background: linear-gradient(to top, rgba(5,5,5,0.95) 0%, rgba(5,5,5,0.6) 45%, rgba(5,5,5,0.1) 100%);
         }
 
         .premium-card:hover {
             transform: translateY(-10px);
-            /* GLOW INTENSIFICADO EN HOVER */
-            border-color: rgba(255, 255, 255, 0.6);
-            box-shadow:
-                0 0 25px -2px rgba(255, 255, 255, 0.3), /* Glow más fuerte */
-                inset 0 0 30px -5px rgba(255, 255, 255, 0.1),
-                0 30px 60px -15px rgba(0,0,0,0.7);
-        }
-
-        /* Efecto de brillo en hover */
-        .premium-card::before {
-            content: '';
-            position: absolute;
-            top: 0; left: -100%;
-            width: 100%; height: 100%;
-            background: linear-gradient(90deg, transparent, rgba(255,255,255,0.1), transparent); /* Brillo más intense */
-            transition: 0.5s;
-            pointer-events: none;
-        }
-        .premium-card:hover::before {
-            left: 100%;
+            border-color: rgba(255, 255, 255, 0.4);
+            box-shadow: 0 20px 40px -10px rgba(0,0,0,0.9), 0 0 25px -5px var(--primary-glow);
         }
 
         /* TEXTO GRADIENTE */
@@ -276,102 +277,106 @@
                 <!-- LÓGICA DE CENTRADO DINÁMICO -->
                 <div class="flex flex-wrap justify-center gap-8 items-start">
                     {% for plan in plans %}
-
                     <div class="premium-card p-8 flex flex-col relative group {% if plans|length == 3 and forloop.counter == 2 %}md:-translate-y-4 border-t-white/30 shadow-2xl{% endif %} {% if current_sub.plan.id == plan.id and current_sub.status == 'ACTIVE' %}border-green-500/50{% endif %}">
-
-                        {% if plans|length == 3 and forloop.counter == 2 %}
-                        <div class="absolute top-0 right-0 bg-white/10 text-white text-[10px] font-bold px-3 py-1 rounded-bl-xl border-l border-b border-white/10">
-                            MOST POPULAR
-                        </div>
+                        {% if random_plan_images|get_at_index:forloop.counter0 %}
+                        <div class="plan-card-bg" style="background-image: url('{{ random_plan_images|get_at_index:forloop.counter0 }}');"></div>
                         {% endif %}
+                        <div class="plan-card-overlay"></div>
+                        <div class="relative z-10 flex flex-col h-full">
 
-                        <!-- Header -->
-                        <div class="flex justify-between items-start mb-4">
-                            <!-- ICONO CORONA PLATA Y ORO -->
-                            <div class="icon-container">
-                                <i class="fas fa-crown silver-crown"></i>
+                            {% if plans|length == 3 and forloop.counter == 2 %}
+                            <div class="absolute top-0 right-0 bg-white/10 text-white text-[10px] font-bold px-3 py-1 rounded-bl-xl border-l border-b border-white/10">
+                                MOST POPULAR
                             </div>
-                            {% if current_sub.plan.id == plan.id and current_sub.status == 'ACTIVE' %}
-                                <span class="text-green-400 text-xs font-bold border border-green-500/30 bg-green-500/10 px-2 py-1 rounded-full">CURRENT</span>
                             {% endif %}
-                        </div>
 
-                        <h3 class="text-2xl font-bold text-white mb-2">{{ plan.name }}</h3>
-
-                        {% if plan.description %}
-                            <p class="text-gray-400 text-sm mb-6 min-h-[40px]">{{ plan.description }}</p>
-                        {% else %}
-                            <p class="text-gray-400 text-sm mb-6 min-h-[40px]">Unlock the full potential of AI art.</p>
-                        {% endif %}
-
-                        <!-- Price -->
-                        <div class="flex items-baseline gap-1 mb-6">
-                            <span class="text-5xl font-black text-white tracking-tighter">${{ plan.price|floatformat:0 }}</span>
-                            <div class="flex flex-col text-xs text-gray-400 font-semibold uppercase ml-1">
-                                <span>USD</span>
-                                <span>/ {% if plan.billing_period_unit == 'M' %}Mo{% elif plan.billing_period_unit == 'Y' %}Yr{% else %}Period{% endif %}</span>
-                            </div>
-                        </div>
-
-                        <!-- Golden Badge (Capabilities) -->
-                        {% with caps=plan.get_capabilities_display %}
-                            {% if caps %}
-                                <div class="golden-badge self-start">
-                                    <i class="fas fa-bolt"></i> {{ caps }}
+                            <!-- Header -->
+                            <div class="flex justify-between items-start mb-4">
+                                <!-- ICONO CORONA PLATA Y ORO -->
+                                <div class="icon-container">
+                                    <i class="fas fa-crown silver-crown"></i>
                                 </div>
+                                {% if current_sub.plan.id == plan.id and current_sub.status == 'ACTIVE' %}
+                                    <span class="text-green-400 text-xs font-bold border border-green-500/30 bg-green-500/10 px-2 py-1 rounded-full">CURRENT</span>
+                                {% endif %}
+                            </div>
+
+                            <h3 class="text-2xl font-bold text-white mb-2">{{ plan.name }}</h3>
+
+                            {% if plan.description %}
+                                <p class="text-gray-400 text-sm mb-6 min-h-[40px]">{{ plan.description }}</p>
                             {% else %}
-                                <div class="h-[34px] mb-5"></div> <!-- Spacer -->
+                                <p class="text-gray-400 text-sm mb-6 min-h-[40px]">Unlock the full potential of AI art.</p>
                             {% endif %}
-                        {% endwith %}
 
-                        <div class="divider"></div>
-
-                        <!-- Features List -->
-                        <ul class="space-y-4 mb-8 flex-grow">
-                            <!-- Token Feature (Highlighted) -->
-                            <li class="flex items-center gap-3">
-                                <div class="h-6 w-6 rounded-full bg-white/10 flex items-center justify-center text-white text-xs shrink-0">
-                                    <i class="fas fa-coins"></i>
+                            <!-- Price -->
+                            <div class="flex items-baseline gap-1 mb-6">
+                                <span class="text-5xl font-black text-white tracking-tighter">${{ plan.price|floatformat:0 }}</span>
+                                <div class="flex flex-col text-xs text-gray-400 font-semibold uppercase ml-1">
+                                    <span>USD</span>
+                                    <span>/ {% if plan.billing_period_unit == 'M' %}Mo{% elif plan.billing_period_unit == 'Y' %}Yr{% else %}Period{% endif %}</span>
                                 </div>
-                                <span class="text-white font-bold">{{ plan.tokens_per_period }} Tokens <span class="text-gray-500 font-normal">/ month</span></span>
-                            </li>
+                            </div>
 
-                            {% if plan.features_list %}
-                                {% for feature in plan.features_list|split:"," %}
+                            <!-- Golden Badge (Capabilities) -->
+                            {% with caps=plan.get_capabilities_display %}
+                                {% if caps %}
+                                    <div class="golden-badge self-start">
+                                        <i class="fas fa-bolt"></i> {{ caps }}
+                                    </div>
+                                {% else %}
+                                    <div class="h-[34px] mb-5"></div> <!-- Spacer -->
+                                {% endif %}
+                            {% endwith %}
+
+                            <div class="divider"></div>
+
+                            <!-- Features List -->
+                            <ul class="space-y-4 mb-8 flex-grow">
+                                <!-- Token Feature (Highlighted) -->
+                                <li class="flex items-center gap-3">
+                                    <div class="h-6 w-6 rounded-full bg-white/10 flex items-center justify-center text-white text-xs shrink-0">
+                                        <i class="fas fa-coins"></i>
+                                    </div>
+                                    <span class="text-white font-bold">{{ plan.tokens_per_period }} Tokens <span class="text-gray-500 font-normal">/ month</span></span>
+                                </li>
+
+                                {% if plan.features_list %}
+                                    {% for feature in plan.features_list|split:"," %}
+                                        <li class="flex items-start gap-3">
+                                            <div class="h-6 w-6 rounded-full bg-blue-500/10 flex items-center justify-center text-blue-400 text-xs shrink-0 mt-0.5">
+                                                <i class="fas fa-check"></i>
+                                            </div>
+                                            <span class="text-gray-300 text-sm">{{ feature }}</span>
+                                        </li>
+                                    {% endfor %}
+                                {% else %}
                                     <li class="flex items-start gap-3">
-                                        <div class="h-6 w-6 rounded-full bg-blue-500/10 flex items-center justify-center text-blue-400 text-xs shrink-0 mt-0.5">
-                                            <i class="fas fa-check"></i>
-                                        </div>
-                                        <span class="text-gray-300 text-sm">{{ feature }}</span>
+                                        <div class="h-6 w-6 rounded-full bg-blue-500/10 flex items-center justify-center text-blue-400 text-xs shrink-0 mt-0.5"><i class="fas fa-check"></i></div>
+                                        <span class="text-gray-300 text-sm">Priority Generation</span>
                                     </li>
-                                {% endfor %}
+                                    <li class="flex items-start gap-3">
+                                        <div class="h-6 w-6 rounded-full bg-blue-500/10 flex items-center justify-center text-blue-400 text-xs shrink-0 mt-0.5"><i class="fas fa-check"></i></div>
+                                        <span class="text-gray-300 text-sm">Commercial License</span>
+                                    </li>
+                                    <li class="flex items-start gap-3">
+                                        <div class="h-6 w-6 rounded-full bg-blue-500/10 flex items-center justify-center text-blue-400 text-xs shrink-0 mt-0.5"><i class="fas fa-check"></i></div>
+                                        <span class="text-gray-300 text-sm">Cancel Anytime</span>
+                                    </li>
+                                {% endif %}
+                            </ul>
+
+                            <!-- Action Button -->
+                            {% if current_sub.plan.id == plan.id and current_sub.status == 'ACTIVE' %}
+                                <button disabled class="w-full py-4 rounded-xl text-center btn-disabled font-bold text-sm uppercase tracking-wide">
+                                    Currently Active
+                                </button>
                             {% else %}
-                                <li class="flex items-start gap-3">
-                                    <div class="h-6 w-6 rounded-full bg-blue-500/10 flex items-center justify-center text-blue-400 text-xs shrink-0 mt-0.5"><i class="fas fa-check"></i></div>
-                                    <span class="text-gray-300 text-sm">Priority Generation</span>
-                                </li>
-                                <li class="flex items-start gap-3">
-                                    <div class="h-6 w-6 rounded-full bg-blue-500/10 flex items-center justify-center text-blue-400 text-xs shrink-0 mt-0.5"><i class="fas fa-check"></i></div>
-                                    <span class="text-gray-300 text-sm">Commercial License</span>
-                                </li>
-                                <li class="flex items-start gap-3">
-                                    <div class="h-6 w-6 rounded-full bg-blue-500/10 flex items-center justify-center text-blue-400 text-xs shrink-0 mt-0.5"><i class="fas fa-check"></i></div>
-                                    <span class="text-gray-300 text-sm">Cancel Anytime</span>
-                                </li>
+                                <a href="{% url 'subscription_process' plan.id %}" class="w-full py-4 rounded-xl text-center btn-primary">
+                                    Choose Plan
+                                </a>
                             {% endif %}
-                        </ul>
-
-                        <!-- Action Button -->
-                        {% if current_sub.plan.id == plan.id and current_sub.status == 'ACTIVE' %}
-                            <button disabled class="w-full py-4 rounded-xl text-center btn-disabled font-bold text-sm uppercase tracking-wide">
-                                Currently Active
-                            </button>
-                        {% else %}
-                            <a href="{% url 'subscription_process' plan.id %}" class="w-full py-4 rounded-xl text-center btn-primary">
-                                Choose Plan
-                            </a>
-                        {% endif %}
-
+                        </div>
                     </div>
                     {% endfor %}
                 </div>
